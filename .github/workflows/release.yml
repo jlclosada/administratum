@@ -45,6 +45,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Administratum ${{ github.ref_name }}'
@@ -57,8 +59,9 @@ jobs:
             | macOS (Apple Silicon) | `.dmg` installer |
             | macOS (Intel) | `.dmg` installer |
 
-            ### What's new
-            See [CHANGELOG](https://github.com/jlclosada/administratum/blob/main/CHANGELOG.md) for details.
+            ### Actualizaciones automáticas
+            Si ya tienes Administratum instalado, ve a **Ajustes → Actualizaciones** para actualizar directamente desde la app.
           releaseDraft: false
           prerelease: false
+          updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
