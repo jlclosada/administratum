@@ -15,12 +15,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { createArmy, deleteArmy, getArmiesByGame, getGameById } from "@/db";
+import { createArmy, deleteArmy, getArmiesByGame, getGameById, saveImageToAppData } from "@/db";
 import type { ArmyWithStats, Game } from "@/types";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
+    CalendarIcon,
     ChevronRight,
+    ImageIcon,
     Plus,
     Shield,
     Trash2
@@ -38,6 +42,8 @@ export function GameDetailPage() {
   const [newArmyName, setNewArmyName] = useState("");
   const [newArmyDesc, setNewArmyDesc] = useState("");
   const [newArmyColor, setNewArmyColor] = useState("#8b5cf6");
+  const [newArmyImage, setNewArmyImage] = useState<string | null>(null);
+  const [newArmyStartDate, setNewArmyStartDate] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -60,25 +66,53 @@ export function GameDetailPage() {
     loadData();
   }, [loadData]);
 
+  async function handlePickArmyImage() {
+    try {
+      const file = await open({
+        multiple: false,
+        filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
+      });
+      if (file) setNewArmyImage(file);
+    } catch (err) {
+      console.error("Failed to pick image:", err);
+    }
+  }
+
   async function handleCreateArmy() {
     if (!newArmyName.trim() || !gameId) return;
-    await createArmy({
-      gameId,
-      name: newArmyName.trim(),
-      description: newArmyDesc.trim(),
-      colorPrimary: newArmyColor,
-    });
-    setNewArmyName("");
-    setNewArmyDesc("");
-    setNewArmyColor("#8b5cf6");
-    setShowCreateDialog(false);
-    await loadData();
+    try {
+      let coverImage: string | null = null;
+      if (newArmyImage) {
+        coverImage = await saveImageToAppData(newArmyImage, "armies");
+      }
+      await createArmy({
+        gameId,
+        name: newArmyName.trim(),
+        description: newArmyDesc.trim(),
+        colorPrimary: newArmyColor,
+        coverImage,
+        startDate: newArmyStartDate || null,
+      });
+      setNewArmyName("");
+      setNewArmyDesc("");
+      setNewArmyColor("#8b5cf6");
+      setNewArmyImage(null);
+      setNewArmyStartDate("");
+      setShowCreateDialog(false);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to create army:", err);
+    }
   }
 
   async function handleDeleteArmy(id: string) {
-    await deleteArmy(id);
-    setDeleteConfirm(null);
-    await loadData();
+    try {
+      await deleteArmy(id);
+      setDeleteConfirm(null);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to delete army:", err);
+    }
   }
 
   if (loading) {
@@ -163,10 +197,20 @@ export function GameDetailPage() {
                       navigate(`/games/${gameId}/armies/${army.id}`)
                     }
                   >
-                    <div
-                      className="h-2"
-                      style={{ backgroundColor: army.colorPrimary ?? "#8b5cf6" }}
-                    />
+                    {army.coverImage ? (
+                      <div className="h-28 overflow-hidden">
+                        <img
+                          src={convertFileSrc(army.coverImage)}
+                          alt={army.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="h-2"
+                        style={{ backgroundColor: army.colorPrimary ?? "#8b5cf6" }}
+                      />
+                    )}
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
@@ -272,6 +316,25 @@ export function GameDetailPage() {
                     className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent"
                   />
                   <span className="text-sm text-muted-foreground">{newArmyColor}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Imagen (opcional)</Label>
+                <Button variant="outline" className="w-full gap-2" type="button" onClick={handlePickArmyImage}>
+                  <ImageIcon className="h-4 w-4" />
+                  {newArmyImage ? "Imagen seleccionada ✓" : "Seleccionar imagen"}
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="army-start-date">Inicio de colección (opcional)</Label>
+                <div className="flex items-center gap-2">
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="army-start-date"
+                    type="date"
+                    value={newArmyStartDate}
+                    onChange={(e) => setNewArmyStartDate(e.target.value)}
+                  />
                 </div>
               </div>
             </div>

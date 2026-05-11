@@ -17,6 +17,7 @@ export interface Game extends BaseEntity {
   icon: string | null;
   sortOrder: number;
   isCustom: boolean;
+  startDate: string | null;
 }
 
 // ---------- Army / Faction ----------
@@ -28,6 +29,7 @@ export interface Army extends BaseEntity {
   colorPrimary: string | null;
   colorSecondary: string | null;
   sortOrder: number;
+  startDate: string | null;
 }
 
 export interface ArmyWithStats extends Army {
@@ -136,6 +138,7 @@ export interface CreateGameDTO {
   description?: string;
   coverImage?: string | null;
   icon?: string | null;
+  startDate?: string | null;
 }
 
 export interface UpdateGameDTO extends Partial<CreateGameDTO> {
@@ -149,6 +152,7 @@ export interface CreateArmyDTO {
   coverImage?: string | null;
   colorPrimary?: string | null;
   colorSecondary?: string | null;
+  startDate?: string | null;
 }
 
 export interface UpdateArmyDTO extends Partial<CreateArmyDTO> {
@@ -199,11 +203,6 @@ export const MINIATURE_CATEGORIES: { value: MiniatureCategory; label: string; ic
 ];
 
 export const DEFAULT_GAMES: Omit<Game, "id" | "createdAt" | "updatedAt">[] = [
-  { name: "Warhammer 40,000", description: "In the grim darkness of the far future, there is only war.", coverImage: null, icon: "sword", sortOrder: 0, isCustom: false },
-  { name: "Age of Sigmar", description: "Epic battles in the Mortal Realms.", coverImage: null, icon: "shield", sortOrder: 1, isCustom: false },
-  { name: "Middle-earth SBG", description: "Strategy Battle Game in Middle-earth.", coverImage: null, icon: "ring", sortOrder: 2, isCustom: false },
-  { name: "The Old World", description: "Return to the classic Warhammer Fantasy Battles.", coverImage: null, icon: "castle", sortOrder: 3, isCustom: false },
-  { name: "Horus Heresy", description: "The Age of Darkness.", coverImage: null, icon: "flame", sortOrder: 4, isCustom: false },
-  { name: "Necromunda", description: "Gang warfare in the underhive.", coverImage: null, icon: "crosshair", sortOrder: 5, isCustom: false },
-  { name: "Kill Team", description: "Small-scale tactical combat.", coverImage: null, icon: "target", sortOrder: 6, isCustom: false },
+  { name: "Warhammer 40,000", description: "In the grim darkness of the far future, there is only war.", coverImage: null, icon: null, sortOrder: 0, isCustom: false, startDate: null },
+  { name: "Warhammer Age of Sigmar", description: "Epic battles in the Mortal Realms.", coverImage: null, icon: null, sortOrder: 1, isCustom: false, startDate: null },
 ];

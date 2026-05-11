@@ -11,12 +11,15 @@ import type {
     MiniatureImage,
     MiniatureWithDetails,
     PaintingProcess,
+    PaintStatusType,
     Tag,
     UpdateArmyDTO,
     UpdateGameDTO,
     UpdateMiniatureDTO
 } from "@/types";
 import { DEFAULT_GAMES as defaultGames } from "@/types";
+import { appDataDir, join } from "@tauri-apps/api/path";
+import { copyFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { v4 as uuid } from "uuid";
 import { getDb } from "./connection";
 
@@ -24,6 +27,21 @@ import { getDb } from "./connection";
 
 function now(): string {
   return new Date().toISOString();
+}
+
+/** Copy a user-selected file into the app's data directory and return the stored path */
+export async function saveImageToAppData(sourcePath: string, subfolder: string): Promise<string> {
+  const appData = await appDataDir();
+  const imagesDir = await join(appData, "images", subfolder);
+  const dirExists = await exists(imagesDir);
+  if (!dirExists) {
+    await mkdir(imagesDir, { recursive: true });
+  }
+  const ext = sourcePath.split(".").pop() ?? "png";
+  const fileName = `${uuid()}.${ext}`;
+  const destPath = await join(imagesDir, fileName);
+  await copyFile(sourcePath, destPath);
+  return destPath;
 }
 
 function mapRow<T>(row: Record<string, unknown>): T {
@@ -63,9 +81,9 @@ export async function createGame(dto: CreateGameDTO): Promise<Game> {
   const id = uuid();
   const timestamp = now();
   await db.execute(
-    `INSERT INTO games (id, name, description, cover_image, icon, is_custom, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, 1, $6, $7)`,
-    [id, dto.name, dto.description ?? "", dto.coverImage ?? null, dto.icon ?? null, timestamp, timestamp]
+    `INSERT INTO games (id, name, description, cover_image, icon, start_date, is_custom, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8)`,
+    [id, dto.name, dto.description ?? "", dto.coverImage ?? null, dto.icon ?? null, dto.startDate ?? null, timestamp, timestamp]
   );
   return (await getGameById(id))!;
 }
@@ -76,13 +94,14 @@ export async function updateGame(dto: UpdateGameDTO): Promise<Game> {
   if (!existing) throw new Error(`Game ${dto.id} not found`);
 
   await db.execute(
-    `UPDATE games SET name = $1, description = $2, cover_image = $3, icon = $4, updated_at = $5
-     WHERE id = $6`,
+    `UPDATE games SET name = $1, description = $2, cover_image = $3, icon = $4, start_date = $5, updated_at = $6
+     WHERE id = $7`,
     [
       dto.name ?? existing.name,
       dto.description ?? existing.description,
       dto.coverImage !== undefined ? dto.coverImage : existing.coverImage,
       dto.icon !== undefined ? dto.icon : existing.icon,
+      dto.startDate !== undefined ? dto.startDate : existing.startDate,
       now(),
       dto.id,
     ]
@@ -108,9 +127,9 @@ export async function seedDefaultGames(): Promise<void> {
     const id = uuid();
     const timestamp = now();
     await db.execute(
-      `INSERT INTO games (id, name, description, cover_image, icon, sort_order, is_custom, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [id, game.name, game.description, game.coverImage, game.icon, game.sortOrder, game.isCustom ? 1 : 0, timestamp, timestamp]
+      `INSERT INTO games (id, name, description, cover_image, icon, sort_order, is_custom, start_date, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [id, game.name, game.description, game.coverImage, game.icon, game.sortOrder, game.isCustom ? 1 : 0, game.startDate, timestamp, timestamp]
     );
   }
 }
@@ -164,9 +183,9 @@ export async function createArmy(dto: CreateArmyDTO): Promise<Army> {
   const id = uuid();
   const timestamp = now();
   await db.execute(
-    `INSERT INTO armies (id, game_id, name, description, cover_image, color_primary, color_secondary, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-    [id, dto.gameId, dto.name, dto.description ?? "", dto.coverImage ?? null, dto.colorPrimary ?? null, dto.colorSecondary ?? null, timestamp, timestamp]
+    `INSERT INTO armies (id, game_id, name, description, cover_image, color_primary, color_secondary, start_date, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [id, dto.gameId, dto.name, dto.description ?? "", dto.coverImage ?? null, dto.colorPrimary ?? null, dto.colorSecondary ?? null, dto.startDate ?? null, timestamp, timestamp]
   );
   return (await getArmyById(id))!;
 }
@@ -177,14 +196,15 @@ export async function updateArmy(dto: UpdateArmyDTO): Promise<Army> {
   if (!existing) throw new Error(`Army ${dto.id} not found`);
 
   await db.execute(
-    `UPDATE armies SET name = $1, description = $2, cover_image = $3, color_primary = $4, color_secondary = $5, updated_at = $6
-     WHERE id = $7`,
+    `UPDATE armies SET name = $1, description = $2, cover_image = $3, color_primary = $4, color_secondary = $5, start_date = $6, updated_at = $7
+     WHERE id = $8`,
     [
       dto.name ?? existing.name,
       dto.description ?? existing.description,
       dto.coverImage !== undefined ? dto.coverImage : existing.coverImage,
       dto.colorPrimary !== undefined ? dto.colorPrimary : existing.colorPrimary,
       dto.colorSecondary !== undefined ? dto.colorSecondary : existing.colorSecondary,
+      dto.startDate !== undefined ? dto.startDate : existing.startDate,
       now(),
       dto.id,
     ]

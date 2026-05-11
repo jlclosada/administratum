@@ -14,22 +14,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createGame, deleteGame, getAllGames } from "@/db";
+import { createGame, deleteGame, getAllGames, saveImageToAppData } from "@/db";
 import type { Game } from "@/types";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, Plus, Swords, Trash2 } from "lucide-react";
+import { CalendarIcon, ChevronRight, ImageIcon, Plus, Swords, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const GAME_ICONS: Record<string, string> = {
-  sword: "⚔️",
-  shield: "🛡️",
-  ring: "💍",
-  castle: "🏰",
-  flame: "🔥",
-  crosshair: "🎯",
-  target: "🎯",
-};
 
 export function GamesPage() {
   const navigate = useNavigate();
@@ -38,6 +30,8 @@ export function GamesPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newGameName, setNewGameName] = useState("");
   const [newGameDesc, setNewGameDesc] = useState("");
+  const [newGameImage, setNewGameImage] = useState<string | null>(null);
+  const [newGameStartDate, setNewGameStartDate] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const loadGames = useCallback(async () => {
@@ -55,13 +49,39 @@ export function GamesPage() {
     loadGames();
   }, [loadGames]);
 
+  async function handlePickImage() {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
+      });
+      if (selected) {
+        const savedPath = await saveImageToAppData(selected as string, "games");
+        setNewGameImage(savedPath);
+      }
+    } catch (err) {
+      console.error("Failed to pick image:", err);
+    }
+  }
+
   async function handleCreateGame() {
     if (!newGameName.trim()) return;
-    await createGame({ name: newGameName.trim(), description: newGameDesc.trim() });
-    setNewGameName("");
-    setNewGameDesc("");
-    setShowCreateDialog(false);
-    await loadGames();
+    try {
+      await createGame({
+        name: newGameName.trim(),
+        description: newGameDesc.trim(),
+        coverImage: newGameImage,
+        startDate: newGameStartDate || null,
+      });
+      setNewGameName("");
+      setNewGameDesc("");
+      setNewGameImage(null);
+      setNewGameStartDate("");
+      setShowCreateDialog(false);
+      await loadGames();
+    } catch (err) {
+      console.error("Failed to create game:", err);
+    }
   }
 
   async function handleDeleteGame(id: string) {
@@ -127,28 +147,33 @@ export function GamesPage() {
                     className="group cursor-pointer overflow-hidden transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
                     onClick={() => navigate(`/games/${game.id}`)}
                   >
-                    {/* Cover gradient */}
-                    <div className="relative h-32 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-5xl opacity-50">
-                          {GAME_ICONS[game.icon ?? "sword"] ?? "⚔️"}
-                        </span>
-                      </div>
-                      {game.isCustom && (
-                        <div className="absolute right-2 top-2 flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 bg-background/80 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirm(game.id);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                    {/* Cover */}
+                    <div className="relative h-32 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent overflow-hidden">
+                      {game.coverImage ? (
+                        <img
+                          src={convertFileSrc(game.coverImage)}
+                          alt={game.name}
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Swords className="h-12 w-12 text-primary/30" />
                         </div>
                       )}
+                      <div className="absolute right-2 top-2 flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 bg-background/80 opacity-0 group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm(game.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -157,6 +182,12 @@ export function GamesPage() {
                           <p className="text-xs text-muted-foreground line-clamp-1">
                             {game.description || "Sin descripción"}
                           </p>
+                          {game.startDate && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                              <CalendarIcon className="h-3 w-3" />
+                              Desde {new Date(game.startDate).toLocaleDateString()}
+                            </p>
+                          )}
                         </div>
                         <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
                       </div>
@@ -195,7 +226,42 @@ export function GamesPage() {
                   value={newGameDesc}
                   onChange={(e) => setNewGameDesc(e.target.value)}
                   placeholder="Breve descripción del juego..."
-                  rows={3}
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Imagen / Icono (opcional)</Label>
+                <div className="flex items-center gap-3">
+                  {newGameImage ? (
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-border">
+                      <img
+                        src={convertFileSrc(newGameImage)}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setNewGameImage(null)}
+                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" onClick={handlePickImage} className="gap-2">
+                      <ImageIcon className="h-4 w-4" />
+                      Seleccionar imagen
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="game-start-date">Fecha de inicio (opcional)</Label>
+                <Input
+                  id="game-start-date"
+                  type="date"
+                  value={newGameStartDate}
+                  onChange={(e) => setNewGameStartDate(e.target.value)}
                 />
               </div>
             </div>

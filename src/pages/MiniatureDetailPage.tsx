@@ -17,12 +17,15 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
+    addImage,
     addPaintingProcess,
+    deleteImage,
     deleteMiniature,
     deletePaintingProcess,
     getArmyById,
     getGameById,
     getMiniatureById,
+    saveImageToAppData,
     toggleFavorite,
     updateMiniature
 } from "@/db";
@@ -34,6 +37,8 @@ import type {
     PaintStatusType
 } from "@/types";
 import { MINIATURE_CATEGORIES, PAINT_STATUSES } from "@/types";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { motion } from "framer-motion";
 import {
     ArrowLeft,
@@ -44,7 +49,8 @@ import {
     Palette,
     Plus,
     Save,
-    Trash2
+    Trash2,
+    Upload
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -191,6 +197,32 @@ export function MiniatureDetailPage() {
       await loadData();
     } catch (err) {
       console.error("Failed to delete painting process:", err);
+    }
+  }
+
+  async function handleUploadImage() {
+    if (!miniature) return;
+    try {
+      const file = await open({
+        multiple: false,
+        filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
+      });
+      if (!file) return;
+      const savedPath = await saveImageToAppData(file, "miniatures");
+      const fileName = file.split("/").pop() ?? "image";
+      await addImage(miniature.id, savedPath, fileName, 0);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to upload image:", err);
+    }
+  }
+
+  async function handleDeleteImage(imageId: string) {
+    try {
+      await deleteImage(imageId);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to delete image:", err);
     }
   }
 
@@ -427,31 +459,53 @@ export function MiniatureDetailPage() {
             {/* Images */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ImageIcon className="h-5 w-5 text-primary" />
-                  Imágenes
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ImageIcon className="h-5 w-5 text-primary" />
+                    Imágenes
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={handleUploadImage}>
+                    <Upload className="h-4 w-4 mr-1" /> Subir foto
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {miniature.images.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Sin imágenes. Próximamente podrás subir fotos de tus miniaturas.
-                  </p>
+                  <div className="text-center py-6">
+                    <ImageIcon className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Sin imágenes. Sube fotos de tus miniaturas.
+                    </p>
+                    <Button size="sm" variant="outline" className="mt-3" onClick={handleUploadImage}>
+                      <Upload className="h-4 w-4 mr-1" /> Subir primera foto
+                    </Button>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-3">
                     {miniature.images.map((img) => (
                       <motion.div
                         key={img.id}
                         whileHover={{ scale: 1.03 }}
-                        className="cursor-pointer overflow-hidden rounded-lg"
-                        onClick={() => setLightboxImage(img.filePath)}
+                        className="group relative cursor-pointer overflow-hidden rounded-lg"
+                        onClick={() => setLightboxImage(convertFileSrc(img.filePath))}
                       >
                         <img
-                          src={img.filePath}
+                          src={convertFileSrc(img.filePath)}
                           alt={img.fileName}
                           className="aspect-square w-full object-cover"
                           loading="lazy"
                         />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteImage(img.id);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </motion.div>
                     ))}
                   </div>

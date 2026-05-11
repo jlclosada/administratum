@@ -11,14 +11,15 @@
 
 ## Download
 
-| Platform                  | Download                                                                                                                             | Requirements |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| **Windows** (x64)         | [**Download .msi installer**](https://github.com/jlclosada/administratum/releases/latest/download/Administratum_0.1.0_x64-setup.msi) | Windows 10+  |
-| **Windows** (x64)         | [**Download .exe installer**](https://github.com/jlclosada/administratum/releases/latest/download/Administratum_0.1.0_x64-setup.exe) | Windows 10+  |
-| **macOS** (Apple Silicon) | [**Download .dmg**](https://github.com/jlclosada/administratum/releases/latest/download/Administratum_0.1.0_aarch64.dmg)             | macOS 12+    |
-| **macOS** (Intel)         | [**Download .dmg**](https://github.com/jlclosada/administratum/releases/latest/download/Administratum_0.1.0_x64.dmg)                 | macOS 12+    |
+> **[Go to Releases to download the latest version](https://github.com/jlclosada/administratum/releases/latest)**
 
-> Go to [**Releases**](https://github.com/jlclosada/administratum/releases) to see all versions.
+| Platform                  | Installer       | Requirements |
+| ------------------------- | --------------- | ------------ |
+| **Windows** (x64)         | `.msi` / `.exe` | Windows 10+  |
+| **macOS** (Apple Silicon) | `.dmg`          | macOS 12+    |
+| **macOS** (Intel)         | `.dmg`          | macOS 12+    |
+
+To create a new release, push a git tag: `git tag v0.1.0 && git push origin v0.1.0`. The GitHub Action will build installers for all platforms automatically.
 
 ---
 

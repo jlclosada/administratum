@@ -11,6 +11,9 @@ export async function getDb(): Promise<Database> {
 }
 
 async function runMigrations(database: Database): Promise<void> {
+  // Enable foreign key cascade deletes
+  await database.execute(`PRAGMA foreign_keys = ON;`);
+
   await database.execute(`
     CREATE TABLE IF NOT EXISTS games (
       id TEXT PRIMARY KEY,
@@ -20,6 +23,7 @@ async function runMigrations(database: Database): Promise<void> {
       icon TEXT,
       sort_order INTEGER NOT NULL DEFAULT 0,
       is_custom INTEGER NOT NULL DEFAULT 0,
+      start_date TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -35,6 +39,7 @@ async function runMigrations(database: Database): Promise<void> {
       color_primary TEXT,
       color_secondary TEXT,
       sort_order INTEGER NOT NULL DEFAULT 0,
+      start_date TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
@@ -128,6 +133,10 @@ async function runMigrations(database: Database): Promise<void> {
 
   // Clean up legacy tables from older versions
   await database.execute(`DROP TABLE IF EXISTS status_breakdown;`);
+
+  // Migrate: add start_date column if missing (safe for existing DBs)
+  try { await database.execute(`ALTER TABLE games ADD COLUMN start_date TEXT;`); } catch { /* column already exists */ }
+  try { await database.execute(`ALTER TABLE armies ADD COLUMN start_date TEXT;`); } catch { /* column already exists */ }
 
   // Future-ready: user preferences table
   await database.execute(`
