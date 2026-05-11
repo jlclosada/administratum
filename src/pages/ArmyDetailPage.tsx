@@ -21,6 +21,7 @@ import {
     deleteMiniature,
     getArmyById,
     getGameById,
+    getImagesByArmy,
     getMiniaturesByArmy,
     toggleFavorite,
 } from "@/db";
@@ -28,11 +29,12 @@ import type {
     ArmyWithStats,
     Game,
     MiniatureCategory,
+    MiniatureImage,
     MiniatureWithDetails,
     PaintStatusType
 } from "@/types";
 import { MINIATURE_CATEGORIES, PAINT_STATUSES } from "@/types";
-import { AnimatePresence, motion } from "framer-motion";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
     ArrowLeft,
     Box,
@@ -40,6 +42,7 @@ import {
     ChevronRight,
     Crown,
     Heart,
+    ImageIcon,
     Mountain,
     Plus,
     Shield,
@@ -47,7 +50,9 @@ import {
     Sword,
     Trash2,
     Truck,
-    Users
+    Users,
+    X,
+    ZoomIn,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -71,6 +76,8 @@ export function ArmyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [armyImages, setArmyImages] = useState<(MiniatureImage & { miniatureName: string })[]>([]);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -78,6 +85,9 @@ export function ArmyDetailPage() {
   const [formQuantity, setFormQuantity] = useState(1);
   const [formNotes, setFormNotes] = useState("");
   const [formStatuses, setFormStatuses] = useState<PaintStatusType[]>([]);
+  const [formStore, setFormStore] = useState("");
+  const [formPrice, setFormPrice] = useState("");
+  const [formPurchasedAt, setFormPurchasedAt] = useState("");
 
   const loadData = useCallback(async () => {
     if (!gameId || !armyId) return;
@@ -90,6 +100,10 @@ export function ArmyDetailPage() {
       setGame(g);
       setArmy(a);
       setMiniatures(minis);
+      try {
+        const imgs = await getImagesByArmy(armyId);
+        setArmyImages(imgs);
+      } catch { /* no images yet */ }
     } catch (err) {
       console.error("Failed to load army:", err);
     } finally {
@@ -107,6 +121,9 @@ export function ArmyDetailPage() {
     setFormQuantity(1);
     setFormNotes("");
     setFormStatuses([]);
+    setFormStore("");
+    setFormPrice("");
+    setFormPurchasedAt("");
   }
 
   function toggleFormStatus(statusType: PaintStatusType) {
@@ -127,6 +144,9 @@ export function ArmyDetailPage() {
         quantity: formQuantity,
         notes: formNotes,
         statuses: formStatuses,
+        store: formStore.trim() || null,
+        purchasePrice: formPrice ? parseFloat(formPrice) : null,
+        purchasedAt: formPurchasedAt || null,
       });
       setShowCreateDialog(false);
       resetForm();
@@ -226,7 +246,7 @@ export function ArmyDetailPage() {
           </Button>
         </div>
 
-        {/* Miniatures */}
+        {/* Miniatures Table */}
         {miniatures.length === 0 ? (
           <EmptyState
             icon={<Sword className="h-8 w-8 text-muted-foreground" />}
@@ -241,109 +261,162 @@ export function ArmyDetailPage() {
             }}
           />
         ) : (
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={{
-              hidden: { opacity: 0 },
-              show: { opacity: 1, transition: { staggerChildren: 0.04 } },
-            }}
-            className="space-y-3"
-          >
-            <AnimatePresence>
-              {miniatures.map((mini) => {
-                const CatIcon = CATEGORY_ICONS[mini.category] ?? Box;
-                return (
-                  <motion.div
-                    key={mini.id}
-                    variants={{
-                      hidden: { opacity: 0, x: -10 },
-                      show: { opacity: 1, x: 0 },
-                    }}
-                    layout
-                  >
-                    <Card
-                      className="group cursor-pointer transition-all hover:border-primary/30 hover:shadow-md"
-                      onClick={() => navigate(`/games/${gameId}/armies/${armyId}/miniatures/${mini.id}`)}
-                    >
-                      <CardContent className="flex items-center gap-4 p-4">
-                        {/* Icon */}
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                          <CatIcon className="h-6 w-6 text-primary" />
-                        </div>
-
-                        {/* Info */}
-                        <div className="min-w-0 flex-1 space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold truncate">{mini.name}</h3>
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              {mini.quantity}x
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Miniatura</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoría</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Cant.</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Estados</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {miniatures.map((mini) => {
+                      const CatIcon = CATEGORY_ICONS[mini.category] ?? Box;
+                      return (
+                        <tr
+                          key={mini.id}
+                          className="group border-b border-border/50 last:border-0 cursor-pointer transition-colors hover:bg-accent/50"
+                          onClick={() => navigate(`/games/${gameId}/armies/${armyId}/miniatures/${mini.id}`)}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                <CatIcon className="h-4 w-4 text-primary" />
+                              </div>
+                              <span className="font-medium text-sm truncate">{mini.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant="outline" className="text-xs">
+                              {MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label ?? mini.category}
                             </Badge>
-                            <Badge variant="outline" className="text-xs shrink-0">
-                              {MINIATURE_CATEGORIES.find(
-                                (c) => c.value === mini.category
-                              )?.label ?? mini.category}
-                            </Badge>
-                          </div>
-                          {/* Status pills */}
-                          <div className="flex flex-wrap gap-1.5">
-                            {PAINT_STATUSES.map((status) => {
-                              const active = mini.statuses.includes(status.type);
-                              if (!active) return null;
-                              return (
-                                <div
-                                  key={status.type}
-                                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                                  style={{
-                                    backgroundColor: `${status.color}20`,
-                                    color: status.color,
-                                  }}
-                                >
-                                  <Check className="h-3 w-3" />
-                                  {status.name}
-                                </div>
-                              );
-                            })}
-                            {mini.statuses.length === 0 && (
-                              <span className="text-xs text-muted-foreground">Sin estados</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => handleToggleFavorite(e, mini.id)}
-                          >
-                            <Heart
-                              className={`h-4 w-4 ${
-                                mini.isFavorite
-                                  ? "fill-red-500 text-red-500"
-                                  : "text-muted-foreground"
-                              }`}
-                            />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => { e.stopPropagation(); setDeleteConfirm(mini.id); }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant="secondary" className="text-xs">{mini.quantity}x</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {PAINT_STATUSES.map((status) => {
+                                const active = mini.statuses.includes(status.type);
+                                return (
+                                  <div
+                                    key={status.type}
+                                    className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                                    style={{
+                                      backgroundColor: active ? `${status.color}20` : "transparent",
+                                      color: active ? status.color : "var(--muted-foreground)",
+                                      opacity: active ? 1 : 0.3,
+                                    }}
+                                  >
+                                    <div
+                                      className="h-1.5 w-1.5 rounded-full"
+                                      style={{ backgroundColor: active ? status.color : "var(--muted-foreground)" }}
+                                    />
+                                    {status.name}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                                onClick={(e) => handleToggleFavorite(e, mini.id)}
+                              >
+                                <Heart
+                                  className={`h-3.5 w-3.5 ${
+                                    mini.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground"
+                                  }`}
+                                />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(mini.id); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         )}
+
+        {/* Army Images */}
+        {armyImages.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+              <h2 className="font-display text-xl font-bold">Imágenes del ejército</h2>
+              <Badge variant="secondary">{armyImages.length}</Badge>
+            </div>
+            <div className="columns-2 gap-4 sm:columns-3 lg:columns-4">
+              {armyImages.map((img) => (
+                <div key={img.id} className="mb-4 break-inside-avoid">
+                  <Card
+                    className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg"
+                    onClick={() => setLightboxImage(convertFileSrc(img.filePath))}
+                  >
+                    <div className="relative">
+                      <img
+                        src={convertFileSrc(img.filePath)}
+                        alt={img.fileName}
+                        className="w-full object-cover"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
+                        <ZoomIn className="h-8 w-8 text-white" />
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <p className="text-xs text-muted-foreground truncate">{img.miniatureName}</p>
+                    </div>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Image Lightbox */}
+        <Dialog open={!!lightboxImage} onOpenChange={() => setLightboxImage(null)}>
+          <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
+            <DialogTitle className="sr-only">Vista de imagen</DialogTitle>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute -right-12 top-0 text-white hover:bg-white/20"
+                onClick={() => setLightboxImage(null)}
+              >
+                <X className="h-6 w-6" />
+              </Button>
+              {lightboxImage && (
+                <img
+                  src={lightboxImage}
+                  alt="Preview"
+                  className="max-h-[80vh] w-full rounded-xl object-contain"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Create Miniature Dialog */}
         <Dialog
@@ -438,6 +511,43 @@ export function ArmyDetailPage() {
                   placeholder="Notas sobre la miniatura..."
                   rows={2}
                 />
+              </div>
+
+              {/* Purchase Info */}
+              <div className="space-y-3 rounded-lg border border-border p-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Información de compra</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tienda</Label>
+                    <Input
+                      value={formStore}
+                      onChange={(e) => setFormStore(e.target.value)}
+                      placeholder="Ej: GW, Amazon..."
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Precio (€)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formPrice}
+                      onChange={(e) => setFormPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Fecha de compra</Label>
+                  <Input
+                    type="date"
+                    value={formPurchasedAt}
+                    onChange={(e) => setFormPurchasedAt(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>

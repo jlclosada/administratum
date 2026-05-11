@@ -57,6 +57,9 @@ export interface Miniature extends BaseEntity {
   notes: string;
   isFavorite: boolean;
   sortOrder: number;
+  purchasedAt: string | null;
+  purchasePrice: number | null;
+  store: string | null;
 }
 
 export interface MiniatureWithDetails extends Miniature {
@@ -120,6 +123,53 @@ export interface MiniatureTag {
   tagId: string;
 }
 
+// ---------- Army Lists ----------
+export interface ArmyList extends BaseEntity {
+  name: string;
+  gameId: string | null;
+  armyId: string | null;
+  points: number;
+  gameDate: string | null;
+  notes: string;
+  pdfPath: string | null;
+}
+
+export interface ArmyListWithDetails extends ArmyList {
+  gameName: string | null;
+  armyName: string | null;
+  miniatures: ArmyListMiniature[];
+  images: ArmyListImage[];
+  totalMiniatures: number;
+  paintedMiniatures: number;
+  completionPercentage: number;
+}
+
+export interface ArmyListMiniature {
+  id: string;
+  listId: string;
+  miniatureId: string;
+  quantity: number;
+  sortOrder: number;
+  miniature?: MiniatureWithDetails;
+}
+
+export interface ArmyListImage {
+  id: string;
+  listId: string;
+  filePath: string;
+  fileName: string;
+  createdAt: string;
+}
+
+export interface CreateArmyListDTO {
+  name: string;
+  gameId?: string | null;
+  armyId?: string | null;
+  points?: number;
+  gameDate?: string | null;
+  notes?: string;
+}
+
 // ---------- Dashboard Stats ----------
 export interface DashboardStats {
   totalGames: number;
@@ -167,6 +217,9 @@ export interface CreateMiniatureDTO {
   notes?: string;
   statuses: PaintStatusType[];
   tags?: string[];
+  purchasedAt?: string | null;
+  purchasePrice?: number | null;
+  store?: string | null;
 }
 
 export interface UpdateMiniatureDTO extends Partial<CreateMiniatureDTO> {
@@ -202,7 +255,15 @@ export const MINIATURE_CATEGORIES: { value: MiniatureCategory; label: string; ic
   { value: "other", label: "Otro", icon: "box" },
 ];
 
-export const DEFAULT_GAMES: Omit<Game, "id" | "createdAt" | "updatedAt">[] = [
-  { name: "Warhammer 40,000", description: "In the grim darkness of the far future, there is only war.", coverImage: null, icon: null, sortOrder: 0, isCustom: false, startDate: null },
-  { name: "Warhammer Age of Sigmar", description: "Epic battles in the Mortal Realms.", coverImage: null, icon: null, sortOrder: 1, isCustom: false, startDate: null },
+export interface PresetGame {
+  name: string;
+  description: string;
+  image: string;
+}
+
+export const PRESET_GAMES: PresetGame[] = [
+  { name: "Warhammer 40,000", description: "In the grim darkness of the far future, there is only war.", image: "/games/warhammer-40k.webp" },
+  { name: "Warhammer Age of Sigmar", description: "Epic battles in the Mortal Realms.", image: "/games/age-of-sigmar.webp" },
+  { name: "Necromunda", description: "Gang warfare in the underhive.", image: "/games/necromunda.webp" },
+  { name: "Middle-earth SBG", description: "Battles in J.R.R. Tolkien's Middle-earth.", image: "/games/middle-earth.webp" },
 ];

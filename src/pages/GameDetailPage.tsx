@@ -2,7 +2,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { createArmy, deleteArmy, getArmiesByGame, getGameById, saveImageToAppData } from "@/db";
 import type { ArmyWithStats, Game } from "@/types";
@@ -23,7 +22,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
     CalendarIcon,
-    ChevronRight,
     ImageIcon,
     Plus,
     Shield,
@@ -177,10 +175,12 @@ export function GameDetailPage() {
               hidden: { opacity: 0 },
               show: { opacity: 1, transition: { staggerChildren: 0.06 } },
             }}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
           >
             <AnimatePresence>
-              {armies.map((army) => (
+              {armies.map((army) => {
+                const color = army.colorPrimary ?? "#8b5cf6";
+                return (
                 <motion.div
                   key={army.id}
                   variants={{
@@ -188,89 +188,87 @@ export function GameDetailPage() {
                     show: { opacity: 1, y: 0 },
                   }}
                   layout
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                 >
                   <Card
-                    className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg"
+                    className="group cursor-pointer overflow-hidden transition-all hover:shadow-xl hover:shadow-primary/10"
                     onClick={() =>
                       navigate(`/games/${gameId}/armies/${army.id}`)
                     }
                   >
-                    {army.coverImage ? (
-                      <div className="h-28 overflow-hidden">
-                        <img
-                          src={convertFileSrc(army.coverImage)}
-                          alt={army.name}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        className="h-2"
-                        style={{ backgroundColor: army.colorPrimary ?? "#8b5cf6" }}
-                      />
-                    )}
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
+                    {/* Cover — aspect ratio */}
+                    <div className="relative aspect-[4/3] overflow-hidden">
+                      {army.coverImage ? (
+                        <>
+                          <img
+                            src={convertFileSrc(army.coverImage)}
+                            alt={army.name}
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                        </>
+                      ) : (
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            background: `linear-gradient(135deg, ${color}40 0%, ${color}15 50%, transparent 100%)`,
+                          }}
+                        >
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Shield className="h-16 w-16" style={{ color: `${color}30` }} />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                        </div>
+                      )}
+                      {/* Info overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 p-4">
+                        <div className="flex items-center gap-2 mb-1">
                           <div
-                            className="flex h-10 w-10 items-center justify-center rounded-lg"
-                            style={{
-                              backgroundColor: `${army.colorPrimary ?? "#8b5cf6"}20`,
-                            }}
-                          >
-                            <Shield
-                              className="h-5 w-5"
-                              style={{ color: army.colorPrimary ?? "#8b5cf6" }}
-                            />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">{army.name}</h3>
-                            <p className="text-xs text-muted-foreground">
-                              {army.totalMiniatures} miniaturas
-                            </p>
-                          </div>
+                            className="h-3 w-3 rounded-full border-2 border-white/50"
+                            style={{ backgroundColor: color }}
+                          />
+                          <h3 className="font-display text-base font-bold text-white drop-shadow-lg">
+                            {army.name}
+                          </h3>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirm(army.id);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                        </div>
-                      </div>
-
-                      {/* Progress */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Progreso</span>
-                          <span>
-                            {army.totalPainted}/{army.totalMiniatures} ·{" "}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-white/70">
+                            {army.totalMiniatures} miniaturas · {army.totalPainted} pintadas
+                          </span>
+                          <span className="text-xs font-semibold text-white/90">
                             {army.completionPercentage}%
                           </span>
                         </div>
-                        <Progress
-                          value={army.completionPercentage}
-                          className="h-1.5"
-                          indicatorClassName={
-                            army.completionPercentage === 100
-                              ? "bg-green-500"
-                              : undefined
-                          }
-                        />
+                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/20">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${army.completionPercentage}%`,
+                              backgroundColor: army.completionPercentage === 100 ? "#22c55e" : color,
+                            }}
+                          />
+                        </div>
                       </div>
-                    </CardContent>
+                      {/* Delete */}
+                      <div className="absolute right-2 top-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 bg-black/40 text-white opacity-0 group-hover:opacity-100 hover:bg-black/60"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm(army.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </Card>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </motion.div>
         )}

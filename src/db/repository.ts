@@ -1,7 +1,11 @@
 import type {
     Army,
+    ArmyListImage,
+    ArmyListMiniature,
+    ArmyListWithDetails,
     ArmyWithStats,
     CreateArmyDTO,
+    CreateArmyListDTO,
     CreateGameDTO,
     CreateMiniatureDTO,
     CreatePaintingProcessDTO,
@@ -17,7 +21,6 @@ import type {
     UpdateGameDTO,
     UpdateMiniatureDTO
 } from "@/types";
-import { DEFAULT_GAMES as defaultGames } from "@/types";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { copyFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { v4 as uuid } from "uuid";
@@ -114,27 +117,29 @@ export async function deleteGame(id: string): Promise<void> {
   await db.execute("DELETE FROM games WHERE id = $1", [id]);
 }
 
-export async function seedDefaultGames(): Promise<void> {
-  const db = await getDb();
-  for (const game of defaultGames) {
-    const existing = await db.select<{ count: number }[]>(
-      "SELECT COUNT(*) as count FROM games WHERE name = $1",
-      [game.name]
-    );
-    const count = Number(Object.values(existing[0]!)[0]);
-    if (count > 0) continue;
-
-    const id = uuid();
-    const timestamp = now();
-    await db.execute(
-      `INSERT INTO games (id, name, description, cover_image, icon, sort_order, is_custom, start_date, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [id, game.name, game.description, game.coverImage, game.icon, game.sortOrder, game.isCustom ? 1 : 0, game.startDate, timestamp, timestamp]
-    );
-  }
-}
-
 // ======================== ARMIES ========================
+
+export async function getAllArmies(): Promise<(ArmyWithStats & { gameName: string })[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT a.*, g.name as game_name,
+       (SELECT COUNT(*) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
+       (SELECT COUNT(*) FROM miniatures m3 WHERE m3.army_id = a.id AND EXISTS (
+         SELECT 1 FROM miniature_statuses ms WHERE ms.miniature_id = m3.id AND ms.status_type IN ('painted','based','varnished')
+       )) as total_painted
+     FROM armies a
+     JOIN games g ON g.id = a.game_id
+     ORDER BY g.name ASC, a.name ASC`
+  );
+  return rows.map((r) => {
+    const mapped = mapRow<ArmyWithStats & { gameName: string }>(r);
+    mapped.totalMiniatures = Number(mapped.totalMiniatures);
+    mapped.totalPainted = Number(mapped.totalPainted);
+    mapped.completionPercentage = mapped.totalMiniatures > 0
+      ? Math.round((mapped.totalPainted / mapped.totalMiniatures) * 100) : 0;
+    return mapped;
+  });
+}
 
 export async function getArmiesByGame(gameId: string): Promise<ArmyWithStats[]> {
   const db = await getDb();
@@ -305,9 +310,9 @@ export async function createMiniature(dto: CreateMiniatureDTO): Promise<Miniatur
   const timestamp = now();
 
   await db.execute(
-    `INSERT INTO miniatures (id, army_id, name, category, quantity, notes, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [id, dto.armyId, dto.name, dto.category, dto.quantity, dto.notes ?? "", timestamp, timestamp]
+    `INSERT INTO miniatures (id, army_id, name, category, quantity, notes, purchased_at, purchase_price, store, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [id, dto.armyId, dto.name, dto.category, dto.quantity, dto.notes ?? "", dto.purchasedAt ?? null, dto.purchasePrice ?? null, dto.store ?? null, timestamp, timestamp]
   );
 
   for (const statusType of dto.statuses) {
@@ -487,6 +492,22 @@ export async function getAllImages(): Promise<(MiniatureImage & { miniatureName:
   });
 }
 
+export async function getImagesByArmy(armyId: string): Promise<(MiniatureImage & { miniatureName: string })[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT mi.*, m.name as miniature_name
+     FROM miniature_images mi
+     JOIN miniatures m ON m.id = mi.miniature_id
+     WHERE m.army_id = $1
+     ORDER BY mi.created_at DESC`,
+    [armyId]
+  );
+  return rows.map((r) => {
+    const mapped = mapRow<MiniatureImage & { miniatureName: string }>(r);
+    return mapped;
+  });
+}
+
 // ======================== DASHBOARD ========================
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -556,4 +577,195 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       count: Number(s.total ?? Object.values(s)[1] ?? 0),
     })),
   };
+}
+
+// ======================== ARMY LISTS ========================
+
+export async function getAllArmyLists(): Promise<ArmyListWithDetails[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT al.*, g.name as game_name, a.name as army_name
+     FROM army_lists al
+     LEFT JOIN games g ON g.id = al.game_id
+     LEFT JOIN armies a ON a.id = al.army_id
+     ORDER BY al.created_at DESC`
+  );
+  const lists: ArmyListWithDetails[] = [];
+  for (const r of rows) {
+    const mapped = mapRow<ArmyListWithDetails>(r);
+    const minis = await getArmyListMiniatures(mapped.id);
+    const images = await getArmyListImages(mapped.id);
+    const totalMiniatures = minis.reduce((sum, m) => sum + m.quantity, 0);
+    const paintedMiniatures = minis.filter((m) => {
+      return m.miniature?.statuses?.some((s) => ['painted', 'based', 'varnished'].includes(s));
+    }).reduce((sum, m) => sum + m.quantity, 0);
+    lists.push({
+      ...mapped,
+      miniatures: minis,
+      images,
+      totalMiniatures,
+      paintedMiniatures,
+      completionPercentage: totalMiniatures > 0 ? Math.round((paintedMiniatures / totalMiniatures) * 100) : 0,
+    });
+  }
+  return lists;
+}
+
+export async function getArmyListById(id: string): Promise<ArmyListWithDetails | null> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT al.*, g.name as game_name, a.name as army_name
+     FROM army_lists al
+     LEFT JOIN games g ON g.id = al.game_id
+     LEFT JOIN armies a ON a.id = al.army_id
+     WHERE al.id = $1`,
+    [id]
+  );
+  if (rows.length === 0) return null;
+  const mapped = mapRow<ArmyListWithDetails>(rows[0]!);
+  const minis = await getArmyListMiniatures(id);
+  const images = await getArmyListImages(id);
+  const totalMiniatures = minis.reduce((sum, m) => sum + m.quantity, 0);
+  const paintedMiniatures = minis.filter((m) => {
+    return m.miniature?.statuses?.some((s) => ['painted', 'based', 'varnished'].includes(s));
+  }).reduce((sum, m) => sum + m.quantity, 0);
+  return {
+    ...mapped,
+    miniatures: minis,
+    images,
+    totalMiniatures,
+    paintedMiniatures,
+    completionPercentage: totalMiniatures > 0 ? Math.round((paintedMiniatures / totalMiniatures) * 100) : 0,
+  };
+}
+
+export async function createArmyList(dto: CreateArmyListDTO): Promise<ArmyListWithDetails> {
+  const db = await getDb();
+  const id = uuid();
+  const timestamp = now();
+  await db.execute(
+    `INSERT INTO army_lists (id, name, game_id, army_id, points, game_date, notes, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [id, dto.name, dto.gameId ?? null, dto.armyId ?? null, dto.points ?? 0, dto.gameDate ?? null, dto.notes ?? "", timestamp, timestamp]
+  );
+  return (await getArmyListById(id))!;
+}
+
+export async function updateArmyList(id: string, dto: Partial<CreateArmyListDTO>): Promise<ArmyListWithDetails> {
+  const db = await getDb();
+  const existing = await getArmyListById(id);
+  if (!existing) throw new Error(`Army list ${id} not found`);
+  await db.execute(
+    `UPDATE army_lists SET name = $1, game_id = $2, army_id = $3, points = $4, game_date = $5, notes = $6, updated_at = $7 WHERE id = $8`,
+    [
+      dto.name ?? existing.name,
+      dto.gameId !== undefined ? dto.gameId : existing.gameId,
+      dto.armyId !== undefined ? dto.armyId : existing.armyId,
+      dto.points ?? existing.points,
+      dto.gameDate !== undefined ? dto.gameDate : existing.gameDate,
+      dto.notes ?? existing.notes,
+      now(),
+      id,
+    ]
+  );
+  return (await getArmyListById(id))!;
+}
+
+export async function deleteArmyList(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM army_lists WHERE id = $1", [id]);
+}
+
+export async function addMiniatureToList(listId: string, miniatureId: string, quantity: number): Promise<void> {
+  const db = await getDb();
+  const id = uuid();
+  const existing = await db.select<Record<string, unknown>[]>(
+    "SELECT COUNT(*) as count FROM army_list_miniatures WHERE list_id = $1",
+    [listId]
+  );
+  const sortOrder = Number(Object.values(existing[0] ?? { count: 0 })[0] ?? 0);
+  await db.execute(
+    `INSERT INTO army_list_miniatures (id, list_id, miniature_id, quantity, sort_order)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id, listId, miniatureId, quantity, sortOrder]
+  );
+}
+
+export async function removeMiniatureFromList(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM army_list_miniatures WHERE id = $1", [id]);
+}
+
+async function getArmyListMiniatures(listId: string): Promise<ArmyListMiniature[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT alm.* FROM army_list_miniatures alm
+     WHERE alm.list_id = $1
+     ORDER BY alm.sort_order ASC`,
+    [listId]
+  );
+  const result: ArmyListMiniature[] = [];
+  for (const r of rows) {
+    const mapped = mapRow<ArmyListMiniature>(r);
+    const mini = await getMiniatureById(mapped.miniatureId);
+    result.push({ ...mapped, miniature: mini ?? undefined });
+  }
+  return result;
+}
+
+async function getArmyListImages(listId: string): Promise<ArmyListImage[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT * FROM army_list_images WHERE list_id = $1 ORDER BY created_at DESC`,
+    [listId]
+  );
+  return mapRows<ArmyListImage>(rows);
+}
+
+export async function addImageToList(listId: string, filePath: string, fileName: string): Promise<void> {
+  const db = await getDb();
+  const id = uuid();
+  await db.execute(
+    `INSERT INTO army_list_images (id, list_id, file_path, file_name, created_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id, listId, filePath, fileName, now()]
+  );
+}
+
+export async function removeImageFromList(imageId: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM army_list_images WHERE id = $1", [imageId]);
+}
+
+export async function updateArmyListPdf(listId: string, pdfPath: string | null): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE army_lists SET pdf_path = $1, updated_at = $2 WHERE id = $3`,
+    [pdfPath, now(), listId]
+  );
+}
+
+export async function getAllMiniaturesFlat(): Promise<(MiniatureWithDetails & { armyName: string; gameName: string })[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT m.*, a.name as army_name, g.name as game_name
+     FROM miniatures m
+     JOIN armies a ON a.id = m.army_id
+     JOIN games g ON g.id = a.game_id
+     ORDER BY g.name ASC, a.name ASC, m.name ASC`
+  );
+  const result: (MiniatureWithDetails & { armyName: string; gameName: string })[] = [];
+  for (const r of rows) {
+    const mapped = mapRow<MiniatureWithDetails & { armyName: string; gameName: string }>(r);
+    const statusRows = await db.select<Record<string, unknown>[]>(
+      "SELECT status_type FROM miniature_statuses WHERE miniature_id = $1",
+      [mapped.id]
+    );
+    mapped.statuses = statusRows.map((sr) => String(Object.values(sr)[0]) as PaintStatusType);
+    mapped.images = [];
+    mapped.tags = [];
+    mapped.paintingProcesses = [];
+    result.push(mapped);
+  }
+  return result;
 }

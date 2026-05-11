@@ -56,11 +56,25 @@ async function runMigrations(database: Database): Promise<void> {
       notes TEXT NOT NULL DEFAULT '',
       is_favorite INTEGER NOT NULL DEFAULT 0,
       sort_order INTEGER NOT NULL DEFAULT 0,
+      purchased_at TEXT,
+      purchase_price REAL,
+      store TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (army_id) REFERENCES armies(id) ON DELETE CASCADE
     );
   `);
+
+  // Migration: add purchase fields if missing
+  try {
+    await database.execute(`ALTER TABLE miniatures ADD COLUMN purchased_at TEXT;`);
+  } catch { /* column already exists */ }
+  try {
+    await database.execute(`ALTER TABLE miniatures ADD COLUMN purchase_price REAL;`);
+  } catch { /* column already exists */ }
+  try {
+    await database.execute(`ALTER TABLE miniatures ADD COLUMN store TEXT;`);
+  } catch { /* column already exists */ }
 
   await database.execute(`
     CREATE TABLE IF NOT EXISTS miniature_statuses (
@@ -129,6 +143,51 @@ async function runMigrations(database: Database): Promise<void> {
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_miniature_statuses_miniature_id ON miniature_statuses(miniature_id);`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_painting_processes_miniature_id ON painting_processes(miniature_id);`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_miniature_images_miniature_id ON miniature_images(miniature_id);`);
+
+  // ======================== ARMY LISTS ========================
+
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS army_lists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      game_id TEXT,
+      army_id TEXT,
+      points INTEGER NOT NULL DEFAULT 0,
+      game_date TEXT,
+      notes TEXT NOT NULL DEFAULT '',
+      pdf_path TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+      FOREIGN KEY (army_id) REFERENCES armies(id) ON DELETE SET NULL
+    );
+  `);
+
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS army_list_miniatures (
+      id TEXT PRIMARY KEY,
+      list_id TEXT NOT NULL,
+      miniature_id TEXT NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (list_id) REFERENCES army_lists(id) ON DELETE CASCADE,
+      FOREIGN KEY (miniature_id) REFERENCES miniatures(id) ON DELETE CASCADE
+    );
+  `);
+
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS army_list_images (
+      id TEXT PRIMARY KEY,
+      list_id TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (list_id) REFERENCES army_lists(id) ON DELETE CASCADE
+    );
+  `);
+
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_army_list_miniatures_list_id ON army_list_miniatures(list_id);`);
+  await database.execute(`CREATE INDEX IF NOT EXISTS idx_army_list_images_list_id ON army_list_images(list_id);`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_miniature_tags_miniature_id ON miniature_tags(miniature_id);`);
 
   // Clean up legacy tables from older versions

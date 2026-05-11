@@ -1,6 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { seedDefaultGames } from "@/db";
 import { ArmyDetailPage } from "@/pages/ArmyDetailPage";
+import { ArmyListDetailPage } from "@/pages/ArmyListDetailPage";
+import { ArmyListsPage } from "@/pages/ArmyListsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { GalleryPage } from "@/pages/GalleryPage";
 import { GameDetailPage } from "@/pages/GameDetailPage";
@@ -8,17 +9,10 @@ import { GamesPage } from "@/pages/GamesPage";
 import { MiniatureDetailPage } from "@/pages/MiniatureDetailPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { AnimatePresence } from "framer-motion";
-import { useEffect } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 
 function AnimatedRoutes() {
   const location = useLocation();
-
-  useEffect(() => {
-    seedDefaultGames().catch((err) =>
-      console.error("Failed to seed default games:", err)
-    );
-  }, []);
 
   return (
     <AnimatePresence mode="wait">
@@ -29,6 +23,8 @@ function AnimatedRoutes() {
           <Route path="games/:gameId" element={<GameDetailPage />} />
           <Route path="games/:gameId/armies/:armyId" element={<ArmyDetailPage />} />
           <Route path="games/:gameId/armies/:armyId/miniatures/:miniatureId" element={<MiniatureDetailPage />} />
+          <Route path="lists" element={<ArmyListsPage />} />
+          <Route path="lists/:listId" element={<ArmyListDetailPage />} />
           <Route path="gallery" element={<GalleryPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

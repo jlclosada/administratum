@@ -19,9 +19,36 @@
     "fs:allow-mkdir",
     "fs:allow-rename",
     "fs:allow-remove",
+    "fs:allow-copy-file",
     "fs:allow-app-write",
+    "fs:allow-app-write-recursive",
     "fs:allow-app-read",
+    "fs:allow-app-read-recursive",
     "fs:allow-app-meta",
+    "fs:allow-app-meta-recursive",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        {
+          "path": "$APPDATA/**"
+        },
+        {
+          "path": "$DOWNLOAD/**"
+        },
+        {
+          "path": "$PICTURE/**"
+        },
+        {
+          "path": "$DESKTOP/**"
+        },
+        {
+          "path": "$HOME/**"
+        },
+        {
+          "path": "$DOCUMENT/**"
+        }
+      ]
+    },
     "shell:default",
     "shell:allow-open"
   ]
