@@ -45,7 +45,7 @@ Administratum is a premium desktop application built with Tauri v2 for managing 
 ## Architecture
 
 ```
-warhammer-vault-app/
+administratum-app/
 ├── src/                        # React frontend
 │   ├── components/
 │   │   ├── layout/             # AppLayout, Sidebar
@@ -215,4 +215,5 @@ Gallery → Browse all uploaded images
 
 ## License
 
-MIT
+@joseluiscaceres
+joseluiscaceres.dev

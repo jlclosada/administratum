@@ -93,3 +93,72 @@
     -webkit-backdrop-filter: blur(12px);
   }
 }
+
+/* TipTap Editor Styles */
+.tiptap {
+  outline: none;
+}
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+.tiptap p {
+  margin-bottom: 0.5em;
+}
+.tiptap h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.25em;
+  margin-bottom: 0.5em;
+}
+.tiptap ul {
+  list-style-type: disc;
+}
+.tiptap ol {
+  list-style-type: decimal;
+}
+.tiptap li {
+  margin-bottom: 0.15em;
+}
+.tiptap strong {
+  font-weight: 700;
+}
+.tiptap em {
+  font-style: italic;
+}
+
+/* Paint Chip inline nodes */
+.paint-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  margin: 0 2px;
+  border-radius: 9999px;
+  background: hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  font-size: 0.8em;
+  line-height: 1.6;
+  white-space: nowrap;
+  vertical-align: baseline;
+  cursor: default;
+}
+.paint-chip-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid hsl(var(--border));
+}
+.paint-chip-label {
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}

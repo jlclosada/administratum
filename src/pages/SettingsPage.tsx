@@ -11,12 +11,11 @@ import {
     Info,
     Loader2,
     Palette,
-    RefreshCw,
-    Settings,
+    RefreshCw
 } from "lucide-react";
 import { useState } from "react";
 
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "1.1.0";
 
 type UpdateState =
   | { status: "idle" }
@@ -44,7 +43,7 @@ export function SettingsPage() {
     } catch (err) {
       setUpdateState({
         status: "error",
-        message: err instanceof Error ? err.message : "Error desconocido",
+        message: err instanceof Error ? err.message : String(err),
       });
     }
   }
@@ -75,7 +74,7 @@ export function SettingsPage() {
     } catch (err) {
       setUpdateState({
         status: "error",
-        message: err instanceof Error ? err.message : "Error al descargar",
+        message: err instanceof Error ? err.message : String(err),
       });
     }
   }
@@ -124,16 +123,20 @@ export function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <Settings className="h-5 w-5 text-primary" />
-                Funcionalidades Futuras
+                <CheckCircle className="h-5 w-5 text-emerald-500" />
+                Funcionalidades v1.0
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                <li>• Sincronización cloud</li>
-                <li>• Exportación PDF</li>
-                <li>• Wishlist</li>
-                <li>• Comunidad</li>
+              <ul className="space-y-1.5 text-sm">
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Gestión de juegos, ejércitos y miniaturas</span></li>
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Editor de procesos de pintura con texto enriquecido</span></li>
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Colección de pinturas con wishlist/carrito</span></li>
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Seguimiento de progreso de pintado</span></li>
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Exportación PDF de guías de pintura</span></li>
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Galería de imágenes con drag & drop</span></li>
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Listas de ejército para partidas</span></li>
+                <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /><span className="text-muted-foreground">Base de datos Citadel + Vallejo Model Color</span></li>
               </ul>
             </CardContent>
           </Card>
@@ -150,8 +153,9 @@ export function SettingsPage() {
                 <p>
                   <span className="font-medium text-foreground">Administratum</span> v{APP_VERSION}
                 </p>
-                <p>Gestor premium de colecciones de miniaturas</p>
+                <p>Gestor de colecciones de miniaturas para Warhammer</p>
                 <p>Hecho con Tauri + React + TypeScript</p>
+                <p className="pt-2 text-xs">© {new Date().getFullYear()} Jose Luis Caceres Losada. Todos los derechos reservados.</p>
               </div>
             </CardContent>
           </Card>

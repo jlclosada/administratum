@@ -54,6 +54,7 @@ export interface Miniature extends BaseEntity {
   name: string;
   category: MiniatureCategory;
   quantity: number;
+  paintedCount: number;
   notes: string;
   isFavorite: boolean;
   sortOrder: number;
@@ -97,6 +98,18 @@ export interface PaintingProcess extends BaseEntity {
   title: string;
   description: string;
   colorsUsed: string;
+  media: PaintingProcessMedia[];
+}
+
+export type PaintingProcessMediaType = "image" | "video";
+
+export interface PaintingProcessMedia extends BaseEntity {
+  processId: string;
+  filePath: string;
+  fileName: string;
+  fileSize: number;
+  mediaType: PaintingProcessMediaType;
+  sortOrder: number;
 }
 
 // ---------- Images ----------
@@ -214,6 +227,7 @@ export interface CreateMiniatureDTO {
   name: string;
   category: MiniatureCategory;
   quantity: number;
+  paintedCount?: number;
   notes?: string;
   statuses: PaintStatusType[];
   tags?: string[];
@@ -234,16 +248,70 @@ export interface CreatePaintingProcessDTO {
   colorsUsed?: string;
 }
 
+export interface UpdatePaintingProcessDTO {
+  id: string;
+  title?: string;
+  description?: string;
+  colorsUsed?: string;
+  stepOrder?: number;
+}
+
 // ---------- Predefined Data ----------
+
+// ---------- Paint Collection ----------
+export type PaintRange = "Base" | "Layer" | "Shade" | "Dry" | "Edge" | "Glaze" | "Texture" | "Technical" | "Contrast" | "Air" | "Model Color" | "Auxiliary";
+
+export interface Paint {
+  id: string;
+  name: string;
+  brand: string;
+  range: PaintRange;
+  hexColor: string | null;
+  isMetallic: boolean;
+}
+
+export interface UserPaint {
+  id: string;
+  paintId: string;
+  paint?: Paint;
+  inWishlist: boolean;
+  createdAt: string;
+}
+
 export const PAINT_STATUSES: PaintStatus[] = [
   { id: "1", name: "Sin montar", type: "unassembled", color: "#6b7280", icon: "package", sortOrder: 0 },
   { id: "2", name: "Montada", type: "assembled", color: "#a78bfa", icon: "wrench", sortOrder: 1 },
   { id: "3", name: "Imprimada", type: "primed", color: "#60a5fa", icon: "droplets", sortOrder: 2 },
   { id: "4", name: "En proceso", type: "wip", color: "#fbbf24", icon: "palette", sortOrder: 3 },
   { id: "5", name: "Pintada", type: "painted", color: "#34d399", icon: "brush", sortOrder: 4 },
-  { id: "6", name: "Basada", type: "based", color: "#f472b6", icon: "mountain", sortOrder: 5 },
+  { id: "6", name: "Peana", type: "based", color: "#f472b6", icon: "mountain", sortOrder: 5 },
   { id: "7", name: "Barnizada", type: "varnished", color: "#c084fc", icon: "sparkles", sortOrder: 6 },
 ];
+
+/** Get the highest reached step from a list of active statuses */
+export function getCurrentPaintStep(statuses: PaintStatusType[]): PaintStatus | null {
+  const active = PAINT_STATUSES.filter((s) => statuses.includes(s.type));
+  return active.length > 0 ? active.reduce((a, b) => (a.sortOrder > b.sortOrder ? a : b)) : null;
+}
+
+/** Get the next step after the current highest */
+export function getNextPaintStep(statuses: PaintStatusType[]): PaintStatus | null {
+  const current = getCurrentPaintStep(statuses);
+  const nextOrder = current ? current.sortOrder + 1 : 0;
+  return PAINT_STATUSES.find((s) => s.sortOrder === nextOrder) ?? null;
+}
+
+/** A miniature is complete when it has reached "Barnizada" (varnished) */
+export function isMiniatureComplete(statuses: PaintStatusType[]): boolean {
+  return statuses.includes("varnished");
+}
+
+/** Given a clicked step, return all steps up to and including it */
+export function getStatusesUpTo(statusType: PaintStatusType): PaintStatusType[] {
+  const target = PAINT_STATUSES.find((s) => s.type === statusType);
+  if (!target) return [];
+  return PAINT_STATUSES.filter((s) => s.sortOrder <= target.sortOrder).map((s) => s.type);
+}
 
 export const MINIATURE_CATEGORIES: { value: MiniatureCategory; label: string; icon: string }[] = [
   { value: "infantry", label: "Infantería", icon: "users" },

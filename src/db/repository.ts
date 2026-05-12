@@ -1,25 +1,29 @@
 import type {
-    Army,
-    ArmyListImage,
-    ArmyListMiniature,
-    ArmyListWithDetails,
-    ArmyWithStats,
-    CreateArmyDTO,
-    CreateArmyListDTO,
-    CreateGameDTO,
-    CreateMiniatureDTO,
-    CreatePaintingProcessDTO,
-    DashboardStats,
-    Game,
-    Miniature,
-    MiniatureImage,
-    MiniatureWithDetails,
-    PaintingProcess,
-    PaintStatusType,
-    Tag,
-    UpdateArmyDTO,
-    UpdateGameDTO,
-    UpdateMiniatureDTO
+  Army,
+  ArmyListImage,
+  ArmyListMiniature,
+  ArmyListWithDetails,
+  ArmyWithStats,
+  CreateArmyDTO,
+  CreateArmyListDTO,
+  CreateGameDTO,
+  CreateMiniatureDTO,
+  CreatePaintingProcessDTO,
+  DashboardStats,
+  Game,
+  Miniature,
+  MiniatureImage,
+  MiniatureWithDetails,
+  Paint,
+  PaintingProcess,
+  PaintingProcessMedia,
+  PaintingProcessMediaType,
+  PaintStatusType,
+  Tag,
+  UpdateArmyDTO,
+  UpdateGameDTO,
+  UpdateMiniatureDTO,
+  UserPaint
 } from "@/types";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { copyFile, exists, mkdir } from "@tauri-apps/plugin-fs";
@@ -58,6 +62,21 @@ function mapRow<T>(row: Record<string, unknown>): T {
 
 function mapRows<T>(rows: Record<string, unknown>[]): T[] {
   return rows.map((r) => mapRow<T>(r));
+}
+
+async function hydrateProcessesWithMedia(processRows: Record<string, unknown>[]): Promise<PaintingProcess[]> {
+  if (processRows.length === 0) return [];
+  const db = await getDb();
+  const processes = mapRows<Omit<PaintingProcess, "media">>(processRows);
+  return Promise.all(
+    processes.map(async (p) => {
+      const mediaRows = await db.select<Record<string, unknown>[]>(
+        "SELECT * FROM painting_process_media WHERE process_id = $1 ORDER BY sort_order ASC",
+        [p.id]
+      );
+      return { ...p, media: mapRows<PaintingProcessMedia>(mediaRows) } as PaintingProcess;
+    })
+  );
 }
 
 // ======================== GAMES ========================
@@ -123,10 +142,8 @@ export async function getAllArmies(): Promise<(ArmyWithStats & { gameName: strin
   const db = await getDb();
   const rows = await db.select<Record<string, unknown>[]>(
     `SELECT a.*, g.name as game_name,
-       (SELECT COUNT(*) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
-       (SELECT COUNT(*) FROM miniatures m3 WHERE m3.army_id = a.id AND EXISTS (
-         SELECT 1 FROM miniature_statuses ms WHERE ms.miniature_id = m3.id AND ms.status_type IN ('painted','based','varnished')
-       )) as total_painted
+       (SELECT COALESCE(SUM(m2.quantity), 0) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
+       (SELECT COALESCE(SUM(m3.painted_count), 0) FROM miniatures m3 WHERE m3.army_id = a.id) as total_painted
      FROM armies a
      JOIN games g ON g.id = a.game_id
      ORDER BY g.name ASC, a.name ASC`
@@ -145,10 +162,8 @@ export async function getArmiesByGame(gameId: string): Promise<ArmyWithStats[]> 
   const db = await getDb();
   const rows = await db.select<Record<string, unknown>[]>(
     `SELECT a.*,
-       (SELECT COUNT(*) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
-       (SELECT COUNT(*) FROM miniatures m3 WHERE m3.army_id = a.id AND EXISTS (
-         SELECT 1 FROM miniature_statuses ms WHERE ms.miniature_id = m3.id AND ms.status_type IN ('painted','based','varnished')
-       )) as total_painted
+       (SELECT COALESCE(SUM(m2.quantity), 0) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
+       (SELECT COALESCE(SUM(m3.painted_count), 0) FROM miniatures m3 WHERE m3.army_id = a.id) as total_painted
      FROM armies a
      WHERE a.game_id = $1
      ORDER BY a.sort_order ASC, a.name ASC`,
@@ -166,10 +181,8 @@ export async function getArmyById(id: string): Promise<ArmyWithStats | null> {
   const db = await getDb();
   const rows = await db.select<Record<string, unknown>[]>(
     `SELECT a.*,
-       (SELECT COUNT(*) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
-       (SELECT COUNT(*) FROM miniatures m3 WHERE m3.army_id = a.id AND EXISTS (
-         SELECT 1 FROM miniature_statuses ms WHERE ms.miniature_id = m3.id AND ms.status_type IN ('painted','based','varnished')
-       )) as total_painted
+       (SELECT COALESCE(SUM(m2.quantity), 0) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
+       (SELECT COALESCE(SUM(m3.painted_count), 0) FROM miniatures m3 WHERE m3.army_id = a.id) as total_painted
      FROM armies a
      WHERE a.id = $1`,
     [id]
@@ -259,7 +272,7 @@ export async function getMiniaturesByArmy(armyId: string): Promise<MiniatureWith
         statuses: statusRows.map((r) => String(r.status_type ?? r["status_type"])) as PaintStatusType[],
         images: mapRows<MiniatureImage>(imageRows),
         tags: mapRows<Tag>(tagRows),
-        paintingProcesses: mapRows<PaintingProcess>(processRows),
+        paintingProcesses: await hydrateProcessesWithMedia(processRows),
       };
     })
   );
@@ -300,7 +313,7 @@ export async function getMiniatureById(id: string): Promise<MiniatureWithDetails
     statuses: statusRows.map((r) => String(r.status_type ?? r["status_type"])) as PaintStatusType[],
     images: mapRows<MiniatureImage>(imageRows),
     tags: mapRows<Tag>(tagRows),
-    paintingProcesses: mapRows<PaintingProcess>(processRows),
+    paintingProcesses: await hydrateProcessesWithMedia(processRows),
   };
 }
 
@@ -310,9 +323,9 @@ export async function createMiniature(dto: CreateMiniatureDTO): Promise<Miniatur
   const timestamp = now();
 
   await db.execute(
-    `INSERT INTO miniatures (id, army_id, name, category, quantity, notes, purchased_at, purchase_price, store, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-    [id, dto.armyId, dto.name, dto.category, dto.quantity, dto.notes ?? "", dto.purchasedAt ?? null, dto.purchasePrice ?? null, dto.store ?? null, timestamp, timestamp]
+    `INSERT INTO miniatures (id, army_id, name, category, quantity, painted_count, notes, purchased_at, purchase_price, store, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [id, dto.armyId, dto.name, dto.category, dto.quantity, dto.paintedCount ?? 0, dto.notes ?? "", dto.purchasedAt ?? null, dto.purchasePrice ?? null, dto.store ?? null, timestamp, timestamp]
   );
 
   for (const statusType of dto.statuses) {
@@ -341,12 +354,13 @@ export async function updateMiniature(dto: UpdateMiniatureDTO): Promise<Miniatur
   if (!existing) throw new Error(`Miniature ${dto.id} not found`);
 
   await db.execute(
-    `UPDATE miniatures SET name = $1, category = $2, quantity = $3, notes = $4, updated_at = $5
-     WHERE id = $6`,
+    `UPDATE miniatures SET name = $1, category = $2, quantity = $3, painted_count = $4, notes = $5, updated_at = $6
+     WHERE id = $7`,
     [
       dto.name ?? existing.name,
       dto.category ?? existing.category,
       dto.quantity ?? existing.quantity,
+      dto.paintedCount ?? existing.paintedCount,
       dto.notes ?? existing.notes,
       now(),
       dto.id,
@@ -402,7 +416,8 @@ export async function addPaintingProcess(dto: CreatePaintingProcessDTO): Promise
     [id, dto.miniatureId, dto.stepOrder, dto.title, dto.description ?? "", dto.colorsUsed ?? "", timestamp, timestamp]
   );
   const rows = await db.select<Record<string, unknown>[]>("SELECT * FROM painting_processes WHERE id = $1", [id]);
-  return mapRow<PaintingProcess>(rows[0]!);
+  const process = mapRow<Omit<PaintingProcess, "media">>(rows[0]!);
+  return { ...process, media: [] } as PaintingProcess;
 }
 
 export async function updatePaintingProcess(id: string, title: string, description: string, colorsUsed: string): Promise<void> {
@@ -416,6 +431,37 @@ export async function updatePaintingProcess(id: string, title: string, descripti
 export async function deletePaintingProcess(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM painting_processes WHERE id = $1", [id]);
+}
+
+// ======================== PAINTING PROCESS MEDIA ========================
+
+export async function addPaintingProcessMedia(
+  processId: string,
+  filePath: string,
+  fileName: string,
+  fileSize: number,
+  mediaType: PaintingProcessMediaType
+): Promise<PaintingProcessMedia> {
+  const db = await getDb();
+  const id = uuid();
+  const timestamp = now();
+  const existing = await db.select<Record<string, unknown>[]>(
+    "SELECT COUNT(*) as count FROM painting_process_media WHERE process_id = $1",
+    [processId]
+  );
+  const sortOrder = Number(Object.values(existing[0] ?? { count: 0 })[0] ?? 0);
+  await db.execute(
+    `INSERT INTO painting_process_media (id, process_id, file_path, file_name, file_size, media_type, sort_order, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [id, processId, filePath, fileName, fileSize, mediaType, sortOrder, timestamp, timestamp]
+  );
+  const rows = await db.select<Record<string, unknown>[]>("SELECT * FROM painting_process_media WHERE id = $1", [id]);
+  return mapRow<PaintingProcessMedia>(rows[0]!);
+}
+
+export async function deletePaintingProcessMedia(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM painting_process_media WHERE id = $1", [id]);
 }
 
 // ======================== IMAGES ========================
@@ -516,27 +562,42 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const gameCount = await db.select<Record<string, unknown>[]>("SELECT COUNT(*) as count FROM games");
   const armyCount = await db.select<Record<string, unknown>[]>("SELECT COUNT(*) as count FROM armies");
   const miniatureTotal = await db.select<Record<string, unknown>[]>(
-    "SELECT COUNT(*) as total FROM miniatures"
+    "SELECT COALESCE(SUM(quantity), 0) as total FROM miniatures"
   );
   const paintedTotal = await db.select<Record<string, unknown>[]>(
-    `SELECT COUNT(DISTINCT ms.miniature_id) as total FROM miniature_statuses ms
-     WHERE ms.status_type IN ('painted','based','varnished')`
+    "SELECT COALESCE(SUM(painted_count), 0) as total FROM miniatures"
   );
 
   const recent = await db.select<Record<string, unknown>[]>(
     "SELECT * FROM miniatures ORDER BY created_at DESC LIMIT 5"
   );
 
+  // For each miniature, only count its highest (current) step
   const statusDist = await db.select<Record<string, unknown>[]>(
-    `SELECT status_type, COUNT(*) as total FROM miniature_statuses GROUP BY status_type ORDER BY total DESC`
+    `SELECT current_status as status_type, COUNT(*) as total
+     FROM (
+       SELECT ms.miniature_id,
+              CASE
+                WHEN MAX(CASE WHEN ms.status_type = 'varnished' THEN 1 ELSE 0 END) = 1 THEN 'varnished'
+                WHEN MAX(CASE WHEN ms.status_type = 'based' THEN 1 ELSE 0 END) = 1 THEN 'based'
+                WHEN MAX(CASE WHEN ms.status_type = 'painted' THEN 1 ELSE 0 END) = 1 THEN 'painted'
+                WHEN MAX(CASE WHEN ms.status_type = 'wip' THEN 1 ELSE 0 END) = 1 THEN 'wip'
+                WHEN MAX(CASE WHEN ms.status_type = 'primed' THEN 1 ELSE 0 END) = 1 THEN 'primed'
+                WHEN MAX(CASE WHEN ms.status_type = 'assembled' THEN 1 ELSE 0 END) = 1 THEN 'assembled'
+                WHEN MAX(CASE WHEN ms.status_type = 'unassembled' THEN 1 ELSE 0 END) = 1 THEN 'unassembled'
+              END as current_status
+       FROM miniature_statuses ms
+       GROUP BY ms.miniature_id
+     )
+     WHERE current_status IS NOT NULL
+     GROUP BY current_status
+     ORDER BY total DESC`
   );
 
   const armyRows = await db.select<Record<string, unknown>[]>(
     `SELECT a.*,
-       (SELECT COUNT(*) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
-       (SELECT COUNT(*) FROM miniatures m3 WHERE m3.army_id = a.id AND EXISTS (
-         SELECT 1 FROM miniature_statuses ms WHERE ms.miniature_id = m3.id AND ms.status_type IN ('painted','based','varnished')
-       )) as total_painted
+       (SELECT COALESCE(SUM(m2.quantity), 0) FROM miniatures m2 WHERE m2.army_id = a.id) as total_miniatures,
+       (SELECT COALESCE(SUM(m3.painted_count), 0) FROM miniatures m3 WHERE m3.army_id = a.id) as total_painted
      FROM armies a
      ORDER BY a.name ASC`
   );
@@ -768,4 +829,121 @@ export async function getAllMiniaturesFlat(): Promise<(MiniatureWithDetails & { 
     result.push(mapped);
   }
   return result;
+}
+
+// ======================== PAINTS ========================
+
+export async function getAllPaints(): Promise<Paint[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    "SELECT * FROM paints ORDER BY brand ASC, range ASC, name ASC"
+  );
+  return mapRows<Paint>(rows);
+}
+
+export async function searchPaints(query: string): Promise<Paint[]> {
+  const db = await getDb();
+  const pattern = `%${query}%`;
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT * FROM paints
+     WHERE name LIKE $1 OR range LIKE $1 OR brand LIKE $1
+     ORDER BY
+       CASE WHEN name LIKE $2 THEN 0 ELSE 1 END,
+       brand ASC, range ASC, name ASC
+     LIMIT 100`,
+    [pattern, `${query}%`]
+  );
+  return mapRows<Paint>(rows);
+}
+
+export async function getUserPaints(): Promise<UserPaint[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT up.*, p.name as paint_name, p.brand as paint_brand, p.range as paint_range, p.hex_color as paint_hex_color, p.is_metallic as paint_is_metallic
+     FROM user_paints up
+     JOIN paints p ON p.id = up.paint_id
+     WHERE up.in_wishlist = 0
+     ORDER BY p.range ASC, p.name ASC`
+  );
+  return rows.map((r) => {
+    const up = mapRow<UserPaint & { paintName: string; paintBrand: string; paintRange: string; paintHexColor: string | null; paintIsMetallic: number }>(r);
+    return {
+      id: up.id,
+      paintId: up.paintId,
+      inWishlist: up.inWishlist,
+      createdAt: up.createdAt,
+      paint: {
+        id: up.paintId,
+        name: up.paintName,
+        brand: up.paintBrand,
+        range: up.paintRange as Paint["range"],
+        hexColor: up.paintHexColor,
+        isMetallic: Boolean(up.paintIsMetallic),
+      },
+    } as UserPaint;
+  });
+}
+
+export async function getWishlistPaints(): Promise<UserPaint[]> {
+  const db = await getDb();
+  const rows = await db.select<Record<string, unknown>[]>(
+    `SELECT up.*, p.name as paint_name, p.brand as paint_brand, p.range as paint_range, p.hex_color as paint_hex_color, p.is_metallic as paint_is_metallic
+     FROM user_paints up
+     JOIN paints p ON p.id = up.paint_id
+     WHERE up.in_wishlist = 1
+     ORDER BY p.range ASC, p.name ASC`
+  );
+  return rows.map((r) => {
+    const up = mapRow<UserPaint & { paintName: string; paintBrand: string; paintRange: string; paintHexColor: string | null; paintIsMetallic: number }>(r);
+    return {
+      id: up.id,
+      paintId: up.paintId,
+      inWishlist: up.inWishlist,
+      createdAt: up.createdAt,
+      paint: {
+        id: up.paintId,
+        name: up.paintName,
+        brand: up.paintBrand,
+        range: up.paintRange as Paint["range"],
+        hexColor: up.paintHexColor,
+        isMetallic: Boolean(up.paintIsMetallic),
+      },
+    } as UserPaint;
+  });
+}
+
+export async function addUserPaint(paintId: string, inWishlist: boolean): Promise<void> {
+  const db = await getDb();
+  const id = uuid();
+  await db.execute(
+    `INSERT OR IGNORE INTO user_paints (id, paint_id, in_wishlist, created_at) VALUES ($1, $2, $3, $4)`,
+    [id, paintId, inWishlist ? 1 : 0, now()]
+  );
+}
+
+export async function addUserPaints(paintIds: string[], inWishlist: boolean): Promise<void> {
+  const db = await getDb();
+  const timestamp = now();
+  for (const paintId of paintIds) {
+    const id = uuid();
+    await db.execute(
+      `INSERT OR IGNORE INTO user_paints (id, paint_id, in_wishlist, created_at) VALUES ($1, $2, $3, $4)`,
+      [id, paintId, inWishlist ? 1 : 0, timestamp]
+    );
+  }
+}
+
+export async function removeUserPaint(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM user_paints WHERE id = $1", [id]);
+}
+
+export async function moveToWishlist(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE user_paints SET in_wishlist = 1 WHERE id = $1", [id]);
+}
+
+export async function moveToCollection(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("UPDATE user_paints SET in_wishlist = 0 WHERE id = $1", [id]);
 }

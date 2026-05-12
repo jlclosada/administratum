@@ -1,3 +1,4 @@
+import { PaintingProcessEditor } from "@/components/painting/PaintingProcessEditor";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -18,10 +19,10 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
     addImage,
-    addPaintingProcess,
+    createTag,
     deleteImage,
     deleteMiniature,
-    deletePaintingProcess,
+    getAllTags,
     getArmyById,
     getGameById,
     getMiniatureById,
@@ -34,10 +35,12 @@ import type {
     Game,
     MiniatureCategory,
     MiniatureWithDetails,
-    PaintStatusType
+    PaintStatusType,
+    Tag
 } from "@/types";
-import { MINIATURE_CATEGORIES, PAINT_STATUSES } from "@/types";
+import { MINIATURE_CATEGORIES, PAINT_STATUSES, getCurrentPaintStep, getNextPaintStep, getStatusesUpTo, isMiniatureComplete } from "@/types";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-dialog";
 import { motion } from "framer-motion";
 import {
@@ -49,8 +52,10 @@ import {
     Palette,
     Plus,
     Save,
+    Tag as TagIcon,
     Trash2,
-    Upload
+    Upload,
+    X
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -76,28 +81,33 @@ export function MiniatureDetailPage() {
   const [editStatuses, setEditStatuses] = useState<PaintStatusType[]>([]);
 
   // Painting process
-  const [showAddProcess, setShowAddProcess] = useState(false);
-  const [processTitle, setProcessTitle] = useState("");
-  const [processDesc, setProcessDesc] = useState("");
-  const [processColors, setProcessColors] = useState("");
+  // (handled by PaintingProcessEditor component)
 
   // Delete
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  // Image lightbox
+  // Image lightbox & drag
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Tags
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [showTagInput, setShowTagInput] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
 
   const loadData = useCallback(async () => {
     if (!miniatureId || !armyId || !gameId) return;
     try {
-      const [mini, a, g] = await Promise.all([
+      const [mini, a, g, tags] = await Promise.all([
         getMiniatureById(miniatureId),
         getArmyById(armyId),
         getGameById(gameId),
+        getAllTags(),
       ]);
       setMiniature(mini);
       setArmy(a);
       setGame(g);
+      setAllTags(tags);
       if (mini) {
         setEditName(mini.name);
         setEditCategory(mini.category);
@@ -116,6 +126,35 @@ export function MiniatureDetailPage() {
     loadData();
   }, [loadData]);
 
+  // Drag & drop file handler via Tauri
+  useEffect(() => {
+    const imageExts = ["png", "jpg", "jpeg", "webp", "gif"];
+    const unlisten = getCurrentWebviewWindow().onDragDropEvent(async (event) => {
+      if (event.payload.type === "enter" || event.payload.type === "over") {
+        setIsDragging(true);
+      } else if (event.payload.type === "leave") {
+        setIsDragging(false);
+      } else if (event.payload.type === "drop") {
+        setIsDragging(false);
+        if (!miniature) return;
+        const paths = event.payload.paths;
+        for (const filePath of paths) {
+          const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+          if (!imageExts.includes(ext)) continue;
+          try {
+            const savedPath = await saveImageToAppData(filePath, "miniatures");
+            const fileName = filePath.split("/").pop() ?? "image";
+            await addImage(miniature.id, savedPath, fileName, 0);
+          } catch (err) {
+            console.error("Failed to save dropped image:", err);
+          }
+        }
+        await loadData();
+      }
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [miniature, loadData]);
+
   async function handleSaveEdit() {
     if (!miniature) return;
     try {
@@ -124,6 +163,7 @@ export function MiniatureDetailPage() {
         name: editName.trim(),
         category: editCategory,
         quantity: editQuantity,
+        paintedCount: isMiniatureComplete(editStatuses) ? editQuantity : 0,
         notes: editNotes,
         statuses: editStatuses,
       });
@@ -137,12 +177,27 @@ export function MiniatureDetailPage() {
   async function handleToggleStatus(statusType: PaintStatusType) {
     if (!miniature) return;
     try {
-      const newStatuses = miniature.statuses.includes(statusType)
-        ? miniature.statuses.filter((s) => s !== statusType)
-        : [...miniature.statuses, statusType];
+      const clickedStatus = PAINT_STATUSES.find((s) => s.type === statusType);
+      if (!clickedStatus) return;
+
+      const currentStep = getCurrentPaintStep(miniature.statuses);
+      let newStatuses: PaintStatusType[];
+
+      if (currentStep && currentStep.type === statusType) {
+        // Clicking current step → go back one step
+        newStatuses = PAINT_STATUSES
+          .filter((s) => s.sortOrder < clickedStatus.sortOrder)
+          .map((s) => s.type);
+      } else {
+        // Mark all steps up to and including clicked
+        newStatuses = getStatusesUpTo(statusType);
+      }
+
+      const complete = isMiniatureComplete(newStatuses);
       await updateMiniature({
         id: miniature.id,
         statuses: newStatuses,
+        paintedCount: complete ? miniature.quantity : 0,
       });
       await loadData();
     } catch (err) {
@@ -170,47 +225,43 @@ export function MiniatureDetailPage() {
     }
   }
 
-  async function handleAddProcess() {
-    if (!miniature || !processTitle.trim()) return;
-    try {
-      const nextOrder = miniature.paintingProcesses.length;
-      await addPaintingProcess({
-        miniatureId: miniature.id,
-        stepOrder: nextOrder,
-        title: processTitle.trim(),
-        description: processDesc.trim(),
-        colorsUsed: processColors.trim(),
-      });
-      setProcessTitle("");
-      setProcessDesc("");
-      setProcessColors("");
-      setShowAddProcess(false);
-      await loadData();
-    } catch (err) {
-      console.error("Failed to add painting process:", err);
-    }
+  async function handleToggleTag(tagId: string) {
+    if (!miniature) return;
+    const currentTagIds = miniature.tags.map((t) => t.id);
+    const newTags = currentTagIds.includes(tagId)
+      ? currentTagIds.filter((id) => id !== tagId)
+      : [...currentTagIds, tagId];
+    await updateMiniature({ id: miniature.id, tags: newTags });
+    await loadData();
   }
 
-  async function handleDeleteProcess(processId: string) {
-    try {
-      await deletePaintingProcess(processId);
-      await loadData();
-    } catch (err) {
-      console.error("Failed to delete painting process:", err);
-    }
+  async function handleCreateTag() {
+    if (!newTagName.trim() || !miniature) return;
+    const colors = ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#06b6d4", "#f97316"];
+    const color = colors[allTags.length % colors.length]!;
+    const tag = await createTag(newTagName.trim(), color);
+    setNewTagName("");
+    setShowTagInput(false);
+    // Auto-assign to this miniature
+    const currentTagIds = miniature.tags.map((t) => t.id);
+    await updateMiniature({ id: miniature.id, tags: [...currentTagIds, tag.id] });
+    await loadData();
   }
 
   async function handleUploadImage() {
     if (!miniature) return;
     try {
-      const file = await open({
-        multiple: false,
+      const files = await open({
+        multiple: true,
         filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
       });
-      if (!file) return;
-      const savedPath = await saveImageToAppData(file, "miniatures");
-      const fileName = file.split("/").pop() ?? "image";
-      await addImage(miniature.id, savedPath, fileName, 0);
+      if (!files) return;
+      const paths = Array.isArray(files) ? files : [files];
+      for (const file of paths) {
+        const savedPath = await saveImageToAppData(file, "miniatures");
+        const fileName = file.split("/").pop() ?? "image";
+        await addImage(miniature.id, savedPath, fileName, 0);
+      }
       await loadData();
     } catch (err) {
       console.error("Failed to upload image:", err);
@@ -284,13 +335,19 @@ export function MiniatureDetailPage() {
                         <option key={cat.value} value={cat.value}>{cat.label}</option>
                       ))}
                     </select>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={editQuantity}
-                      onChange={(e) => setEditQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-24"
-                    />
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Cantidad</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={editQuantity}
+                        onChange={(e) => {
+                          const val = Math.max(1, parseInt(e.target.value) || 1);
+                          setEditQuantity(val);
+                        }}
+                        className="w-20"
+                      />
+                    </div>
                   </div>
                   <Textarea
                     value={editNotes}
@@ -315,6 +372,29 @@ export function MiniatureDetailPage() {
                   <div className="mt-1 flex items-center gap-2">
                     <Badge variant="secondary">{miniature.quantity}x</Badge>
                     <Badge variant="outline">{catLabel}</Badge>
+                    {(() => {
+                      const complete = isMiniatureComplete(miniature.statuses);
+                      const current = getCurrentPaintStep(miniature.statuses);
+                      if (complete) {
+                        return (
+                          <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-500">
+                            ✓ Completada
+                          </Badge>
+                        );
+                      }
+                      if (current) {
+                        return (
+                          <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-500">
+                            {current.name}
+                          </Badge>
+                        );
+                      }
+                      return (
+                        <Badge variant="outline">
+                          Sin empezar
+                        </Badge>
+                      );
+                    })()}
                   </div>
                   {miniature.notes && (
                     <p className="mt-2 text-sm text-muted-foreground">{miniature.notes}</p>
@@ -352,38 +432,48 @@ export function MiniatureDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {PAINT_STATUSES.map((status) => {
+                <div className="space-y-1">
+                  {PAINT_STATUSES.map((status, idx) => {
                     const active = miniature.statuses.includes(status.type);
+                    const currentStep = getCurrentPaintStep(miniature.statuses);
+                    const isCurrent = currentStep?.type === status.type;
+                    const isLast = idx === PAINT_STATUSES.length - 1;
                     return (
-                      <motion.button
-                        key={status.type}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleToggleStatus(status.type)}
-                        className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
-                          active
-                            ? "border-primary/50 bg-primary/10"
-                            : "border-border bg-card hover:border-muted-foreground/30"
-                        }`}
-                      >
-                        <div
-                          className={`flex h-6 w-6 items-center justify-center rounded-md border-2 transition-all ${
-                            active ? "border-primary bg-primary" : "border-muted-foreground/30"
+                      <div key={status.type} className="flex items-stretch gap-3">
+                        {/* Timeline line + dot */}
+                        <div className="flex flex-col items-center">
+                          <motion.button
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => handleToggleStatus(status.type)}
+                            className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all ${
+                              isCurrent
+                                ? "border-primary bg-primary shadow-md shadow-primary/30"
+                                : active
+                                  ? "border-primary/60 bg-primary/20"
+                                  : "border-muted-foreground/20 bg-card hover:border-muted-foreground/40"
+                            }`}
+                          >
+                            {active && <Check className={`h-3.5 w-3.5 ${isCurrent ? "text-primary-foreground" : "text-primary"}`} />}
+                          </motion.button>
+                          {!isLast && (
+                            <div className={`w-0.5 flex-1 min-h-[12px] ${active ? "bg-primary/40" : "bg-muted"}`} />
+                          )}
+                        </div>
+                        {/* Label */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(status.type)}
+                          className={`flex-1 pb-3 pt-1 text-left text-sm transition-colors ${
+                            isCurrent ? "font-semibold text-foreground" : active ? "font-medium text-foreground/80" : "text-muted-foreground hover:text-foreground/60"
                           }`}
                         >
-                          {active && <Check className="h-4 w-4 text-primary-foreground" />}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-3 w-3 rounded-full"
-                            style={{ backgroundColor: status.color }}
-                          />
-                          <span className={`text-sm font-medium ${active ? "text-foreground" : "text-muted-foreground"}`}>
-                            {status.name}
-                          </span>
-                        </div>
-                      </motion.button>
+                          {status.name}
+                          {isCurrent && (
+                            <span className="ml-2 text-xs text-primary font-medium">← Actual</span>
+                          )}
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -391,123 +481,70 @@ export function MiniatureDetailPage() {
             </Card>
 
             {/* Painting Process */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Palette className="h-5 w-5 text-primary" />
-                    Proceso de Pintura
-                  </CardTitle>
-                  <Button size="sm" variant="outline" onClick={() => setShowAddProcess(true)}>
-                    <Plus className="h-4 w-4 mr-1" /> Añadir paso
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {miniature.paintingProcesses.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Sin pasos de pintura registrados. Añade el proceso que seguiste para pintar esta miniatura.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {miniature.paintingProcesses.map((process, idx) => (
-                      <motion.div
-                        key={process.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="group relative rounded-lg border border-border bg-card/50 p-4"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                              {idx + 1}
-                            </div>
-                            <div>
-                              <h4 className="font-semibold">{process.title}</h4>
-                              {process.description && (
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                  {process.description}
-                                </p>
-                              )}
-                              {process.colorsUsed && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                  {process.colorsUsed.split(",").map((color, i) => (
-                                    <Badge key={i} variant="secondary" className="text-xs">
-                                      {color.trim()}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100"
-                            onClick={() => handleDeleteProcess(process.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <PaintingProcessEditor miniature={miniature} onUpdate={loadData} />
 
             {/* Images */}
-            <Card>
+            <Card className={isDragging ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <ImageIcon className="h-5 w-5 text-primary" />
                     Imágenes
+                    {miniature.images.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">{miniature.images.length}</Badge>
+                    )}
                   </CardTitle>
                   <Button size="sm" variant="outline" onClick={handleUploadImage}>
-                    <Upload className="h-4 w-4 mr-1" /> Subir foto
+                    <Upload className="h-4 w-4 mr-1" /> Subir fotos
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
                 {miniature.images.length === 0 ? (
-                  <div className="text-center py-6">
-                    <ImageIcon className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+                  <div className={`text-center py-8 rounded-lg border-2 border-dashed transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <Upload className={`h-10 w-10 mx-auto mb-2 ${isDragging ? "text-primary" : "text-muted-foreground/40"}`} />
                     <p className="text-sm text-muted-foreground">
-                      Sin imágenes. Sube fotos de tus miniaturas.
+                      {isDragging ? "Suelta las imágenes aquí" : "Arrastra imágenes aquí o haz clic para subir"}
                     </p>
                     <Button size="sm" variant="outline" className="mt-3" onClick={handleUploadImage}>
-                      <Upload className="h-4 w-4 mr-1" /> Subir primera foto
+                      <Upload className="h-4 w-4 mr-1" /> Seleccionar fotos
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-3">
-                    {miniature.images.map((img) => (
-                      <motion.div
-                        key={img.id}
-                        whileHover={{ scale: 1.03 }}
-                        className="group relative cursor-pointer overflow-hidden rounded-lg"
-                        onClick={() => setLightboxImage(convertFileSrc(img.filePath))}
-                      >
-                        <img
-                          src={convertFileSrc(img.filePath)}
-                          alt={img.fileName}
-                          className="aspect-square w-full object-cover"
-                          loading="lazy"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteImage(img.id);
-                          }}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      {miniature.images.map((img) => (
+                        <motion.div
+                          key={img.id}
+                          whileHover={{ scale: 1.03 }}
+                          className="group relative cursor-pointer overflow-hidden rounded-lg"
+                          onClick={() => setLightboxImage(convertFileSrc(img.filePath))}
+                        >
+                          <img
+                            src={convertFileSrc(img.filePath)}
+                            alt={img.fileName}
+                            className="aspect-square w-full object-cover"
+                            loading="lazy"
+                          />
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteImage(img.id);
+                            }}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </motion.div>
                     ))}
+                    </div>
+                    {isDragging && (
+                      <div className="text-center py-4 rounded-lg border-2 border-dashed border-primary bg-primary/5">
+                        <p className="text-sm text-primary font-medium">Suelta las imágenes aquí</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -532,29 +569,30 @@ export function MiniatureDetailPage() {
                 </div>
                 <Separator />
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Estados activos</span>
-                  <span className="font-medium">{miniature.statuses.length} / {PAINT_STATUSES.length}</span>
+                  <span className="text-muted-foreground">Estado actual</span>
+                  {(() => {
+                    const complete = isMiniatureComplete(miniature.statuses);
+                    const current = getCurrentPaintStep(miniature.statuses);
+                    if (complete) return <span className="font-semibold text-emerald-500">Completada</span>;
+                    if (current) return <span className="font-semibold text-amber-500">{current.name}</span>;
+                    return <span className="font-medium text-muted-foreground">Sin empezar</span>;
+                  })()}
                 </div>
                 <Separator />
-                <div className="space-y-2">
-                  <span className="text-sm text-muted-foreground">Progreso</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PAINT_STATUSES.map((status) => {
-                      const active = miniature.statuses.includes(status.type);
-                      return (
-                        <div
-                          key={status.type}
-                          className={`h-4 w-4 rounded-full border-2 ${
-                            active ? "border-transparent" : "border-muted opacity-30"
-                          }`}
-                          style={{ backgroundColor: active ? status.color : "transparent" }}
-                          title={status.name}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-                <Separator />
+                {!isMiniatureComplete(miniature.statuses) && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Siguiente paso</span>
+                      {(() => {
+                        const next = getNextPaintStep(miniature.statuses);
+                        return next ? (
+                          <span className="font-medium text-primary">{next.name}</span>
+                        ) : null;
+                      })()}
+                    </div>
+                    <Separator />
+                  </>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Pasos de pintura</span>
                   <span className="font-medium">{miniature.paintingProcesses.length}</span>
@@ -574,75 +612,70 @@ export function MiniatureDetailPage() {
               </CardContent>
             </Card>
 
-            {miniature.tags.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Tags</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {miniature.tags.map((tag) => (
-                      <Badge
-                        key={tag.id}
-                        style={{ backgroundColor: `${tag.color}20`, color: tag.color, borderColor: tag.color }}
-                        variant="outline"
-                      >
-                        {tag.name}
-                      </Badge>
-                    ))}
+            {/* Tags */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TagIcon className="h-4 w-4 text-primary" />
+                    Tags
+                  </CardTitle>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setShowTagInput(!showTagInput)}>
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {showTagInput && (
+                  <div className="flex gap-2">
+                    <Input
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      placeholder="Nuevo tag..."
+                      className="h-7 text-xs"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCreateTag(); if (e.key === "Escape") setShowTagInput(false); }}
+                      autoFocus
+                    />
+                    <Button size="sm" variant="outline" className="h-7 px-2" onClick={handleCreateTag} disabled={!newTagName.trim()}>
+                      <Check className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setShowTagInput(false)}>
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {allTags.map((tag) => {
+                    const active = miniature.tags.some((t) => t.id === tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => handleToggleTag(tag.id)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border transition-all ${
+                          active ? "opacity-100" : "opacity-40 hover:opacity-70"
+                        }`}
+                        style={{
+                          backgroundColor: active ? `${tag.color}20` : "transparent",
+                          color: tag.color,
+                          borderColor: active ? tag.color : `${tag.color}50`,
+                        }}
+                      >
+                        {active && <Check className="h-2.5 w-2.5" />}
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                  {allTags.length === 0 && !showTagInput && (
+                    <p className="text-xs text-muted-foreground">
+                      Sin tags. Crea uno para organizar tus miniaturas.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-
-        {/* Add Painting Process Dialog */}
-        <Dialog open={showAddProcess} onOpenChange={setShowAddProcess}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Añadir Paso de Pintura</DialogTitle>
-              <DialogDescription>
-                Describe el paso del proceso de pintura
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Título del paso</Label>
-                <Input
-                  value={processTitle}
-                  onChange={(e) => setProcessTitle(e.target.value)}
-                  placeholder="Ej: Capa base, Lavado, Luces..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Descripción (opcional)</Label>
-                <Textarea
-                  value={processDesc}
-                  onChange={(e) => setProcessDesc(e.target.value)}
-                  placeholder="Descripción del paso..."
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Colores utilizados (separados por comas)</Label>
-                <Input
-                  value={processColors}
-                  onChange={(e) => setProcessColors(e.target.value)}
-                  placeholder="Ej: Abaddon Black, Retributor Armour, Nuln Oil..."
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddProcess(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleAddProcess} disabled={!processTitle.trim()}>
-                Añadir
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Delete Confirm */}
         <Dialog open={deleteConfirm} onOpenChange={setDeleteConfirm}>

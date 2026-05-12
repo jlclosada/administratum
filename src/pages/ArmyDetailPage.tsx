@@ -33,7 +33,7 @@ import type {
     MiniatureWithDetails,
     PaintStatusType
 } from "@/types";
-import { MINIATURE_CATEGORIES, PAINT_STATUSES } from "@/types";
+import { MINIATURE_CATEGORIES, PAINT_STATUSES, getCurrentPaintStep, getStatusesUpTo, isMiniatureComplete } from "@/types";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
     ArrowLeft,
@@ -45,6 +45,7 @@ import {
     ImageIcon,
     Mountain,
     Plus,
+    Search,
     Shield,
     Skull,
     Sword,
@@ -78,6 +79,20 @@ export function ArmyDetailPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [armyImages, setArmyImages] = useState<(MiniatureImage & { miniatureName: string })[]>([]);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterPaintStatus, setFilterPaintStatus] = useState<string>("all");
+
+  const filteredMiniatures = miniatures.filter((mini) => {
+    if (searchQuery && !mini.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (filterCategory !== "all" && mini.category !== filterCategory) return false;
+    if (filterPaintStatus === "complete" && !isMiniatureComplete(mini.statuses)) return false;
+    if (filterPaintStatus === "pending" && (isMiniatureComplete(mini.statuses) || mini.statuses.length === 0)) return false;
+    if (filterPaintStatus === "none" && mini.statuses.length > 0) return false;
+    return true;
+  });
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -126,12 +141,15 @@ export function ArmyDetailPage() {
     setFormPurchasedAt("");
   }
 
-  function toggleFormStatus(statusType: PaintStatusType) {
-    setFormStatuses((prev) =>
-      prev.includes(statusType)
-        ? prev.filter((s) => s !== statusType)
-        : [...prev, statusType]
-    );
+  function selectFormStep(statusType: PaintStatusType) {
+    const currentStep = getCurrentPaintStep(formStatuses);
+    if (currentStep && currentStep.type === statusType) {
+      // Clicking current → go back one step
+      const target = PAINT_STATUSES.find((s) => s.type === statusType);
+      setFormStatuses(PAINT_STATUSES.filter((s) => s.sortOrder < (target?.sortOrder ?? 0)).map((s) => s.type));
+    } else {
+      setFormStatuses(getStatusesUpTo(statusType));
+    }
   }
 
   async function handleCreate() {
@@ -142,6 +160,7 @@ export function ArmyDetailPage() {
         name: formName.trim(),
         category: formCategory,
         quantity: formQuantity,
+        paintedCount: isMiniatureComplete(formStatuses) ? formQuantity : 0,
         notes: formNotes,
         statuses: formStatuses,
         store: formStore.trim() || null,
@@ -246,6 +265,46 @@ export function ArmyDetailPage() {
           </Button>
         </div>
 
+        {/* Filter Bar */}
+        {miniatures.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar miniaturas..."
+                className="pl-9 h-9"
+              />
+            </div>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            >
+              <option value="all">Todas las categorías</option>
+              {MINIATURE_CATEGORIES.map((cat) => (
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
+              ))}
+            </select>
+            <select
+              value={filterPaintStatus}
+              onChange={(e) => setFilterPaintStatus(e.target.value)}
+              className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            >
+              <option value="all">Todo progreso</option>
+              <option value="complete">Completadas</option>
+              <option value="pending">En progreso</option>
+              <option value="none">Sin empezar</option>
+            </select>
+            {(searchQuery || filterCategory !== "all" || filterPaintStatus !== "all") && (
+              <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(""); setFilterCategory("all"); setFilterPaintStatus("all"); }}>
+                <X className="h-3.5 w-3.5 mr-1" /> Limpiar
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Miniatures Table */}
         {miniatures.length === 0 ? (
           <EmptyState
@@ -260,6 +319,13 @@ export function ArmyDetailPage() {
               },
             }}
           />
+        ) : filteredMiniatures.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">No se encontraron miniaturas con los filtros actuales</p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardContent className="p-0">
@@ -269,14 +335,15 @@ export function ArmyDetailPage() {
                     <tr className="border-b border-border">
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Miniatura</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoría</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Cant.</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Estados</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {miniatures.map((mini) => {
+                    {filteredMiniatures.map((mini) => {
                       const CatIcon = CATEGORY_ICONS[mini.category] ?? Box;
+                      const complete = isMiniatureComplete(mini.statuses);
+                      const currentStep = getCurrentPaintStep(mini.statuses);
                       return (
                         <tr
                           key={mini.id}
@@ -288,7 +355,10 @@ export function ArmyDetailPage() {
                               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                                 <CatIcon className="h-4 w-4 text-primary" />
                               </div>
-                              <span className="font-medium text-sm truncate">{mini.name}</span>
+                              <div className="min-w-0">
+                                <span className="font-medium text-sm truncate block">{mini.name}</span>
+                                <span className="text-xs text-muted-foreground">{mini.quantity}x</span>
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -297,31 +367,19 @@ export function ArmyDetailPage() {
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <Badge variant="secondary" className="text-xs">{mini.quantity}x</Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1">
-                              {PAINT_STATUSES.map((status) => {
-                                const active = mini.statuses.includes(status.type);
-                                return (
-                                  <div
-                                    key={status.type}
-                                    className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                                    style={{
-                                      backgroundColor: active ? `${status.color}20` : "transparent",
-                                      color: active ? status.color : "var(--muted-foreground)",
-                                      opacity: active ? 1 : 0.3,
-                                    }}
-                                  >
-                                    <div
-                                      className="h-1.5 w-1.5 rounded-full"
-                                      style={{ backgroundColor: active ? status.color : "var(--muted-foreground)" }}
-                                    />
-                                    {status.name}
-                                  </div>
-                                );
-                              })}
-                            </div>
+                            {complete ? (
+                              <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-500 text-xs">
+                                ✓ Completada
+                              </Badge>
+                            ) : currentStep ? (
+                              <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-xs">
+                                {currentStep.name}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                Sin empezar
+                              </Badge>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-1">
@@ -468,35 +526,44 @@ export function ArmyDetailPage() {
                     type="number"
                     min={1}
                     value={formQuantity}
-                    onChange={(e) => setFormQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) => {
+                      const val = Math.max(1, parseInt(e.target.value) || 1);
+                      setFormQuantity(val);
+                    }}
                   />
                 </div>
               </div>
 
-              {/* Status Checkboxes */}
+              {/* Step Selector */}
               <div className="space-y-2">
-                <Label>Estados de Pintura</Label>
-                <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3">
+                <Label>Estado actual</Label>
+                <div className="space-y-1 rounded-lg border border-border p-3">
                   {PAINT_STATUSES.map((status) => {
                     const active = formStatuses.includes(status.type);
+                    const currentStep = getCurrentPaintStep(formStatuses);
+                    const isCurrent = currentStep?.type === status.type;
                     return (
                       <button
                         key={status.type}
                         type="button"
-                        onClick={() => toggleFormStatus(status.type)}
-                        className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-all ${
-                          active ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-accent"
+                        onClick={() => selectFormStep(status.type)}
+                        className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-all ${
+                          isCurrent
+                            ? "bg-primary/15 text-foreground font-semibold"
+                            : active
+                              ? "bg-primary/5 text-foreground/80"
+                              : "text-muted-foreground hover:bg-accent"
                         }`}
                       >
                         <div
-                          className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-all ${
-                            active ? "border-primary bg-primary" : "border-muted-foreground/30"
+                          className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
+                            isCurrent ? "border-primary bg-primary" : active ? "border-primary/50 bg-primary/20" : "border-muted-foreground/30"
                           }`}
                         >
-                          {active && <Check className="h-3 w-3 text-primary-foreground" />}
+                          {active && <Check className={`h-3 w-3 ${isCurrent ? "text-primary-foreground" : "text-primary"}`} />}
                         </div>
-                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: status.color }} />
                         {status.name}
+                        {isCurrent && <span className="ml-auto text-xs text-primary">Actual</span>}
                       </button>
                     );
                   })}

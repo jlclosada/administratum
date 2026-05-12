@@ -8,15 +8,16 @@ import { useAppStore } from "@/stores";
 import type { ArmyWithStats } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    ClipboardList,
-    ImageIcon,
-    LayoutDashboard,
-    Settings,
-    Shield,
-    Swords,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  ImageIcon,
+  LayoutDashboard,
+  Palette,
+  Settings,
+  Shield,
+  Swords
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -24,6 +25,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/games", icon: Swords, label: "Juegos" },
+  { to: "/paints", icon: Palette, label: "Mis Pinturas" },
   { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
   { to: "/gallery", icon: ImageIcon, label: "Galería" },
   { to: "/settings", icon: Settings, label: "Ajustes" },
@@ -59,8 +61,8 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
-            <Shield className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg overflow-hidden">
+            <img src="/icon.png" alt="Administratum" className="h-9 w-9" />
           </div>
           <AnimatePresence>
             {!sidebarCollapsed && (
@@ -72,9 +74,8 @@ export function Sidebar() {
                 className="overflow-hidden whitespace-nowrap"
               >
                 <h1 className="font-display text-sm font-bold tracking-wider text-foreground">
-                  WARHAMMER
+                  ADMINISTRATUM
                 </h1>
-                <p className="font-display text-[10px] tracking-[0.3em] text-primary">VAULT</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -247,7 +248,7 @@ export function Sidebar() {
               exit={{ opacity: 0 }}
               className="px-4 pb-4"
             >
-              <p className="text-[10px] text-muted-foreground/50">v1.0.0</p>
+              <p className="text-[10px] text-muted-foreground/50">v1.1.0</p>
             </motion.div>
           )}
         </AnimatePresence>

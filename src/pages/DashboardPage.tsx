@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getDashboardStats } from "@/db";
 import type { DashboardStats } from "@/types";
-import { PAINT_STATUSES } from "@/types";
+import { PAINT_STATUSES, getCurrentPaintStep, isMiniatureComplete } from "@/types";
 import { motion } from "framer-motion";
 import { Check, Paintbrush, Shield, Sword, Target, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -251,25 +251,34 @@ export function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex flex-wrap gap-1">
-                        {(mini.statuses ?? []).map((statusType) => {
-                          const status = PAINT_STATUSES.find((s) => s.type === statusType);
-                          if (!status) return null;
+                      {(() => {
+                        const statuses = mini.statuses ?? [];
+                        const complete = isMiniatureComplete(statuses);
+                        const current = getCurrentPaintStep(statuses);
+                        if (complete) {
                           return (
-                            <div
-                              key={statusType}
-                              className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                              style={{
-                                backgroundColor: `${status.color}20`,
-                                color: status.color,
-                              }}
-                            >
+                            <div className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/20 text-emerald-500">
                               <Check className="h-2.5 w-2.5" />
-                              {status.name}
+                              Completada
                             </div>
                           );
-                        })}
-                      </div>
+                        }
+                        if (current) {
+                          return (
+                            <div
+                              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                              style={{ backgroundColor: `${current.color}20`, color: current.color }}
+                            >
+                              {current.name}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="rounded-full px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted">
+                            Sin empezar
+                          </div>
+                        );
+                      })()}
                     </div>
                   </motion.div>
                 ))}
