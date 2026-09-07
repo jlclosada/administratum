@@ -9,18 +9,23 @@ import type {
   ArmyListWithDetails,
   ArmyPreset,
   ArmyWithStats,
+  Article,
   CreateArmyDTO,
   CreateArmyListDTO,
   CreateArmyPresetDTO,
+  CreateArticleDTO,
   CreateGameDTO,
+  CreateGuideDTO,
   CreateMiniatureDTO,
   CreatePaintingProcessDTO,
   DashboardStats,
   Game,
+  GuideQuery,
   Miniature,
   MiniatureImage,
   MiniatureWithDetails,
   Paint,
+  PaintingGuide,
   PaintingProcess,
   PaintingProcessMedia,
   PaintingProcessMediaType,
@@ -28,7 +33,9 @@ import type {
   Tag,
   UpdateArmyDTO,
   UpdateArmyPresetDTO,
+  UpdateArticleDTO,
   UpdateGameDTO,
+  UpdateGuideDTO,
   UpdateMiniatureDTO,
   UserPaint,
 } from '@/types';
@@ -1179,5 +1186,231 @@ export async function updateArmyPreset(
 
 export async function deleteArmyPreset(id: string): Promise<void> {
   const { error } = await supabase.from('army_presets').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ======================== ARTICLES (ADMIN NEWS) ========================
+
+export async function getArticles(publishedOnly = true): Promise<Article[]> {
+  try {
+    let query = supabase
+      .from('articles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (publishedOnly) query = query.eq('published', true);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return mapRows<Article>(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function getArticleById(id: string): Promise<Article | null> {
+  const { data, error } = await supabase
+    .from('articles')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapRow<Article>(data);
+}
+
+export async function createArticle(dto: CreateArticleDTO): Promise<Article> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('articles')
+    .insert({
+      author_id: user?.id ?? null,
+      title: dto.title,
+      excerpt: dto.excerpt ?? '',
+      content: dto.content ?? null,
+      cover_image: dto.coverImage ?? null,
+      tags: dto.tags ?? [],
+      published: dto.published ?? true,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<Article>(data);
+}
+
+export async function updateArticle(dto: UpdateArticleDTO): Promise<Article> {
+  const payload: Record<string, unknown> = {};
+  if (dto.title !== undefined) payload.title = dto.title;
+  if (dto.excerpt !== undefined) payload.excerpt = dto.excerpt;
+  if (dto.content !== undefined) payload.content = dto.content;
+  if (dto.coverImage !== undefined) payload.cover_image = dto.coverImage;
+  if (dto.tags !== undefined) payload.tags = dto.tags;
+  if (dto.published !== undefined) payload.published = dto.published;
+
+  const { data, error } = await supabase
+    .from('articles')
+    .update(payload)
+    .eq('id', dto.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<Article>(data);
+}
+
+export async function deleteArticle(id: string): Promise<void> {
+  const { error } = await supabase.from('articles').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ======================== PAINTING GUIDES (COMMUNITY) ========================
+
+/** Average rating helper (0 when unrated). */
+export function guideRating(g: PaintingGuide): number {
+  return g.ratingCount > 0 ? g.ratingSum / g.ratingCount : 0;
+}
+
+export async function getGuides(
+  query: GuideQuery = {},
+): Promise<PaintingGuide[]> {
+  try {
+    let q = supabase.from('painting_guides').select('*');
+
+    if (query.userId) {
+      q = q.eq('user_id', query.userId);
+    } else {
+      q = q.eq('published', true);
+    }
+    if (query.gameName) q = q.eq('game_name', query.gameName);
+    if (query.tags && query.tags.length > 0) q = q.overlaps('tags', query.tags);
+    if (query.search && query.search.trim()) {
+      const term = query.search.trim().replace(/[%,]/g, ' ');
+      q = q.or(
+        `title.ilike.%${term}%,summary.ilike.%${term}%,army_name.ilike.%${term}%`,
+      );
+    }
+
+    const { data, error } = await q;
+    if (error || !data) return [];
+    const guides = mapRows<PaintingGuide>(data);
+
+    if (query.sort === 'top') {
+      guides.sort((a, b) => guideRating(b) - guideRating(a));
+    } else {
+      guides.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    }
+    return guides;
+  } catch {
+    return [];
+  }
+}
+
+export async function getGuideById(id: string): Promise<PaintingGuide | null> {
+  const { data, error } = await supabase
+    .from('painting_guides')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapRow<PaintingGuide>(data);
+}
+
+export async function createGuide(dto: CreateGuideDTO): Promise<PaintingGuide> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const authorName =
+    (user?.user_metadata?.display_name as string | undefined) ??
+    (user?.user_metadata?.full_name as string | undefined) ??
+    user?.email?.split('@')[0] ??
+    'Anónimo';
+
+  const { data, error } = await supabase
+    .from('painting_guides')
+    .insert({
+      author_name: authorName,
+      title: dto.title,
+      summary: dto.summary ?? '',
+      content: dto.content ?? null,
+      cover_image: dto.coverImage ?? null,
+      images: dto.images ?? [],
+      tags: dto.tags ?? [],
+      game_name: dto.gameName ?? null,
+      army_name: dto.armyName ?? null,
+      paints: dto.paints ?? [],
+      published: dto.published ?? true,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<PaintingGuide>(data);
+}
+
+export async function updateGuide(dto: UpdateGuideDTO): Promise<PaintingGuide> {
+  const payload: Record<string, unknown> = {};
+  if (dto.title !== undefined) payload.title = dto.title;
+  if (dto.summary !== undefined) payload.summary = dto.summary;
+  if (dto.content !== undefined) payload.content = dto.content;
+  if (dto.coverImage !== undefined) payload.cover_image = dto.coverImage;
+  if (dto.images !== undefined) payload.images = dto.images;
+  if (dto.tags !== undefined) payload.tags = dto.tags;
+  if (dto.gameName !== undefined) payload.game_name = dto.gameName;
+  if (dto.armyName !== undefined) payload.army_name = dto.armyName;
+  if (dto.paints !== undefined) payload.paints = dto.paints;
+  if (dto.published !== undefined) payload.published = dto.published;
+
+  const { data, error } = await supabase
+    .from('painting_guides')
+    .update(payload)
+    .eq('id', dto.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<PaintingGuide>(data);
+}
+
+export async function deleteGuide(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('painting_guides')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/** The current user's rating for a guide (0 if not rated yet). */
+export async function getMyGuideRating(guideId: string): Promise<number> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return 0;
+  const { data, error } = await supabase
+    .from('guide_ratings')
+    .select('rating')
+    .eq('guide_id', guideId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error || !data) return 0;
+  return Number((data as { rating: number }).rating) || 0;
+}
+
+/** Upsert the current user's rating (1..5) for a guide. */
+export async function rateGuide(
+  guideId: string,
+  rating: number,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('No hay sesión activa.');
+  const { error } = await supabase.from('guide_ratings').upsert(
+    {
+      guide_id: guideId,
+      user_id: user.id,
+      rating,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'guide_id,user_id' },
+  );
   if (error) throw error;
 }

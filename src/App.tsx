@@ -4,18 +4,25 @@ import { AdminPage } from "@/pages/AdminPage";
 import { ArmyDetailPage } from "@/pages/ArmyDetailPage";
 import { ArmyListDetailPage } from "@/pages/ArmyListDetailPage";
 import { ArmyListsPage } from "@/pages/ArmyListsPage";
+import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
+import { ArticleEditorPage } from "@/pages/ArticleEditorPage";
 import { AuthPage } from "@/pages/AuthPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { GalleryPage } from "@/pages/GalleryPage";
 import { GameDetailPage } from "@/pages/GameDetailPage";
 import { GamesPage } from "@/pages/GamesPage";
+import { GuideDetailPage } from "@/pages/GuideDetailPage";
+import { GuideEditorPage } from "@/pages/GuideEditorPage";
+import { GuidesPage } from "@/pages/GuidesPage";
+import { HomePage } from "@/pages/HomePage";
+import { LandingPage } from "@/pages/LandingPage";
 import { MiniatureDetailPage } from "@/pages/MiniatureDetailPage";
 import { MyPaintsPage } from "@/pages/MyPaintsPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useAuthStore } from "@/stores";
 import { AnimatePresence } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
@@ -26,7 +33,15 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<AppLayout />}>
-          <Route index element={<DashboardPage />} />
+          <Route index element={<HomePage />} />
+          <Route path="articulos/nuevo" element={<ArticleEditorPage />} />
+          <Route path="articulos/:articleId" element={<ArticleDetailPage />} />
+          <Route path="articulos/:articleId/editar" element={<ArticleEditorPage />} />
+          <Route path="guias" element={<GuidesPage />} />
+          <Route path="guias/nueva" element={<GuideEditorPage />} />
+          <Route path="guias/:guideId" element={<GuideDetailPage />} />
+          <Route path="guias/:guideId/editar" element={<GuideEditorPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
           <Route path="games" element={<GamesPage />} />
           <Route path="games/:gameId" element={<GameDetailPage />} />
           <Route path="games/:gameId/armies/:armyId" element={<ArmyDetailPage />} />
@@ -45,6 +60,7 @@ function AnimatedRoutes() {
 
 export default function App() {
   const { user, initialized, init, recoveryMode } = useAuthStore();
+  const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
 
   useEffect(() => {
     init();
@@ -86,7 +102,11 @@ export default function App() {
   if (!user) {
     return (
       <>
-        <AuthPage />
+        {authMode ? (
+          <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} />
+        ) : (
+          <LandingPage onEnter={(mode) => setAuthMode(mode ?? "login")} />
+        )}
         {toaster}
       </>
     );

@@ -34,3 +34,4 @@ src-tauri/gen/
 # Logs
 *.log
 npm-debug.log*
+*.tsbuildinfo

@@ -94,6 +94,56 @@
     user-select: none;
     -webkit-user-select: none;
   }
+
+  /* Rich text (TipTap) content */
+  .prose-editor h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 1.4em 0 0.5em;
+    color: hsl(var(--foreground));
+  }
+  .prose-editor p {
+    margin: 0.7em 0;
+    color: hsl(var(--foreground) / 0.85);
+    line-height: 1.75;
+  }
+  .prose-editor ul,
+  .prose-editor ol {
+    margin: 0.7em 0;
+    padding-left: 1.4em;
+    color: hsl(var(--foreground) / 0.85);
+  }
+  .prose-editor ul {
+    list-style: disc;
+  }
+  .prose-editor ol {
+    list-style: decimal;
+  }
+  .prose-editor li {
+    margin: 0.3em 0;
+  }
+  .prose-editor blockquote {
+    border-left: 3px solid hsl(var(--brand));
+    padding-left: 1em;
+    margin: 1em 0;
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
+  }
+  .prose-editor strong {
+    color: hsl(var(--foreground));
+    font-weight: 600;
+  }
+  .prose-editor img {
+    border-radius: 0.85rem;
+    margin: 1em 0;
+    max-width: 100%;
+    height: auto;
+  }
+  .prose-editor a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+  }
 }
 
 @layer utilities {

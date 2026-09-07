@@ -367,4 +367,159 @@ create policy "army_presets_admin_write" on public.army_presets
   using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
   with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
 
+-- ============================================================
+-- Community: Articles (admin-authored news)
+-- ============================================================
+-- News/articles written by the admin. Readable by everyone (even logged-out),
+-- but only the admin can create/edit/delete. Content is stored as TipTap JSON.
+--
+-- IMPORTANT: replace 'jlcaclosada@gmail.com' with the admin email if needed.
+create table if not exists public.articles (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid references auth.users (id) on delete set null,
+  title text not null,
+  excerpt text not null default '',
+  content jsonb,
+  cover_image text,
+  tags text[] not null default '{}',
+  published boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_articles_created
+  on public.articles (created_at desc);
+
+drop trigger if exists set_updated_at on public.articles;
+create trigger set_updated_at before update on public.articles
+  for each row execute function public.set_updated_at();
+
+alter table public.articles enable row level security;
+
+drop policy if exists "articles_read" on public.articles;
+drop policy if exists "articles_admin_write" on public.articles;
+
+-- Everyone can read published articles; the admin can also read drafts.
+create policy "articles_read" on public.articles
+  for select to anon, authenticated
+  using (published or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+-- Only the admin can create / edit / delete articles.
+create policy "articles_admin_write" on public.articles
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+-- ============================================================
+-- Community: Painting guides (user-authored)
+-- ============================================================
+-- Tutorials/guides published by any user. Readable by everyone when published;
+-- authors manage their own. Community rates them 1..5 (see guide_ratings).
+create table if not exists public.painting_guides (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  author_name text not null default '',
+  title text not null,
+  summary text not null default '',
+  content jsonb,
+  cover_image text,
+  images text[] not null default '{}',
+  tags text[] not null default '{}',
+  game_name text,
+  army_name text,
+  paints jsonb not null default '[]',
+  rating_sum integer not null default 0,
+  rating_count integer not null default 0,
+  published boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_guides_created
+  on public.painting_guides (created_at desc);
+create index if not exists idx_guides_user
+  on public.painting_guides (user_id);
+
+drop trigger if exists set_updated_at on public.painting_guides;
+create trigger set_updated_at before update on public.painting_guides
+  for each row execute function public.set_updated_at();
+
+alter table public.painting_guides enable row level security;
+
+drop policy if exists "guides_read" on public.painting_guides;
+drop policy if exists "guides_insert" on public.painting_guides;
+drop policy if exists "guides_update" on public.painting_guides;
+drop policy if exists "guides_delete" on public.painting_guides;
+
+create policy "guides_read" on public.painting_guides
+  for select to anon, authenticated
+  using (published or user_id = auth.uid());
+
+create policy "guides_insert" on public.painting_guides
+  for insert to authenticated with check (user_id = auth.uid());
+
+create policy "guides_update" on public.painting_guides
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy "guides_delete" on public.painting_guides
+  for delete to authenticated using (user_id = auth.uid());
+
+-- ---------- Community ratings ----------
+create table if not exists public.guide_ratings (
+  id uuid primary key default gen_random_uuid(),
+  guide_id uuid not null references public.painting_guides (id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  rating integer not null check (rating between 1 and 5),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (guide_id, user_id)
+);
+
+create index if not exists idx_guide_ratings_guide
+  on public.guide_ratings (guide_id);
+
+alter table public.guide_ratings enable row level security;
+
+drop policy if exists "guide_ratings_read" on public.guide_ratings;
+drop policy if exists "guide_ratings_insert" on public.guide_ratings;
+drop policy if exists "guide_ratings_update" on public.guide_ratings;
+drop policy if exists "guide_ratings_delete" on public.guide_ratings;
+
+create policy "guide_ratings_read" on public.guide_ratings
+  for select to authenticated using (true);
+create policy "guide_ratings_insert" on public.guide_ratings
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "guide_ratings_update" on public.guide_ratings
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "guide_ratings_delete" on public.guide_ratings
+  for delete to authenticated using (user_id = auth.uid());
+
+-- Keep rating_sum / rating_count on painting_guides in sync.
+-- SECURITY DEFINER so a rater (not the guide owner) can update the aggregate.
+create or replace function public.recalc_guide_rating()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare gid uuid;
+begin
+  gid := coalesce(new.guide_id, old.guide_id);
+  update public.painting_guides g set
+    rating_sum = coalesce(
+      (select sum(rating) from public.guide_ratings where guide_id = gid), 0),
+    rating_count = coalesce(
+      (select count(*) from public.guide_ratings where guide_id = gid), 0)
+  where g.id = gid;
+  return null;
+end;
+$$;
+
+drop trigger if exists guide_rating_change on public.guide_ratings;
+create trigger guide_rating_change
+  after insert or update or delete on public.guide_ratings
+  for each row execute function public.recalc_guide_rating();
+
 

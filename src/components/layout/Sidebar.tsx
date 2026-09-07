@@ -8,10 +8,12 @@ import { useAppStore, useAuthStore } from "@/stores";
 import type { ArmyWithStats } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+    BookOpen,
     ChevronDown,
     ChevronLeft,
     ChevronRight,
     ClipboardList,
+    Home,
     ImageIcon,
     LayoutDashboard,
     LogOut,
@@ -25,7 +27,9 @@ import { useCallback, useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/", icon: Home, label: "Inicio" },
+  { to: "/guias", icon: BookOpen, label: "Guías de pintura" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/games", icon: Swords, label: "Juegos" },
   { to: "/paints", icon: Palette, label: "Mis Pinturas" },
   { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
@@ -71,9 +75,6 @@ export function Sidebar() {
         <div className="flex h-16 items-center gap-3 px-4">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex h-9 w-9 shrink-0 cursor-default items-center justify-center rounded-xl bg-brand-gradient glow-sm">
-                <span className="font-display text-lg font-black leading-none text-white">A</span>
-              </div>
             </TooltipTrigger>
             <TooltipContent side="right">Administratum · v1.1.0</TooltipContent>
           </Tooltip>

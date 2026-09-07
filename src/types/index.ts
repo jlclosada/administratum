@@ -411,6 +411,101 @@ export interface AppConfig {
   signupsEnabled: boolean;
 }
 
+// ---------- Community: Articles (admin news) ----------
+/** Rich-text document stored as TipTap JSON. */
+export type RichContent = Record<string, unknown> | null;
+
+export interface Article extends BaseEntity {
+  authorId: string | null;
+  title: string;
+  excerpt: string;
+  content: RichContent;
+  coverImage: string | null;
+  tags: string[];
+  published: boolean;
+}
+
+export interface CreateArticleDTO {
+  title: string;
+  excerpt?: string;
+  content?: RichContent;
+  coverImage?: string | null;
+  tags?: string[];
+  published?: boolean;
+}
+
+export interface UpdateArticleDTO {
+  id: string;
+  title?: string;
+  excerpt?: string;
+  content?: RichContent;
+  coverImage?: string | null;
+  tags?: string[];
+  published?: boolean;
+}
+
+// ---------- Community: Painting guides (user-authored) ----------
+/** A paint referenced inside a guide. */
+export interface GuidePaint {
+  id: string;
+  name: string;
+  hex?: string;
+}
+
+export interface PaintingGuide extends BaseEntity {
+  userId: string;
+  authorName: string;
+  title: string;
+  summary: string;
+  content: RichContent;
+  coverImage: string | null;
+  images: string[];
+  tags: string[];
+  gameName: string | null;
+  armyName: string | null;
+  paints: GuidePaint[];
+  ratingSum: number;
+  ratingCount: number;
+  published: boolean;
+}
+
+export interface CreateGuideDTO {
+  title: string;
+  summary?: string;
+  content?: RichContent;
+  coverImage?: string | null;
+  images?: string[];
+  tags?: string[];
+  gameName?: string | null;
+  armyName?: string | null;
+  paints?: GuidePaint[];
+  published?: boolean;
+}
+
+export interface UpdateGuideDTO {
+  id: string;
+  title?: string;
+  summary?: string;
+  content?: RichContent;
+  coverImage?: string | null;
+  images?: string[];
+  tags?: string[];
+  gameName?: string | null;
+  armyName?: string | null;
+  paints?: GuidePaint[];
+  published?: boolean;
+}
+
+export type GuideSort = 'recent' | 'top';
+
+export interface GuideQuery {
+  search?: string;
+  tags?: string[];
+  gameName?: string | null;
+  sort?: GuideSort;
+  userId?: string;
+}
+
 export const PRESET_GAMES: PresetGame[] = [
   {
     name: 'Warhammer 40,000',

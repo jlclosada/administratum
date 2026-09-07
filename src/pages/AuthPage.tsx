@@ -115,9 +115,15 @@ function Field({
   );
 }
 
-export function AuthPage() {
+export function AuthPage({
+  initialMode = "login",
+  onBack,
+}: {
+  initialMode?: Mode;
+  onBack?: () => void;
+} = {}) {
   const { signIn, signUp, resetPassword, loading } = useAuthStore();
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -272,6 +278,16 @@ export function AuthPage() {
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="w-full max-w-md"
         >
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Volver al inicio
+            </button>
+          )}
           {/* Mobile logo */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient glow-sm">
