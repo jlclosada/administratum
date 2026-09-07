@@ -1,8 +1,8 @@
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getAllArmies } from "@/db";
+import { useIsAdmin } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import { useAppStore, useAuthStore } from "@/stores";
 import type { ArmyWithStats } from "@/types";
@@ -18,6 +18,7 @@ import {
     Palette,
     Settings,
     Shield,
+    ShieldCheck,
     Swords
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -35,6 +36,11 @@ const navItems = [
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebarCollapse } = useAppStore();
   const { user, signOut } = useAuthStore();
+  const isAdmin = useIsAdmin();
+  const displayName =
+    (user?.user_metadata?.display_name as string | undefined) ??
+    (user?.user_metadata?.full_name as string | undefined) ??
+    "";
   const location = useLocation();
   const navigate = useNavigate();
   const [armies, setArmies] = useState<(ArmyWithStats & { gameName: string })[]>([]);
@@ -59,13 +65,18 @@ export function Sidebar() {
         initial={false}
         animate={{ width: sidebarCollapsed ? 72 : 240 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="relative flex h-screen flex-col border-r border-border bg-card/50 backdrop-blur-sm"
+        className="relative flex h-screen flex-col border-r border-border/70 bg-card/40 backdrop-blur-xl"
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg overflow-hidden">
-            <img src="/icon.png" alt="Administratum" className="h-9 w-9" />
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex h-9 w-9 shrink-0 cursor-default items-center justify-center rounded-xl bg-brand-gradient glow-sm">
+                <span className="font-display text-lg font-black leading-none text-white">A</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right">Administratum · v1.1.0</TooltipContent>
+          </Tooltip>
           <AnimatePresence>
             {!sidebarCollapsed && (
               <motion.div
@@ -75,7 +86,7 @@ export function Sidebar() {
                 transition={{ duration: 0.15 }}
                 className="overflow-hidden whitespace-nowrap"
               >
-                <h1 className="font-display text-sm font-bold tracking-wider text-foreground">
+                <h1 className="font-display text-sm font-bold tracking-[0.18em] text-foreground">
                   ADMINISTRATUM
                 </h1>
               </motion.div>
@@ -83,12 +94,29 @@ export function Sidebar() {
           </AnimatePresence>
         </div>
 
+        {/* Floating collapse toggle */}
+        <button
+          type="button"
+          onClick={toggleSidebarCollapse}
+          aria-label={sidebarCollapsed ? "Expandir menú" : "Contraer menú"}
+          className="absolute -right-3 top-[52px] z-30 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-md transition-all hover:border-primary/40 hover:text-foreground hover:shadow-lg"
+        >
+          {sidebarCollapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronLeft className="h-3.5 w-3.5" />
+          )}
+        </button>
+
         <Separator />
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
           <nav className="space-y-1 px-3 py-4">
-            {navItems.map((item) => {
+            {(isAdmin
+              ? [...navItems, { to: "/admin", icon: ShieldCheck, label: "Administración" }]
+              : navItems
+            ).map((item) => {
               const isActive =
                 item.to === "/"
                   ? location.pathname === "/"
@@ -99,13 +127,21 @@ export function Sidebar() {
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                    "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                     isActive
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-brand-soft text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
-                  <item.icon className="h-5 w-5 shrink-0" />
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand-gradient" />
+                  )}
+                  <item.icon
+                    className={cn(
+                      "h-5 w-5 shrink-0 transition-colors",
+                      isActive && "text-primary"
+                    )}
+                  />
                   <AnimatePresence>
                     {!sidebarCollapsed && (
                       <motion.span
@@ -226,67 +262,72 @@ export function Sidebar() {
         <Separator />
 
         {/* Account */}
-        <div className="p-3">
+        <div className="space-y-1.5 p-3">
           {sidebarCollapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => signOut()} className="w-full">
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Cerrar sesión</TooltipContent>
-            </Tooltip>
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/settings")}
+                    className="flex w-full items-center justify-center rounded-lg py-1.5 transition-all hover:bg-accent"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-sm font-bold uppercase text-white">
+                      {(displayName || user?.email || "?").charAt(0)}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Mi perfil</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => signOut()}
+                    className="flex w-full items-center justify-center rounded-lg py-2 text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Cerrar sesión</TooltipContent>
+              </Tooltip>
+            </>
           ) : (
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs text-muted-foreground" title={user?.email ?? undefined}>
-                  {user?.email}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => signOut()}
-                className="h-8 w-8 shrink-0"
-                title="Cerrar sesión"
+            <>
+              {/* Profile — opens settings */}
+              <button
+                type="button"
+                onClick={() => navigate("/settings")}
+                className="group flex w-full items-center gap-2.5 rounded-xl border border-border/60 bg-card/40 p-2 text-left transition-all hover:border-primary/40 hover:bg-accent"
               >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-gradient text-sm font-bold uppercase text-white">
+                  {(displayName || user?.email || "?").charAt(0)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-foreground">
+                    {displayName || "Mi perfil"}
+                  </span>
+                  <span
+                    className="block truncate text-xs text-muted-foreground"
+                    title={user?.email ?? undefined}
+                  >
+                    {user?.email}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+              </button>
+              {/* Logout — distinct action */}
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                Cerrar sesión
+              </button>
+            </>
           )}
         </div>
-
-        <Separator />
-
-        {/* Collapse toggle */}
-        <div className="p-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebarCollapse}
-            className="w-full"
-          >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        {/* Version */}
-        <AnimatePresence>
-          {!sidebarCollapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="px-4 pb-4"
-            >
-              <p className="text-[10px] text-muted-foreground/50">v1.1.0</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.aside>
     </TooltipProvider>
   );

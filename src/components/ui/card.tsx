@@ -1,12 +1,23 @@
 import { cn } from "@/lib/utils";
 import * as React from "react";
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Visual style. `glass` applies the premium glassmorphism treatment. */
+  variant?: "default" | "glass";
+  /** Adds a lift + glow effect on hover. */
+  interactive?: boolean;
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant = "glass", interactive = false, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        "rounded-xl border border-border bg-card text-card-foreground shadow-sm",
+        "rounded-2xl text-card-foreground",
+        variant === "glass"
+          ? "glass-card"
+          : "border border-border bg-card shadow-sm",
+        interactive && "hover-glow cursor-pointer",
         className
       )}
       {...props}

@@ -23,30 +23,40 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 262.1 83.3% 57.8%;
-    --radius: 0.75rem;
+    --radius: 0.85rem;
+
+    /* Brand accents */
+    --brand: 262 83% 58%;
+    --brand-2: 322 82% 60%;
+    --brand-3: 38 95% 55%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
+    --background: 240 14% 4.5%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 6%;
+    --card: 240 12% 7.5%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 6%;
+    --popover: 240 13% 6.5%;
     --popover-foreground: 0 0% 98%;
-    --primary: 263 70% 58%;
+    --primary: 263 85% 66%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 3.7% 15.9%;
+    --secondary: 240 6% 14%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
+    --muted: 240 6% 13%;
+    --muted-foreground: 240 6% 63%;
+    --accent: 240 6% 15%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 50.6%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 263 70% 58%;
-    --radius: 0.75rem;
+    --border: 240 6% 16%;
+    --input: 240 6% 17%;
+    --ring: 263 85% 66%;
+    --radius: 0.85rem;
+
+    /* Brand accents */
+    --brand: 263 85% 66%;
+    --brand-2: 322 85% 63%;
+    --brand-3: 38 95% 58%;
   }
 }
 
@@ -88,9 +98,223 @@
 
 @layer utilities {
   .glass {
-    background: hsl(var(--card) / 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* Brand text gradient */
+  .text-gradient {
+    background-image: linear-gradient(
+      120deg,
+      hsl(var(--brand)) 0%,
+      hsl(var(--brand-2)) 55%,
+      hsl(var(--brand-3)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Brand background gradient */
+  .bg-brand-gradient {
+    background-image: linear-gradient(
+      120deg,
+      hsl(var(--brand)) 0%,
+      hsl(var(--brand-2)) 55%,
+      hsl(var(--brand-3)) 100%
+    );
+  }
+
+  .bg-brand-soft {
+    background-image: linear-gradient(
+      135deg,
+      hsl(var(--brand) / 0.16) 0%,
+      hsl(var(--brand-2) / 0.12) 100%
+    );
+  }
+
+  /* Glow shadows */
+  .glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--brand) / 0.25),
+      0 8px 30px -6px hsl(var(--brand) / 0.45);
+  }
+  .glow-sm {
+    box-shadow: 0 4px 20px -6px hsl(var(--brand) / 0.5);
+  }
+
+  /* Subtle grid pattern */
+  .grid-pattern {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  /* Radial spotlight */
+  .spotlight {
+    background: radial-gradient(
+      60% 60% at 50% 0%,
+      hsl(var(--brand) / 0.18) 0%,
+      transparent 70%
+    );
+  }
+
+  .animate-float {
+    animation: float 8s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float 12s ease-in-out infinite;
+  }
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-pan 6s ease infinite;
+  }
+
+  /* Premium glass card */
+  .glass-card {
+    position: relative;
+    background: linear-gradient(
+      160deg,
+      hsl(var(--card) / 0.85) 0%,
+      hsl(var(--card) / 0.55) 100%
+    );
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid hsl(0 0% 100% / 0.06);
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.05) inset,
+      0 10px 40px -12px hsl(240 30% 2% / 0.6);
+  }
+  .glass-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(160deg, hsl(0 0% 100% / 0.12), transparent 40%);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Hover lift + glow */
+  .hover-glow {
+    transition:
+      transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.35s ease,
+      border-color 0.35s ease;
+  }
+  .hover-glow:hover {
+    transform: translateY(-4px);
+    border-color: hsl(var(--brand) / 0.4);
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.06) inset,
+      0 18px 50px -14px hsl(var(--brand) / 0.5);
+  }
+
+  /* Shimmer sweep */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      hsl(0 0% 100% / 0.08) 50%,
+      transparent 70%
+    );
+    transform: translateX(-100%);
+    transition: transform 0.8s ease;
+  }
+  .shimmer:hover::before {
+    transform: translateX(100%);
+  }
+
+  /* Animated aurora backdrop */
+  .aurora {
+    position: absolute;
+    inset: -20% -10% auto -10%;
+    height: 70vh;
+    filter: blur(90px);
+    opacity: 0.5;
+    background:
+      radial-gradient(
+        40% 50% at 20% 30%,
+        hsl(var(--brand) / 0.6),
+        transparent 60%
+      ),
+      radial-gradient(
+        35% 45% at 75% 25%,
+        hsl(var(--brand-2) / 0.5),
+        transparent 60%
+      ),
+      radial-gradient(
+        45% 55% at 55% 60%,
+        hsl(var(--brand-3) / 0.35),
+        transparent 60%
+      );
+    background-size: 200% 200%;
+    animation: aurora-pan 18s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+}
+
+@keyframes aurora-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+    transform: translateY(0);
+  }
+  50% {
+    background-position: 100% 50%;
+    transform: translateY(-3%);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-18px) translateX(8px);
+  }
+}
+
+@keyframes gradient-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }
 

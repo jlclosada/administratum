@@ -36,6 +36,30 @@ export async function removeFileByUrl(
 }
 
 /**
+ * Delete every file the current user has stored under their `${userId}/` prefix.
+ * Best-effort: used when a user deletes their account. Iterates known folders.
+ */
+export async function removeAllUserFiles(): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const folders = ['covers', 'miniatures', 'process', 'lists', 'pdfs', 'misc'];
+  const bucket = supabase.storage.from(STORAGE_BUCKET);
+
+  for (const folder of folders) {
+    const prefix = `${user.id}/${folder}`;
+    const { data, error } = await bucket.list(prefix, { limit: 1000 });
+    if (error || !data?.length) continue;
+    const paths = data
+      .filter((item) => item.id !== null)
+      .map((item) => `${prefix}/${item.name}`);
+    if (paths.length) await bucket.remove(paths);
+  }
+}
+
+/**
  * Open the native file picker in the browser and resolve with the selected files.
  * Replacement for the Tauri dialog `open()`.
  */

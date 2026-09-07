@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { AdminPage } from "@/pages/AdminPage";
 import { ArmyDetailPage } from "@/pages/ArmyDetailPage";
 import { ArmyListDetailPage } from "@/pages/ArmyListDetailPage";
 import { ArmyListsPage } from "@/pages/ArmyListsPage";
@@ -10,11 +11,13 @@ import { GameDetailPage } from "@/pages/GameDetailPage";
 import { GamesPage } from "@/pages/GamesPage";
 import { MiniatureDetailPage } from "@/pages/MiniatureDetailPage";
 import { MyPaintsPage } from "@/pages/MyPaintsPage";
+import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useAuthStore } from "@/stores";
 import { AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { Toaster } from "sonner";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -33,6 +36,7 @@ function AnimatedRoutes() {
           <Route path="lists/:listId" element={<ArmyListDetailPage />} />
           <Route path="gallery" element={<GalleryPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="admin" element={<AdminPage />} />
         </Route>
       </Routes>
     </AnimatePresence>
@@ -40,27 +44,58 @@ function AnimatedRoutes() {
 }
 
 export default function App() {
-  const { user, initialized, init } = useAuthStore();
+  const { user, initialized, init, recoveryMode } = useAuthStore();
 
   useEffect(() => {
     init();
   }, [init]);
 
+  const toaster = (
+    <Toaster
+      position="bottom-right"
+      theme="dark"
+      toastOptions={{
+        style: {
+          background: "hsl(240 12% 7.5% / 0.85)",
+          border: "1px solid hsl(240 6% 16%)",
+          backdropFilter: "blur(16px)",
+          color: "hsl(0 0% 98%)",
+        },
+      }}
+    />
+  );
+
   if (!initialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <LoadingSpinner />
+        <LoadingSpinner size="lg" text="Cargando..." />
       </div>
     );
   }
 
+  // User arrived from a password-recovery email link: let them set a new password.
+  if (recoveryMode) {
+    return (
+      <>
+        <ResetPasswordScreen />
+        {toaster}
+      </>
+    );
+  }
+
   if (!user) {
-    return <AuthPage />;
+    return (
+      <>
+        <AuthPage />
+        {toaster}
+      </>
+    );
   }
 
   return (
     <BrowserRouter>
       <AnimatedRoutes />
+      {toaster}
     </BrowserRouter>
   );
 }

@@ -78,7 +78,9 @@ export function DashboardPage() {
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">
+            <span className="text-gradient animate-gradient">Dashboard</span>
+          </h1>
           <p className="text-muted-foreground">Resumen de tu colección de miniaturas</p>
         </div>
 
@@ -237,10 +239,11 @@ export function DashboardPage() {
                     key={mini.id}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center justify-between rounded-lg border border-border bg-card/50 p-3"
+                    whileHover={{ x: 4 }}
+                    className="flex items-center justify-between rounded-xl border border-border/60 bg-card/40 p-3 backdrop-blur-sm transition-colors hover:border-primary/30"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lg">
                         <Sword className="h-5 w-5" />
                       </div>
                       <div>

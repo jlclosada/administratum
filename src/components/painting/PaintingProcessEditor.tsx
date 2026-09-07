@@ -754,7 +754,7 @@ export function PaintingProcessEditor({ miniature, onUpdate }: PaintingProcessEd
           pdf.setFontSize(9);
           pdf.setFont("helvetica", "italic");
           pdf.setTextColor(150, 150, 150);
-          pdf.text(`📷 ${images.length} imagen(es) adjunta(s)`, margin + 12, y);
+          pdf.text(`${images.length} imagen(es) adjunta(s)`, margin + 12, y);
           y += 6;
         }
 

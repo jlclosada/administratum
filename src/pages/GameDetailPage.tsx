@@ -14,9 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createArmy, deleteArmy, getArmiesByGame, getGameById } from "@/db";
+import { createArmy, deleteArmy, getArmiesByGame, getArmyPresets, getGameById } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
-import type { ArmyWithStats, Game } from "@/types";
+import type { ArmyPreset, ArmyWithStats, Game } from "@/types";
+import { PRESET_ARMIES } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
@@ -24,18 +25,28 @@ import {
     ImageIcon,
     Plus,
     Shield,
+    Swords,
     Trash2
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
+type FactionOption = {
+  name: string;
+  description: string;
+  color: string;
+  image: string | null;
+};
 
 export function GameDetailPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const [game, setGame] = useState<Game | null>(null);
   const [armies, setArmies] = useState<ArmyWithStats[]>([]);
+  const [dbPresets, setDbPresets] = useState<ArmyPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createMode, setCreateMode] = useState<"select" | "custom">("select");
   const [newArmyName, setNewArmyName] = useState("");
   const [newArmyDesc, setNewArmyDesc] = useState("");
   const [newArmyColor, setNewArmyColor] = useState("#8b5cf6");
@@ -52,6 +63,10 @@ export function GameDetailPage() {
       ]);
       setGame(gameData);
       setArmies(armyData);
+      if (gameData) {
+        const presets = await getArmyPresets(gameData.name);
+        setDbPresets(presets);
+      }
     } catch (err) {
       console.error("Failed to load game:", err);
     } finally {
@@ -99,6 +114,25 @@ export function GameDetailPage() {
     }
   }
 
+  async function handleSelectPresetArmy(preset: FactionOption) {
+    if (!gameId) return;
+    try {
+      await createArmy({
+        gameId,
+        name: preset.name,
+        description: preset.description,
+        colorPrimary: preset.color,
+        coverImage: preset.image,
+        startDate: null,
+      });
+      setShowCreateDialog(false);
+      setCreateMode("select");
+      await loadData();
+    } catch (err) {
+      console.error("Failed to create preset army:", err);
+    }
+  }
+
   async function handleDeleteArmy(id: string) {
     try {
       await deleteArmy(id);
@@ -133,26 +167,64 @@ export function GameDetailPage() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/games")}>
+        {/* Hero header */}
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 shadow-lg">
+          <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-background sm:aspect-[3/1]">
+            {game.coverImage || game.icon ? (
+              <img
+                src={(game.coverImage || game.icon) as string}
+                alt={game.name}
+                className="absolute inset-0 h-full w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Swords className="h-24 w-24 text-primary/25" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+            {/* Back button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/games")}
+              className="absolute left-3 top-3 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 hover:text-white"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="font-display text-3xl font-bold tracking-tight">{game.name}</h1>
-              <p className="text-muted-foreground">{game.description}</p>
-              <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{armies.length} ejércitos</span>
-                <span>{totalMinis} miniaturas</span>
-                <span>{totalPainted} pintadas</span>
+            {/* Content */}
+            <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-4 p-5 sm:p-6">
+              <div className="min-w-0">
+                <h1 className="font-display text-3xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
+                  {game.name}
+                </h1>
+                {game.description && (
+                  <p className="mt-1 max-w-xl text-sm text-white/75">{game.description}</p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-white/90">
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm">
+                    {armies.length} ejércitos
+                  </span>
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm">
+                    {totalMinis} miniaturas
+                  </span>
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm">
+                    {totalPainted} pintadas
+                  </span>
+                </div>
               </div>
+              <Button
+                onClick={() => setShowCreateDialog(true)}
+                variant="gradient"
+                className="gap-2 shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo Ejército
+              </Button>
             </div>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nuevo Ejército
-          </Button>
         </div>
 
         {/* Armies Grid */}
@@ -270,76 +342,186 @@ export function GameDetailPage() {
         )}
 
         {/* Create Army Dialog */}
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent>
+        <Dialog
+          open={showCreateDialog}
+          onOpenChange={(open) => {
+            setShowCreateDialog(open);
+            if (!open) setCreateMode("select");
+          }}
+        >
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Nuevo Ejército</DialogTitle>
               <DialogDescription>
-                Crea un ejército para {game.name}
+                {createMode === "select"
+                  ? `Elige una facción de ${game.name} o crea una personalizada`
+                  : `Crea un ejército personalizado para ${game.name}`}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="army-name">Nombre</Label>
-                <Input
-                  id="army-name"
-                  value={newArmyName}
-                  onChange={(e) => setNewArmyName(e.target.value)}
-                  placeholder="Ej: Mil Hijos, Ultramarines..."
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateArmy()}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="army-desc">Descripción (opcional)</Label>
-                <Textarea
-                  id="army-desc"
-                  value={newArmyDesc}
-                  onChange={(e) => setNewArmyDesc(e.target.value)}
-                  placeholder="Notas del ejército..."
-                  rows={2}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="army-color">Color</Label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    id="army-color"
-                    value={newArmyColor}
-                    onChange={(e) => setNewArmyColor(e.target.value)}
-                    className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent"
-                  />
-                  <span className="text-sm text-muted-foreground">{newArmyColor}</span>
+
+            {createMode === "select" ? (
+              (() => {
+                const source: FactionOption[] =
+                  dbPresets.length > 0
+                    ? dbPresets.map((p) => ({
+                        name: p.name,
+                        description: p.description,
+                        color: p.color,
+                        image: p.image,
+                      }))
+                    : (PRESET_ARMIES[game.name] ?? []).map((p) => ({
+                        name: p.name,
+                        description: p.description,
+                        color: p.color,
+                        image: null,
+                      }));
+                const presets = source.filter(
+                  (p) => !armies.some((a) => a.name === p.name)
+                );
+                return (
+                  <div className="space-y-4">
+                    {presets.length > 0 && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {presets.map((preset) => (
+                          <motion.button
+                            key={preset.name}
+                            type="button"
+                            whileHover={{ y: -3 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => handleSelectPresetArmy(preset)}
+                            className="group relative overflow-hidden rounded-xl border border-border/60 text-left transition-all hover:border-primary/50 hover:shadow-lg"
+                          >
+                            {preset.image ? (
+                              <div className="relative aspect-[16/10] w-full overflow-hidden">
+                                <img
+                                  src={preset.image}
+                                  alt={preset.name}
+                                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.opacity = "0";
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                                <div className="absolute inset-x-0 bottom-0 p-2.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/40"
+                                      style={{ backgroundColor: preset.color }}
+                                    />
+                                    <span className="truncate text-sm font-semibold text-white drop-shadow">
+                                      {preset.name}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow transition-all group-hover:opacity-100">
+                                  <Plus className="h-3.5 w-3.5" />
+                                </span>
+                              </div>
+                            ) : (
+                              <div
+                                className="relative p-3"
+                                style={{
+                                  background: `linear-gradient(135deg, ${preset.color}22 0%, transparent 100%)`,
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="h-3.5 w-3.5 shrink-0 rounded-full border border-white/30"
+                                    style={{ backgroundColor: preset.color }}
+                                  />
+                                  <span className="truncate text-sm font-semibold">
+                                    {preset.name}
+                                  </span>
+                                </div>
+                                <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
+                                  {preset.description}
+                                </p>
+                                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow transition-all group-hover:opacity-100">
+                                  <Plus className="h-3.5 w-3.5" />
+                                </span>
+                              </div>
+                            )}
+                          </motion.button>
+                        ))}
+                      </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => setCreateMode("custom")}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Ejército personalizado
+                    </Button>
+                  </div>
+                );
+              })()
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="army-name">Nombre</Label>
+                    <Input
+                      id="army-name"
+                      value={newArmyName}
+                      onChange={(e) => setNewArmyName(e.target.value)}
+                      placeholder="Ej: Mil Hijos, Ultramarines..."
+                      onKeyDown={(e) => e.key === "Enter" && handleCreateArmy()}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="army-desc">Descripción (opcional)</Label>
+                    <Textarea
+                      id="army-desc"
+                      value={newArmyDesc}
+                      onChange={(e) => setNewArmyDesc(e.target.value)}
+                      placeholder="Notas del ejército..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="army-color">Color</Label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        id="army-color"
+                        value={newArmyColor}
+                        onChange={(e) => setNewArmyColor(e.target.value)}
+                        className="h-9 w-12 cursor-pointer rounded border border-input bg-transparent"
+                      />
+                      <span className="text-sm text-muted-foreground">{newArmyColor}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Imagen (opcional)</Label>
+                    <Button variant="outline" className="w-full gap-2" type="button" onClick={handlePickArmyImage}>
+                      <ImageIcon className="h-4 w-4" />
+                      {newArmyImage ? "Imagen seleccionada" : "Seleccionar imagen"}
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="army-start-date">Inicio de colección (opcional)</Label>
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="army-start-date"
+                        type="date"
+                        value={newArmyStartDate}
+                        onChange={(e) => setNewArmyStartDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Imagen (opcional)</Label>
-                <Button variant="outline" className="w-full gap-2" type="button" onClick={handlePickArmyImage}>
-                  <ImageIcon className="h-4 w-4" />
-                  {newArmyImage ? "Imagen seleccionada ✓" : "Seleccionar imagen"}
-                </Button>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="army-start-date">Inicio de colección (opcional)</Label>
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="army-start-date"
-                    type="date"
-                    value={newArmyStartDate}
-                    onChange={(e) => setNewArmyStartDate(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateArmy} disabled={!newArmyName.trim()}>
-                Crear Ejército
-              </Button>
-            </DialogFooter>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateMode("select")}>
+                    Volver
+                  </Button>
+                  <Button onClick={handleCreateArmy} disabled={!newArmyName.trim()}>
+                    Crear Ejército
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
 

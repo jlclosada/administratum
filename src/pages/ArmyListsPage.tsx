@@ -132,13 +132,13 @@ export function ArmyListsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">
-              Mis Listas
+              <span className="text-gradient animate-gradient">Mis Listas</span>
             </h1>
             <p className="text-muted-foreground">
               Crea y gestiona tus listas de ejército para partidas
             </p>
           </div>
-          <Button onClick={() => setShowCreate(true)} className="gap-2">
+          <Button onClick={() => setShowCreate(true)} variant="gradient" className="gap-2">
             <Plus className="h-4 w-4" />
             Nueva Lista
           </Button>

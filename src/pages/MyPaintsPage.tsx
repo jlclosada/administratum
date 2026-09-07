@@ -31,6 +31,7 @@ import {
     Plus,
     Search,
     ShoppingCart,
+    Sparkles,
     Trash2
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -87,7 +88,9 @@ function PaintCard({
             {paint.range}
           </Badge>
           {paint.isMetallic && (
-            <span className="text-[10px] text-muted-foreground">✦ Metálica</span>
+            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Sparkles className="h-2.5 w-2.5" /> Metálica
+            </span>
           )}
         </div>
       </div>
@@ -322,7 +325,7 @@ function AddPaintsModal({
                         {paint.name}
                       </span>
                       {paint.isMetallic && (
-                        <span className="text-[10px] text-muted-foreground">✦</span>
+                        <Sparkles className="h-2.5 w-2.5 text-muted-foreground" />
                       )}
                       <div
                         className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-all ${
@@ -542,7 +545,9 @@ export function MyPaintsPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Mis Pinturas</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              <span className="text-gradient animate-gradient">Mis Pinturas</span>
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Gestiona tu colección de pinturas y tu lista de compras
             </p>

@@ -2,7 +2,6 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -19,7 +18,7 @@ import { pickFiles, uploadFile } from "@/lib/storage";
 import type { Game } from "@/types";
 import { PRESET_GAMES } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
-import { ImageIcon, Plus, Swords, Trash2 } from "lucide-react";
+import { ArrowRight, ImageIcon, Plus, Swords, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -117,10 +116,12 @@ export function GamesPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Sistemas de Juego</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              <span className="text-gradient animate-gradient">Sistemas de Juego</span>
+            </h1>
             <p className="text-muted-foreground">Gestiona tus colecciones por sistema de juego</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+          <Button onClick={() => setShowCreateDialog(true)} variant="gradient" className="gap-2">
             <Plus className="h-4 w-4" />
             Nuevo Juego
           </Button>
@@ -140,74 +141,72 @@ export function GamesPage() {
             animate="show"
             variants={{
               hidden: { opacity: 0 },
-              show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+              show: { opacity: 1, transition: { staggerChildren: 0.07 } },
             }}
-            className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-6 sm:grid-cols-2"
           >
             <AnimatePresence>
               {games.map((game) => (
                 <motion.div
                   key={game.id}
                   variants={{
-                    hidden: { opacity: 0, scale: 0.95 },
-                    show: { opacity: 1, scale: 1 },
+                    hidden: { opacity: 0, y: 24, scale: 0.96 },
+                    show: { opacity: 1, y: 0, scale: 1 },
                   }}
                   layout
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ y: -6 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 24 }}
+                  className="group relative"
                 >
-                  <Card
-                    className="group cursor-pointer overflow-hidden transition-all hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10"
+                  <button
+                    type="button"
                     onClick={() => navigate(`/games/${game.id}`)}
+                    className="shimmer relative block w-full overflow-hidden rounded-2xl border border-border/60 text-left shadow-lg transition-all duration-300 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    {/* Cover — aspect-square */}
-                    <div className="relative aspect-[4/3] bg-gradient-to-br from-primary/20 via-primary/10 to-background overflow-hidden">
-                      {game.coverImage ? (
+                    <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-primary/20 via-primary/5 to-background">
+                      {game.coverImage || game.icon ? (
                         <img
-                          src={game.coverImage}
+                          src={(game.coverImage || game.icon) as string}
                           alt={game.name}
-                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
-                      ) : game.icon ? (
-                        <img
-                          src={game.icon}
-                          alt={game.name}
-                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.opacity = "0";
+                          }}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <Swords className="h-16 w-16 text-primary/20" />
+                          <Swords className="h-20 w-20 text-primary/25" />
                         </div>
                       )}
                       {/* Gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      {/* Title on image */}
-                      <div className="absolute bottom-0 left-0 right-0 p-4">
-                        <h3 className="font-display text-lg font-bold text-white drop-shadow-lg">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                      {/* Content */}
+                      <div className="absolute inset-x-0 bottom-0 p-5">
+                        <h3 className="font-display text-xl font-bold text-white drop-shadow-lg">
                           {game.name}
                         </h3>
-                        <p className="text-xs text-white/70 line-clamp-1 mt-0.5">
+                        <p className="mt-1 line-clamp-2 text-xs text-white/75">
                           {game.description || "Sin descripción"}
                         </p>
-                      </div>
-                      {/* Delete button */}
-                      <div className="absolute right-2 top-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 bg-black/40 text-white opacity-0 group-hover:opacity-100 hover:bg-black/60"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirm(game.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/90 opacity-0 transition-all duration-300 group-hover:opacity-100">
+                          Ver colección
+                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                        </span>
                       </div>
                     </div>
-                  </Card>
+                  </button>
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteConfirm(game.id);
+                    }}
+                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-destructive group-hover:opacity-100"
+                    aria-label="Eliminar juego"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -222,7 +221,7 @@ export function GamesPage() {
             if (!open) setCreateMode("select");
           }}
         >
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Nuevo Sistema de Juego</DialogTitle>
               <DialogDescription>
@@ -233,47 +232,55 @@ export function GamesPage() {
             </DialogHeader>
 
             {createMode === "select" ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {/* Preset Games */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   {PRESET_GAMES.filter(
                     (p) => !games.some((g) => g.name === p.name)
                   ).map((preset) => (
-                    <button
+                    <motion.button
                       key={preset.name}
                       type="button"
+                      whileHover={{ y: -4 }}
+                      whileTap={{ scale: 0.97 }}
                       onClick={() => handleSelectPreset(preset)}
-                      className="group relative flex flex-col items-center gap-2 rounded-xl border border-border p-4 text-center transition-all hover:border-primary/50 hover:bg-primary/5 hover:shadow-md"
+                      className="group relative overflow-hidden rounded-2xl border border-border/60 text-left shadow-md transition-all hover:border-primary/50 hover:shadow-xl hover:shadow-primary/20"
                     >
-                      <div className="h-16 w-16 overflow-hidden rounded-lg">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-primary/20 to-background">
                         <img
                           src={preset.image}
                           alt={preset.name}
-                          className="h-full w-full object-cover"
+                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
+                            (e.target as HTMLImageElement).style.opacity = "0";
                           }}
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 p-3">
+                          <span className="block font-display text-sm font-bold text-white drop-shadow">
+                            {preset.name}
+                          </span>
+                          <span className="mt-0.5 block line-clamp-1 text-[10px] text-white/70">
+                            {preset.description}
+                          </span>
+                        </div>
+                        <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-all group-hover:opacity-100">
+                          <Plus className="h-4 w-4" />
+                        </span>
                       </div>
-                      <span className="text-sm font-medium">{preset.name}</span>
-                      <span className="text-[10px] text-muted-foreground line-clamp-2">
-                        {preset.description}
-                      </span>
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
 
                 {/* Custom option */}
-                <div className="pt-2">
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2"
-                    onClick={() => setCreateMode("custom")}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Juego personalizado
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => setCreateMode("custom")}
+                >
+                  <Plus className="h-4 w-4" />
+                  Juego personalizado
+                </Button>
               </div>
             ) : (
               <>
@@ -300,29 +307,34 @@ export function GamesPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Imagen (opcional)</Label>
-                    <div className="flex items-center gap-3">
-                      {newGameImage ? (
-                        <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-border">
-                          <img
-                            src={newGameImage}
-                            alt="Preview"
-                            className="h-full w-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setNewGameImage(null)}
-                            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ) : (
-                        <Button type="button" variant="outline" size="sm" onClick={handlePickImage} className="gap-2">
-                          <ImageIcon className="h-4 w-4" />
-                          Seleccionar imagen
-                        </Button>
-                      )}
-                    </div>
+                    {newGameImage ? (
+                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-border">
+                        <img
+                          src={newGameImage}
+                          alt="Preview"
+                          className="h-full w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setNewGameImage(null)}
+                          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handlePickImage}
+                        className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-foreground"
+                      >
+                        <ImageIcon className="h-8 w-8" />
+                        <span className="text-sm font-medium">Seleccionar imagen</span>
+                        <span className="text-xs text-muted-foreground">
+                          Se recomienda formato horizontal
+                        </span>
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="game-start-date">Fecha de inicio (opcional)</Label>

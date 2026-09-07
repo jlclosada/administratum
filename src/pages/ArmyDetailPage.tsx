@@ -215,53 +215,89 @@ export function ArmyDetailPage() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
+        {/* Hero header */}
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 shadow-lg">
+          <div
+            className="relative aspect-[16/9] w-full overflow-hidden sm:aspect-[3.4/1]"
+            style={
+              army.coverImage
+                ? undefined
+                : {
+                    background: `linear-gradient(135deg, ${
+                      army.colorPrimary ?? "#8b5cf6"
+                    }55 0%, ${army.colorPrimary ?? "#8b5cf6"}18 55%, transparent 100%)`,
+                  }
+            }
+          >
+            {army.coverImage && (
+              <img
+                src={army.coverImage}
+                alt={army.name}
+                className="absolute inset-0 h-full w-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = "0";
+                }}
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/10" />
+            {/* Back button */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate(`/games/${gameId}`)}
+              className="absolute left-3 top-3 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 hover:text-white"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {game.name}
-              </p>
-              <h1 className="font-display text-3xl font-bold tracking-tight">
-                {army.name}
-              </h1>
-              {army.description && (
-                <p className="text-muted-foreground">{army.description}</p>
-              )}
-              <div className="mt-2 flex items-center gap-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{army.totalMiniatures} miniaturas</span>
-                  <span>·</span>
-                  <span>{army.totalPainted} pintadas</span>
-                  <span>·</span>
-                  <span className="font-medium text-primary">
-                    {army.completionPercentage}%
+            {/* Content */}
+            <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-4 p-5 sm:p-6">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-white/70">
+                  {game.name}
+                </p>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="h-4 w-4 shrink-0 rounded-full border-2 border-white/50"
+                    style={{ backgroundColor: army.colorPrimary ?? "#8b5cf6" }}
+                  />
+                  <h1 className="font-display text-3xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
+                    {army.name}
+                  </h1>
+                </div>
+                {army.description && (
+                  <p className="mt-1 max-w-xl text-sm text-white/75">
+                    {army.description}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-white/90">
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm">
+                    {army.totalMiniatures} miniaturas
+                  </span>
+                  <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm">
+                    {army.totalPainted} pintadas
+                  </span>
+                  <span className="rounded-full bg-white/20 px-2.5 py-1 font-semibold backdrop-blur-sm">
+                    {army.completionPercentage}% completado
                   </span>
                 </div>
+                <Progress
+                  value={army.completionPercentage}
+                  className="mt-3 h-1.5 w-full max-w-xs bg-white/20"
+                />
               </div>
-              <Progress
-                value={army.completionPercentage}
-                className="mt-2 h-2 w-64"
-              />
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setShowCreateDialog(true);
+                }}
+                variant="gradient"
+                className="gap-2 shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Añadir Miniatura
+              </Button>
             </div>
           </div>
-          <Button
-            onClick={() => {
-              resetForm();
-              setShowCreateDialog(true);
-            }}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Añadir Miniatura
-          </Button>
         </div>
 
         {/* Filter Bar */}

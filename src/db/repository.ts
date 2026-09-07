@@ -1,14 +1,17 @@
 import { PAINT_CATALOG, PAINT_CATALOG_BY_ID } from '@/data/paints';
 import { supabase } from '@/lib/supabase';
 import type {
+  AppConfig,
   Army,
   ArmyList,
   ArmyListImage,
   ArmyListMiniature,
   ArmyListWithDetails,
+  ArmyPreset,
   ArmyWithStats,
   CreateArmyDTO,
   CreateArmyListDTO,
+  CreateArmyPresetDTO,
   CreateGameDTO,
   CreateMiniatureDTO,
   CreatePaintingProcessDTO,
@@ -24,6 +27,7 @@ import type {
   PaintStatusType,
   Tag,
   UpdateArmyDTO,
+  UpdateArmyPresetDTO,
   UpdateGameDTO,
   UpdateMiniatureDTO,
   UserPaint,
@@ -1071,5 +1075,109 @@ export async function moveToCollection(id: string): Promise<void> {
     .from('user_paints')
     .update({ in_wishlist: false })
     .eq('id', id);
+  if (error) throw error;
+}
+
+// ======================== APP CONFIG (ADMIN) ========================
+
+const DEFAULT_APP_CONFIG: AppConfig = {
+  announcement: '',
+  announcementEnabled: false,
+  signupsEnabled: true,
+};
+
+/**
+ * Read the global app configuration. Degrades gracefully to defaults if the
+ * `app_config` table has not been created yet.
+ */
+export async function getAppConfig(): Promise<AppConfig> {
+  try {
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('announcement, announcement_enabled, signups_enabled')
+      .eq('id', 'global')
+      .maybeSingle();
+    if (error || !data) return DEFAULT_APP_CONFIG;
+    return { ...DEFAULT_APP_CONFIG, ...mapRow<AppConfig>(data) };
+  } catch {
+    return DEFAULT_APP_CONFIG;
+  }
+}
+
+/** Update the global app configuration (admin only, enforced by RLS). */
+export async function updateAppConfig(config: AppConfig): Promise<void> {
+  const { error } = await supabase.from('app_config').upsert({
+    id: 'global',
+    announcement: config.announcement,
+    announcement_enabled: config.announcementEnabled,
+    signups_enabled: config.signupsEnabled,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+// ======================== ARMY PRESETS (ADMIN) ========================
+
+/**
+ * List admin-managed faction presets. Optionally filter by game name.
+ * Degrades to an empty list if the `army_presets` table does not exist yet.
+ */
+export async function getArmyPresets(gameName?: string): Promise<ArmyPreset[]> {
+  try {
+    let query = supabase
+      .from('army_presets')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+    if (gameName) query = query.eq('game_name', gameName);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return mapRows<ArmyPreset>(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function createArmyPreset(
+  dto: CreateArmyPresetDTO,
+): Promise<ArmyPreset> {
+  const { data, error } = await supabase
+    .from('army_presets')
+    .insert({
+      game_name: dto.gameName,
+      name: dto.name,
+      description: dto.description ?? '',
+      color: dto.color ?? '#8b5cf6',
+      image: dto.image ?? null,
+      sort_order: dto.sortOrder ?? 0,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<ArmyPreset>(data);
+}
+
+export async function updateArmyPreset(
+  dto: UpdateArmyPresetDTO,
+): Promise<ArmyPreset> {
+  const payload: Record<string, unknown> = {};
+  if (dto.name !== undefined) payload.name = dto.name;
+  if (dto.description !== undefined) payload.description = dto.description;
+  if (dto.color !== undefined) payload.color = dto.color;
+  if (dto.image !== undefined) payload.image = dto.image;
+  if (dto.sortOrder !== undefined) payload.sort_order = dto.sortOrder;
+
+  const { data, error } = await supabase
+    .from('army_presets')
+    .update(payload)
+    .eq('id', dto.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<ArmyPreset>(data);
+}
+
+export async function deleteArmyPreset(id: string): Promise<void> {
+  const { error } = await supabase.from('army_presets').delete().eq('id', id);
   if (error) throw error;
 }

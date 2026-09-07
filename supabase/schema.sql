@@ -270,3 +270,101 @@ create policy "media_delete" on storage.objects
   for delete using (
     bucket_id = 'media' and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ============================================================
+-- Account deletion (self-service)
+-- ============================================================
+-- Lets an authenticated user delete their own auth account.
+-- All application rows are removed automatically via ON DELETE CASCADE.
+-- Runs as SECURITY DEFINER so it can delete from auth.users.
+create or replace function public.delete_user()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_user() from public, anon;
+grant execute on function public.delete_user() to authenticated;
+
+-- ============================================================
+-- Global app configuration (admin-managed)
+-- ============================================================
+-- A single global row that only the site owner (admin) can modify,
+-- but every authenticated user can read (e.g. to show an announcement).
+--
+-- IMPORTANT: replace 'TU-EMAIL@ejemplo.com' below with the email of the
+-- account that should have admin rights, then run this block. It must match
+-- the VITE_ADMIN_EMAIL value used by the frontend.
+create table if not exists public.app_config (
+  id text primary key default 'global',
+  announcement text not null default '',
+  announcement_enabled boolean not null default false,
+  signups_enabled boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.app_config (id) values ('global') on conflict (id) do nothing;
+
+alter table public.app_config enable row level security;
+
+drop policy if exists "app_config_read" on public.app_config;
+drop policy if exists "app_config_admin_write" on public.app_config;
+
+-- Anyone (including logged-out visitors) can read the config.
+create policy "app_config_read" on public.app_config
+  for select to anon, authenticated using (true);
+
+-- Only the admin email can modify it.
+create policy "app_config_admin_write" on public.app_config
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com')
+  with check ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com');
+
+-- ============================================================
+-- Army presets / factions (admin-managed catalog)
+-- ============================================================
+-- Global catalog of selectable factions per game, each with its own image.
+-- Managed only by the admin, readable by every authenticated user so they can
+-- pick a faction when creating an army.
+--
+-- IMPORTANT: replace 'TU-EMAIL@ejemplo.com' below with the same admin email.
+create table if not exists public.army_presets (
+  id uuid primary key default gen_random_uuid(),
+  game_name text not null,
+  name text not null,
+  description text not null default '',
+  color text not null default '#8b5cf6',
+  image text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_army_presets_game
+  on public.army_presets (game_name);
+
+drop trigger if exists set_updated_at on public.army_presets;
+create trigger set_updated_at before update on public.army_presets
+  for each row execute function public.set_updated_at();
+
+alter table public.army_presets enable row level security;
+
+drop policy if exists "army_presets_read" on public.army_presets;
+drop policy if exists "army_presets_admin_write" on public.army_presets;
+
+-- Everyone logged in can read the faction catalog.
+create policy "army_presets_read" on public.army_presets
+  for select to authenticated using (true);
+
+-- Only the admin can create / edit / delete factions.
+create policy "army_presets_admin_write" on public.army_presets
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com')
+  with check ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com');
+
+

@@ -46,7 +46,9 @@ export function GalleryPage() {
     <PageTransition>
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Galería</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">
+            <span className="text-gradient animate-gradient">Galería</span>
+          </h1>
           <p className="text-muted-foreground">
             Todas las imágenes de tu colección
           </p>
