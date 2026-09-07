@@ -118,7 +118,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             <Sparkles className="h-3.5 w-3.5 text-primary" />
             Tu taller de miniaturas, reinventado
           </div>
-          <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-6xl">
+          <h1 className="text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-5xl md:text-6xl">
             Gestiona y comparte tu colección de{" "}
             <span className="text-gradient animate-gradient">wargaming</span>
           </h1>

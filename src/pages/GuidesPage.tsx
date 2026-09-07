@@ -56,7 +56,7 @@ export function GuidesPage() {
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
               <span className="text-gradient animate-gradient">
                 Guías de pintura
               </span>

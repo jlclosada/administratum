@@ -346,7 +346,7 @@ export function MiniatureDetailPage() {
                 </div>
               ) : (
                 <>
-                  <h1 className="font-display text-3xl font-bold tracking-tight mt-1">
+                  <h1 className="font-display text-2xl font-bold tracking-tight mt-1 sm:text-3xl">
                     {miniature.name}
                   </h1>
                   <div className="mt-1 flex items-center gap-2">

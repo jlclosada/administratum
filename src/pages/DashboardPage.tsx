@@ -55,7 +55,7 @@ export function DashboardPage() {
     return (
       <PageTransition>
         <div className="space-y-4">
-          <h1 className="font-display text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
           <p className="text-muted-foreground">
             No se pudieron cargar las estadísticas. Añade miniaturas para empezar.
           </p>
@@ -78,7 +78,7 @@ export function DashboardPage() {
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             <span className="text-gradient animate-gradient">Dashboard</span>
           </h1>
           <p className="text-muted-foreground">Resumen de tu colección de miniaturas</p>

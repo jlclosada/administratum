@@ -197,7 +197,7 @@ export function GameDetailPage() {
             {/* Content */}
             <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-4 p-5 sm:p-6">
               <div className="min-w-0">
-                <h1 className="font-display text-3xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
+                <h1 className="font-display text-2xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
                   {game.name}
                 </h1>
                 {game.description && (

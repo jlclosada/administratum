@@ -543,9 +543,9 @@ export function MyPaintsPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
               <span className="text-gradient animate-gradient">Mis Pinturas</span>
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -553,7 +553,7 @@ export function MyPaintsPage() {
             </p>
           </div>
           {(myPaints.length > 0 || wishlist.length > 0) && (
-            <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} className="w-full gap-2 sm:w-auto">
               <FileDown className="h-4 w-4" /> Exportar PDF
             </Button>
           )}
@@ -620,10 +620,10 @@ export function MyPaintsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-4 border-b border-border">
+        <div className="flex items-center gap-4 overflow-x-auto border-b border-border">
           <button
             onClick={() => setActiveTab("collection")}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`shrink-0 whitespace-nowrap pb-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "collection"
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -634,7 +634,7 @@ export function MyPaintsPage() {
           </button>
           <button
             onClick={() => setActiveTab("wishlist")}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`shrink-0 whitespace-nowrap pb-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "wishlist"
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -646,8 +646,8 @@ export function MyPaintsPage() {
         </div>
 
         {/* Filter + Actions */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1 sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={filterQuery}
@@ -657,11 +657,11 @@ export function MyPaintsPage() {
             />
           </div>
           {activeTab === "collection" ? (
-            <Button onClick={() => setShowAddModal(true)}>
+            <Button onClick={() => setShowAddModal(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-1" /> Añadir pinturas
             </Button>
           ) : (
-            <Button onClick={() => setShowWishlistModal(true)}>
+            <Button onClick={() => setShowWishlistModal(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-1" /> Añadir al carrito
             </Button>
           )}

@@ -136,7 +136,7 @@ export function ArticleEditorPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-3xl space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
             Volver
@@ -144,6 +144,7 @@ export function ArticleEditorPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
+              size="sm"
               disabled={saving}
               onClick={() => handleSave(false)}
             >
@@ -151,6 +152,7 @@ export function ArticleEditorPage() {
             </Button>
             <Button
               variant="gradient"
+              size="sm"
               className="gap-2"
               disabled={saving}
               onClick={() => handleSave(true)}

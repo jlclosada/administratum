@@ -63,7 +63,7 @@ export function StatCard({
       <div className="relative flex items-start justify-between">
         <div className="space-y-1">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="text-3xl font-bold tracking-tight tabular-nums">
+          <p className="text-2xl font-bold tracking-tight tabular-nums sm:text-3xl">
             {parsed ? (
               <CountUp
                 end={parsed.end}

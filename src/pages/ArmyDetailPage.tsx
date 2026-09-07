@@ -260,7 +260,7 @@ export function ArmyDetailPage() {
                     className="h-4 w-4 shrink-0 rounded-full border-2 border-white/50"
                     style={{ backgroundColor: army.colorPrimary ?? "#8b5cf6" }}
                   />
-                  <h1 className="font-display text-3xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
+                  <h1 className="font-display text-2xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
                     {army.name}
                   </h1>
                 </div>
@@ -303,7 +303,7 @@ export function ArmyDetailPage() {
         {/* Filter Bar */}
         {miniatures.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 min-w-[140px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchQuery}
@@ -495,7 +495,7 @@ export function ArmyDetailPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute -right-12 top-0 text-white hover:bg-white/20"
+                className="absolute right-2 top-2 z-10 bg-black/40 text-white hover:bg-black/60"
                 onClick={() => setLightboxImage(null)}
               >
                 <X className="h-6 w-6" />
@@ -538,7 +538,7 @@ export function ArmyDetailPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Categoría</Label>
                   <select
@@ -618,7 +618,7 @@ export function ArmyDetailPage() {
               {/* Purchase Info */}
               <div className="space-y-3 rounded-lg border border-border p-3">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Información de compra</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Tienda</Label>
                     <Input

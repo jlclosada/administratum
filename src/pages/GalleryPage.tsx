@@ -46,7 +46,7 @@ export function GalleryPage() {
     <PageTransition>
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             <span className="text-gradient animate-gradient">Galería</span>
           </h1>
           <p className="text-muted-foreground">
@@ -115,7 +115,7 @@ export function GalleryPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute -right-12 top-0 text-white hover:bg-white/20"
+                className="absolute right-2 top-2 z-10 bg-black/40 text-white hover:bg-black/60"
                 onClick={() => setSelectedImage(null)}
               >
                 <X className="h-6 w-6" />

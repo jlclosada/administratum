@@ -196,7 +196,7 @@ export function ArmyListDetailPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
             <Button
               variant="ghost"
@@ -206,7 +206,7 @@ export function ArmyListDetailPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="font-display text-3xl font-bold tracking-tight">
+              <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
                 {list.name}
               </h1>
               <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
@@ -230,7 +230,7 @@ export function ArmyListDetailPage() {
 
               {/* Progress */}
               {list.totalMiniatures > 0 && (
-                <div className="mt-3 w-80">
+                <div className="mt-3 w-full sm:w-80">
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>Progreso de pintado</span>
                     <span>
@@ -243,7 +243,7 @@ export function ArmyListDetailPage() {
               )}
             </div>
           </div>
-          <Button onClick={handleLoadMiniatures} className="gap-2">
+          <Button onClick={handleLoadMiniatures} className="w-full gap-2 sm:w-auto">
             <Plus className="h-4 w-4" />
             Añadir Miniatura
           </Button>
@@ -507,7 +507,7 @@ export function ArmyListDetailPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute -right-12 top-0 text-white hover:bg-white/20"
+                className="absolute right-2 top-2 z-10 bg-black/40 text-white hover:bg-black/60"
                 onClick={() => setLightboxImage(null)}
               >
                 <X className="h-6 w-6" />

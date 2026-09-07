@@ -129,16 +129,16 @@ export function ArmyListsPage() {
   return (
     <PageTransition>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
               <span className="text-gradient animate-gradient">Mis Listas</span>
             </h1>
             <p className="text-muted-foreground">
               Crea y gestiona tus listas de ejército para partidas
             </p>
           </div>
-          <Button onClick={() => setShowCreate(true)} variant="gradient" className="gap-2">
+          <Button onClick={() => setShowCreate(true)} variant="gradient" className="w-full gap-2 sm:w-auto">
             <Plus className="h-4 w-4" />
             Nueva Lista
           </Button>
@@ -292,7 +292,7 @@ export function ArmyListsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Juego</Label>
                   <select
@@ -328,7 +328,7 @@ export function ArmyListsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Puntos</Label>
                   <Input

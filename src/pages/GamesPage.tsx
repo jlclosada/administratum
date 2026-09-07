@@ -114,14 +114,14 @@ export function GamesPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
               <span className="text-gradient animate-gradient">Sistemas de Juego</span>
             </h1>
             <p className="text-muted-foreground">Gestiona tus colecciones por sistema de juego</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)} variant="gradient" className="gap-2">
+          <Button onClick={() => setShowCreateDialog(true)} variant="gradient" className="w-full gap-2 sm:w-auto">
             <Plus className="h-4 w-4" />
             Nuevo Juego
           </Button>

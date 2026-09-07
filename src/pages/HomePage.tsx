@@ -45,9 +45,9 @@ export function HomePage() {
     <PageTransition>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
               <span className="text-gradient animate-gradient">Inicio</span>
             </h1>
             <p className="text-muted-foreground">

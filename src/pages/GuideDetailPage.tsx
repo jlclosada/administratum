@@ -112,7 +112,7 @@ export function GuideDetailPage() {
   return (
     <PageTransition>
       <article className="mx-auto max-w-3xl space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Button
             variant="ghost"
             size="sm"
@@ -180,7 +180,7 @@ export function GuideDetailPage() {
             ))}
           </div>
 
-          <h1 className="font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+          <h1 className="font-display text-2xl font-bold leading-tight tracking-tight sm:text-4xl">
             {guide.title}
           </h1>
 
