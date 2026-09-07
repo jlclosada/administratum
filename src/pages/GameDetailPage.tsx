@@ -169,7 +169,7 @@ export function GameDetailPage() {
       <div className="space-y-6">
         {/* Hero header */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60 shadow-lg">
-          <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-background sm:aspect-[3/1]">
+          <div className="relative aspect-[21/9] w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-background sm:aspect-[5/1]">
             {game.coverImage || game.icon ? (
               <img
                 src={(game.coverImage || game.icon) as string}

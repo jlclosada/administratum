@@ -218,7 +218,7 @@ export function ArmyDetailPage() {
         {/* Hero header */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60 shadow-lg">
           <div
-            className="relative aspect-[16/9] w-full overflow-hidden sm:aspect-[3.4/1]"
+            className="relative aspect-[21/9] w-full overflow-hidden sm:aspect-[5/1]"
             style={
               army.coverImage
                 ? undefined

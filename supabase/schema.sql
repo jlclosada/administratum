@@ -322,8 +322,8 @@ create policy "app_config_read" on public.app_config
 -- Only the admin email can modify it.
 create policy "app_config_admin_write" on public.app_config
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com')
-  with check ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com');
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
 
 -- ============================================================
 -- Army presets / factions (admin-managed catalog)
@@ -364,7 +364,7 @@ create policy "army_presets_read" on public.army_presets
 -- Only the admin can create / edit / delete factions.
 create policy "army_presets_admin_write" on public.army_presets
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com')
-  with check ((auth.jwt() ->> 'email') = 'TU-EMAIL@ejemplo.com');
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
 
 
