@@ -1,4 +1,3 @@
-import { UpdateNotification } from "@/components/shared/UpdateNotification";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
@@ -14,7 +13,6 @@ export function AppLayout() {
           </div>
         </ScrollArea>
       </main>
-      <UpdateNotification />
     </div>
   );
 }

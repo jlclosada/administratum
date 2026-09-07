@@ -14,11 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createGame, deleteGame, getAllGames, saveImageToAppData } from "@/db";
+import { createGame, deleteGame, getAllGames } from "@/db";
+import { pickFiles, uploadFile } from "@/lib/storage";
 import type { Game } from "@/types";
 import { PRESET_GAMES } from "@/types";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { ImageIcon, Plus, Swords, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -53,13 +52,10 @@ export function GamesPage() {
 
   async function handlePickImage() {
     try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
-      });
-      if (selected) {
-        const savedPath = await saveImageToAppData(selected as string, "games");
-        setNewGameImage(savedPath);
+      const [file] = await pickFiles({ accept: "image/*" });
+      if (file) {
+        const url = await uploadFile(file, "games");
+        setNewGameImage(url);
       }
     } catch (err) {
       console.error("Failed to pick image:", err);
@@ -168,7 +164,7 @@ export function GamesPage() {
                     <div className="relative aspect-[4/3] bg-gradient-to-br from-primary/20 via-primary/10 to-background overflow-hidden">
                       {game.coverImage ? (
                         <img
-                          src={convertFileSrc(game.coverImage)}
+                          src={game.coverImage}
                           alt={game.name}
                           className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -308,7 +304,7 @@ export function GamesPage() {
                       {newGameImage ? (
                         <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-border">
                           <img
-                            src={convertFileSrc(newGameImage)}
+                            src={newGameImage}
                             alt="Preview"
                             className="h-full w-full object-cover"
                           />

@@ -26,10 +26,10 @@ import {
     getArmyById,
     getGameById,
     getMiniatureById,
-    saveImageToAppData,
     toggleFavorite,
     updateMiniature
 } from "@/db";
+import { pickFiles, uploadFile } from "@/lib/storage";
 import type {
     ArmyWithStats,
     Game,
@@ -39,9 +39,6 @@ import type {
     Tag
 } from "@/types";
 import { MINIATURE_CATEGORIES, PAINT_STATUSES, getCurrentPaintStep, getNextPaintStep, getStatusesUpTo, isMiniatureComplete } from "@/types";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { open } from "@tauri-apps/plugin-dialog";
 import { motion } from "framer-motion";
 import {
     ArrowLeft,
@@ -126,34 +123,27 @@ export function MiniatureDetailPage() {
     loadData();
   }, [loadData]);
 
-  // Drag & drop file handler via Tauri
-  useEffect(() => {
-    const imageExts = ["png", "jpg", "jpeg", "webp", "gif"];
-    const unlisten = getCurrentWebviewWindow().onDragDropEvent(async (event) => {
-      if (event.payload.type === "enter" || event.payload.type === "over") {
-        setIsDragging(true);
-      } else if (event.payload.type === "leave") {
-        setIsDragging(false);
-      } else if (event.payload.type === "drop") {
-        setIsDragging(false);
-        if (!miniature) return;
-        const paths = event.payload.paths;
-        for (const filePath of paths) {
-          const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
-          if (!imageExts.includes(ext)) continue;
-          try {
-            const savedPath = await saveImageToAppData(filePath, "miniatures");
-            const fileName = filePath.split("/").pop() ?? "image";
-            await addImage(miniature.id, savedPath, fileName, 0);
-          } catch (err) {
-            console.error("Failed to save dropped image:", err);
-          }
-        }
-        await loadData();
+  // Drag & drop file handler (HTML5)
+  async function handleFiles(files: File[]) {
+    if (!miniature) return;
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    for (const file of imageFiles) {
+      try {
+        const url = await uploadFile(file, "miniatures");
+        await addImage(miniature.id, url, file.name, file.size);
+      } catch (err) {
+        console.error("Failed to save dropped image:", err);
       }
-    });
-    return () => { unlisten.then((fn) => fn()); };
-  }, [miniature, loadData]);
+    }
+    if (imageFiles.length > 0) await loadData();
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+    void handleFiles(files);
+  }
 
   async function handleSaveEdit() {
     if (!miniature) return;
@@ -251,18 +241,8 @@ export function MiniatureDetailPage() {
   async function handleUploadImage() {
     if (!miniature) return;
     try {
-      const files = await open({
-        multiple: true,
-        filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
-      });
-      if (!files) return;
-      const paths = Array.isArray(files) ? files : [files];
-      for (const file of paths) {
-        const savedPath = await saveImageToAppData(file, "miniatures");
-        const fileName = file.split("/").pop() ?? "image";
-        await addImage(miniature.id, savedPath, fileName, 0);
-      }
-      await loadData();
+      const files = await pickFiles({ accept: "image/*", multiple: true });
+      await handleFiles(files);
     } catch (err) {
       console.error("Failed to upload image:", err);
     }
@@ -501,7 +481,12 @@ export function MiniatureDetailPage() {
               </CardHeader>
               <CardContent>
                 {miniature.images.length === 0 ? (
-                  <div className={`text-center py-8 rounded-lg border-2 border-dashed transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border"}`}>
+                  <div
+                    className={`text-center py-8 rounded-lg border-2 border-dashed transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-border"}`}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                  >
                     <Upload className={`h-10 w-10 mx-auto mb-2 ${isDragging ? "text-primary" : "text-muted-foreground/40"}`} />
                     <p className="text-sm text-muted-foreground">
                       {isDragging ? "Suelta las imágenes aquí" : "Arrastra imágenes aquí o haz clic para subir"}
@@ -518,10 +503,10 @@ export function MiniatureDetailPage() {
                           key={img.id}
                           whileHover={{ scale: 1.03 }}
                           className="group relative cursor-pointer overflow-hidden rounded-lg"
-                          onClick={() => setLightboxImage(convertFileSrc(img.filePath))}
+                          onClick={() => setLightboxImage(img.filePath)}
                         >
                           <img
-                            src={convertFileSrc(img.filePath)}
+                            src={img.filePath}
                             alt={img.fileName}
                             className="aspect-square w-full object-cover"
                             loading="lazy"

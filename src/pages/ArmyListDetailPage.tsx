@@ -5,47 +5,45 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import {
-    addImageToList,
-    addMiniatureToList,
-    getAllMiniaturesFlat,
-    getArmyListById,
-    removeImageFromList,
-    removeMiniatureFromList,
-    saveImageToAppData,
-    updateArmyList,
-    updateArmyListPdf,
+  addImageToList,
+  addMiniatureToList,
+  getAllMiniaturesFlat,
+  getArmyListById,
+  removeImageFromList,
+  removeMiniatureFromList,
+  updateArmyList,
+  updateArmyListPdf,
 } from "@/db";
+import { pickFiles, uploadFile } from "@/lib/storage";
 import type {
-    ArmyListWithDetails,
-    MiniatureWithDetails,
+  ArmyListWithDetails,
+  MiniatureWithDetails,
 } from "@/types";
 import { MINIATURE_CATEGORIES, PAINT_STATUSES } from "@/types";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import {
-    ArrowLeft,
-    CalendarIcon,
-    Check,
-    FileText,
-    ImageIcon,
-    Plus,
-    Search,
-    Sword,
-    Trash2,
-    Upload,
-    X,
-    ZoomIn,
+  ArrowLeft,
+  CalendarIcon,
+  Check,
+  FileText,
+  ImageIcon,
+  Plus,
+  Search,
+  Sword,
+  Trash2,
+  Upload,
+  X,
+  ZoomIn,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -130,19 +128,10 @@ export function ArmyListDetailPage() {
   async function handleUploadImage() {
     if (!listId) return;
     try {
-      const file = await open({
-        multiple: false,
-        filters: [
-          {
-            name: "Imágenes",
-            extensions: ["png", "jpg", "jpeg", "webp", "gif"],
-          },
-        ],
-      });
+      const [file] = await pickFiles({ accept: "image/*" });
       if (!file) return;
-      const savedPath = await saveImageToAppData(file, "lists");
-      const fileName = file.split("/").pop() ?? "image";
-      await addImageToList(listId, savedPath, fileName);
+      const url = await uploadFile(file, "lists");
+      await addImageToList(listId, url, file.name);
       await loadData();
     } catch (err) {
       console.error("Failed to upload image:", err);
@@ -161,13 +150,10 @@ export function ArmyListDetailPage() {
   async function handleUploadPdf() {
     if (!listId) return;
     try {
-      const file = await open({
-        multiple: false,
-        filters: [{ name: "PDF", extensions: ["pdf"] }],
-      });
+      const [file] = await pickFiles({ accept: "application/pdf,.pdf" });
       if (!file) return;
-      const savedPath = await saveImageToAppData(file, "lists/pdfs");
-      await updateArmyListPdf(listId, savedPath);
+      const url = await uploadFile(file, "lists/pdfs");
+      await updateArmyListPdf(listId, url);
       await loadData();
     } catch (err) {
       console.error("Failed to upload PDF:", err);
@@ -481,11 +467,11 @@ export function ArmyListDetailPage() {
                   className="group relative aspect-square overflow-hidden rounded-lg border border-border"
                 >
                   <img
-                    src={convertFileSrc(img.filePath)}
+                    src={img.filePath}
                     alt={img.fileName}
                     className="h-full w-full object-cover cursor-pointer"
                     onClick={() =>
-                      setLightboxImage(convertFileSrc(img.filePath))
+                      setLightboxImage(img.filePath)
                     }
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">

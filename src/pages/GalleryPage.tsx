@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { getAllImages } from "@/db";
 import type { MiniatureImage } from "@/types";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { motion } from "framer-motion";
 import { ImageIcon, X, ZoomIn } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -80,11 +79,11 @@ export function GalleryPage() {
               >
                 <Card
                   className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg"
-                  onClick={() => setSelectedImage(convertFileSrc(img.filePath))}
+                  onClick={() => setSelectedImage(img.filePath)}
                 >
                   <div className="relative">
                     <img
-                      src={convertFileSrc(img.filePath)}
+                      src={img.filePath}
                       alt={img.fileName}
                       className="w-full object-cover"
                       loading="lazy"

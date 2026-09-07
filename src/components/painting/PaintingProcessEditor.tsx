@@ -15,13 +15,11 @@ import {
     addPaintingProcessMedia,
     deletePaintingProcess,
     deletePaintingProcessMedia,
-    saveImageToAppData,
     searchPaints,
     updatePaintingProcess
 } from "@/db";
+import { pickFiles, uploadFile } from "@/lib/storage";
 import type { MiniatureWithDetails, Paint, PaintingProcess } from "@/types";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -448,16 +446,16 @@ function StepEditor({
                           >
                             {m.mediaType === "image" ? (
                               <img
-                                src={convertFileSrc(m.filePath)}
+                                src={m.filePath}
                                 alt={m.fileName}
                                 className="aspect-square w-full object-cover cursor-pointer"
-                                onClick={() => setLightboxMedia(convertFileSrc(m.filePath))}
+                                onClick={() => setLightboxMedia(m.filePath)}
                                 loading="lazy"
                               />
                             ) : (
                               <div
                                 className="aspect-square w-full flex items-center justify-center bg-muted cursor-pointer"
-                                onClick={() => setLightboxMedia(convertFileSrc(m.filePath))}
+                                onClick={() => setLightboxMedia(m.filePath)}
                               >
                                 <Play className="h-8 w-8 text-muted-foreground" />
                                 <span className="absolute bottom-1 left-1 text-[10px] text-muted-foreground truncate max-w-[90%]">
@@ -637,21 +635,12 @@ export function PaintingProcessEditor({ miniature, onUpdate }: PaintingProcessEd
   };
 
   const handleMediaUpload = async (processId: string, mediaType: "image" | "video") => {
-    const extensions =
-      mediaType === "image"
-        ? ["png", "jpg", "jpeg", "webp", "gif"]
-        : ["mp4", "webm", "mov", "avi"];
-    const filterName = mediaType === "image" ? "Imágenes" : "Vídeos";
-
-    const file = await open({
-      multiple: false,
-      filters: [{ name: filterName, extensions }],
-    });
+    const accept = mediaType === "image" ? "image/*" : "video/*";
+    const [file] = await pickFiles({ accept });
     if (!file) return;
 
-    const savedPath = await saveImageToAppData(file, "painting-process");
-    const fileName = file.split("/").pop() ?? `file.${extensions[0]}`;
-    await addPaintingProcessMedia(processId, savedPath, fileName, 0, mediaType);
+    const url = await uploadFile(file, "painting-process");
+    await addPaintingProcessMedia(processId, url, file.name, file.size, mediaType);
     await onUpdate();
   };
 

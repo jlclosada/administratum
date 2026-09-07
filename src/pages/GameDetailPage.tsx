@@ -14,10 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createArmy, deleteArmy, getArmiesByGame, getGameById, saveImageToAppData } from "@/db";
+import { createArmy, deleteArmy, getArmiesByGame, getGameById } from "@/db";
+import { pickFiles, uploadFile } from "@/lib/storage";
 import type { ArmyWithStats, Game } from "@/types";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
@@ -66,11 +65,11 @@ export function GameDetailPage() {
 
   async function handlePickArmyImage() {
     try {
-      const file = await open({
-        multiple: false,
-        filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
-      });
-      if (file) setNewArmyImage(file);
+      const [file] = await pickFiles({ accept: "image/*" });
+      if (file) {
+        const url = await uploadFile(file, "armies");
+        setNewArmyImage(url);
+      }
     } catch (err) {
       console.error("Failed to pick image:", err);
     }
@@ -79,10 +78,7 @@ export function GameDetailPage() {
   async function handleCreateArmy() {
     if (!newArmyName.trim() || !gameId) return;
     try {
-      let coverImage: string | null = null;
-      if (newArmyImage) {
-        coverImage = await saveImageToAppData(newArmyImage, "armies");
-      }
+      const coverImage: string | null = newArmyImage;
       await createArmy({
         gameId,
         name: newArmyName.trim(),
@@ -202,7 +198,7 @@ export function GameDetailPage() {
                       {army.coverImage ? (
                         <>
                           <img
-                            src={convertFileSrc(army.coverImage)}
+                            src={army.coverImage}
                             alt={army.name}
                             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />

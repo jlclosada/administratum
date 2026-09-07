@@ -1,61 +1,85 @@
 # Administratum
 
-> Premium wargaming miniature collection manager — Desktop application for Windows and macOS.
+> Premium wargaming miniature collection manager — Web application with user accounts and cloud sync.
 
-![Tauri](https://img.shields.io/badge/Tauri-v2-blue)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ECF8E)
+![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ---
 
-## Download
+## Getting started
 
-> **[Go to Releases to download the latest version](https://github.com/jlclosada/administratum/releases/latest)**
+### 1. Create a Supabase project
 
-| Platform                  | Installer       | Requirements |
-| ------------------------- | --------------- | ------------ |
-| **Windows** (x64)         | `.msi` / `.exe` | Windows 10+  |
-| **macOS** (Apple Silicon) | `.dmg`          | macOS 12+    |
-| **macOS** (Intel)         | `.dmg`          | macOS 12+    |
+1. Create a project at [supabase.com](https://app.supabase.com).
+2. Open the **SQL Editor** and run the contents of [`supabase/schema.sql`](supabase/schema.sql). This creates every table, Row Level Security policy, and the `media` storage bucket.
+3. In **Project Settings → API**, copy the **Project URL** and the **anon public** key.
 
-To create a new release, push a git tag: `git tag v0.1.0 && git push origin v0.1.0`. The GitHub Action will build installers for all platforms automatically.
+### 2. Configure environment variables
+
+Create a `.env.local` file in the project root (see [`.env.example`](.env.example)):
+
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+```
+
+### 3. Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Open the app, create an account (email + password) and sign in. Each user only sees their own data, enforced by Supabase Row Level Security.
+
+### 4. Deploy to Vercel
+
+1. Push the repository to GitHub and import it in [Vercel](https://vercel.com).
+2. Framework preset: **Vite**. Build command `npm run build`, output directory `dist` (already configured via [`vercel.json`](vercel.json)).
+3. Add the environment variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project settings.
+4. Deploy.
 
 ---
 
 ## Overview
 
-Administratum is a premium desktop application built with Tauri v2 for managing wargaming miniature collections. It supports multiple game systems, army management, detailed paint-status tracking with checkbox-based workflow, painting process logs, image galleries, and rich analytics — all running fully offline with a local SQLite database.
+Administratum is a premium web application for managing wargaming miniature collections. It supports multiple game systems, army management, detailed paint-status tracking with a checkbox-based workflow, painting process logs, image galleries, and rich analytics. Data is stored per-user in Supabase (PostgreSQL + Storage) and synced across devices.
 
 ## Features
 
-- **Multi-Game System**: Warhammer 40k, Age of Sigmar, Middle-earth SBG, The Old World, Horus Heresy, Kill Team, Necromunda, and custom games
+- **User accounts**: Email/password authentication with per-user data isolation (Supabase Auth + RLS)
+- **Cloud sync**: Your collection is available from any device
+- **Multi-Game System**: Warhammer 40k, Age of Sigmar, Middle-earth SBG, and custom games
 - **Army Management**: Create armies/factions per game with custom colors
 - **Miniature Tracking**: Track units, characters, vehicles, monsters, squads with quantity management
 - **Paint Status Checkboxes**: 7 toggleable states (Sin montar → Barnizada) — click to check/uncheck
 - **Miniature Detail Page**: Full view with status toggles, painting process steps, colors used, image gallery, and summary
 - **Painting Process Log**: Record step-by-step painting recipes with colors used
 - **Dashboard Analytics**: Pie charts, progress bars, army completion percentages, recent activity
-- **Image Gallery**: Browse all miniature photography
+- **Image Gallery**: Upload and browse miniature photography (Supabase Storage)
 - **Dark UI**: Steam + Discord + Notion inspired interface with smooth animations
 - **Error Recovery**: Full error boundary — crashes show a recovery screen, not a black page
-- **Offline First**: All data stored locally in SQLite, no internet required
-- **Cross-Platform**: Windows (.exe / .msi) and macOS (.dmg) installers
 
 ## Architecture
 
 ```
-administratum-app/
+administratum/
 ├── src/                        # React frontend
 │   ├── components/
 │   │   ├── layout/             # AppLayout, Sidebar
 │   │   ├── shared/             # Reusable: StatCard, ErrorBoundary, etc.
 │   │   └── ui/                 # shadcn/ui components (Button, Card, Dialog...)
-│   ├── db/                     # Database layer
-│   │   ├── connection.ts       # SQLite connection + migrations
+│   ├── data/                   # Static paint catalog (Citadel + Vallejo)
+│   ├── db/                     # Data access layer (Supabase queries)
 │   │   └── repository.ts       # CRUD operations (games, armies, miniatures)
-│   ├── lib/                    # Utilities (cn helper)
+│   ├── lib/                    # supabase client, storage helpers, cn utility
+│   ├── stores/                 # Zustand stores (app + auth)
 │   ├── pages/                  # Page components
+│   │   ├── AuthPage.tsx        # Login / sign up
 │   │   ├── DashboardPage.tsx   # Main analytics dashboard
 │   │   ├── GamesPage.tsx       # Game system listing
 │   │   ├── GameDetailPage.tsx  # Armies within a game

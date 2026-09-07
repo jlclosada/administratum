@@ -34,7 +34,6 @@ import type {
     PaintStatusType
 } from "@/types";
 import { MINIATURE_CATEGORIES, PAINT_STATUSES, getCurrentPaintStep, getStatusesUpTo, isMiniatureComplete } from "@/types";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import {
     ArrowLeft,
     Box,
@@ -429,11 +428,11 @@ export function ArmyDetailPage() {
                 <div key={img.id} className="mb-4 break-inside-avoid">
                   <Card
                     className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg"
-                    onClick={() => setLightboxImage(convertFileSrc(img.filePath))}
+                    onClick={() => setLightboxImage(img.filePath)}
                   >
                     <div className="relative">
                       <img
-                        src={convertFileSrc(img.filePath)}
+                        src={img.filePath}
                         alt={img.fileName}
                         className="w-full object-cover"
                         loading="lazy"

@@ -4,20 +4,21 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getAllArmies } from "@/db";
 import { cn } from "@/lib/utils";
-import { useAppStore } from "@/stores";
+import { useAppStore, useAuthStore } from "@/stores";
 import type { ArmyWithStats } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  ImageIcon,
-  LayoutDashboard,
-  Palette,
-  Settings,
-  Shield,
-  Swords
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ClipboardList,
+    ImageIcon,
+    LayoutDashboard,
+    LogOut,
+    Palette,
+    Settings,
+    Shield,
+    Swords
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -33,6 +34,7 @@ const navItems = [
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebarCollapse } = useAppStore();
+  const { user, signOut } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [armies, setArmies] = useState<(ArmyWithStats & { gameName: string })[]>([]);
@@ -220,6 +222,39 @@ export function Sidebar() {
             </>
           )}
         </ScrollArea>
+
+        <Separator />
+
+        {/* Account */}
+        <div className="p-3">
+          {sidebarCollapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => signOut()} className="w-full">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Cerrar sesión</TooltipContent>
+            </Tooltip>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs text-muted-foreground" title={user?.email ?? undefined}>
+                  {user?.email}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => signOut()}
+                className="h-8 w-8 shrink-0"
+                title="Cerrar sesión"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
 
         <Separator />
 
