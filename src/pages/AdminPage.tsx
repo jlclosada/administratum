@@ -12,12 +12,14 @@ import {
     getAppConfig,
     getArmyPresets,
     getDashboardStats,
+    getUnitCatalogCount,
+    upsertUnitCatalog,
     updateAppConfig,
 } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import type { AppConfig, ArmyPreset, DashboardStats } from "@/types";
+import type { AppConfig, ArmyPreset, DashboardStats, UnitCatalogEntry } from "@/types";
 import { PRESET_GAMES } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -26,6 +28,7 @@ import {
     Megaphone,
     Palette,
     Plus,
+    RefreshCw,
     Save,
     Shield,
     ShieldAlert,
@@ -104,6 +107,8 @@ export function AdminPage() {
   const [factionImage, setFactionImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [creatingFaction, setCreatingFaction] = useState(false);
+  const [catalogCount, setCatalogCount] = useState(0);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -112,12 +117,14 @@ export function AdminPage() {
     }
     (async () => {
       try {
-        const [cfg, dashboard] = await Promise.all([
+        const [cfg, dashboard, units] = await Promise.all([
           getAppConfig(),
           getDashboardStats(),
+          getUnitCatalogCount(),
         ]);
         setConfig(cfg);
         setStats(dashboard);
+        setCatalogCount(units);
       } catch (err) {
         console.error("Failed to load admin data:", err);
       } finally {
@@ -187,6 +194,33 @@ export function AdminPage() {
       toast.error("No se pudo crear la facción. Revisa tus permisos.");
     } finally {
       setCreatingFaction(false);
+    }
+  }
+
+  async function handleSyncCatalog() {
+    setSyncingCatalog(true);
+    try {
+      const res = await fetch("/data/mfm-catalog.json");
+      if (!res.ok) throw new Error("No se pudo leer el catálogo MFM");
+      const file = (await res.json()) as {
+        version?: string;
+        unitCount?: number;
+        units: Omit<UnitCatalogEntry, "id" | "createdAt" | "updatedAt">[];
+      };
+      if (!file.units?.length) throw new Error("El catálogo está vacío");
+      await upsertUnitCatalog(file.units);
+      const n = await getUnitCatalogCount();
+      setCatalogCount(n);
+      toast.success(
+        `Catálogo sincronizado: ${n} unidades (MFM ${file.version ?? ""})`,
+      );
+    } catch (err) {
+      console.error("Failed to sync catalog:", err);
+      toast.error(
+        "No se pudo sincronizar. Ejecuta supabase/unit_catalog.sql en Supabase y vuelve a intentar.",
+      );
+    } finally {
+      setSyncingCatalog(false);
     }
   }
 
@@ -271,6 +305,34 @@ export function AdminPage() {
             </motion.div>
           </motion.div>
         )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              Catálogo Munitorum (Warhammer 40,000)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Registra en la base de datos todas las miniaturas oficiales con sus
+              puntos. Después, al añadir una miniatura a un ejército, el usuario
+              podrá buscarla y seleccionarla.
+            </p>
+            <p className="text-sm">
+              Unidades en base de datos:{" "}
+              <span className="font-semibold">{catalogCount}</span>
+            </p>
+            <Button
+              onClick={handleSyncCatalog}
+              disabled={syncingCatalog}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncingCatalog ? "animate-spin" : ""}`} />
+              {syncingCatalog ? "Sincronizando..." : "Sincronizar catálogo MFM"}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Announcement */}
         <Card>

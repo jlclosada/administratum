@@ -1,4 +1,5 @@
 import { PAINT_CATALOG, PAINT_CATALOG_BY_ID } from '@/data/paints';
+import { normalizeFactionName } from '@/lib/mfm';
 import { supabase } from '@/lib/supabase';
 import type {
   AppConfig,
@@ -31,6 +32,7 @@ import type {
   PaintingProcessMediaType,
   PaintStatusType,
   Tag,
+  UnitCatalogEntry,
   UpdateArmyDTO,
   UpdateArmyPresetDTO,
   UpdateArticleDTO,
@@ -362,6 +364,8 @@ export async function createMiniature(
       purchased_at: dto.purchasedAt ?? null,
       purchase_price: dto.purchasePrice ?? null,
       store: dto.store ?? null,
+      catalog_unit_id: dto.catalogUnitId ?? null,
+      points_snapshot: dto.pointsSnapshot ?? null,
     })
     .select()
     .single();
@@ -1187,6 +1191,88 @@ export async function updateArmyPreset(
 export async function deleteArmyPreset(id: string): Promise<void> {
   const { error } = await supabase.from('army_presets').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ======================== UNIT CATALOG (MFM) ========================
+
+export async function getUnitCatalog(
+  gameName?: string,
+  factionName?: string,
+): Promise<UnitCatalogEntry[]> {
+  try {
+    const pageSize = 1000;
+    const collected: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += pageSize) {
+      let query = supabase
+        .from('unit_catalog')
+        .select('*')
+        .order('name', { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (gameName) query = query.eq('game_name', gameName);
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data?.length) break;
+      collected.push(...(data as Record<string, unknown>[]));
+      if (data.length < pageSize) break;
+    }
+    const rows = mapRows<UnitCatalogEntry>(collected);
+    if (!factionName) return rows;
+    const key = normalizeFactionName(factionName);
+    return rows.filter((u) => {
+      const faction = normalizeFactionName(u.factionName);
+      return (
+        faction === key ||
+        key.includes(faction) ||
+        faction.includes(key) ||
+        u.factionSlug === factionName
+      );
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function getUnitCatalogCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('unit_catalog')
+      .select('*', { count: 'exact', head: true });
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function upsertUnitCatalog(
+  entries: Omit<UnitCatalogEntry, 'id' | 'createdAt' | 'updatedAt'>[],
+): Promise<number> {
+  const payload = entries.map((e) => ({
+    game_name: e.gameName,
+    faction_slug: e.factionSlug,
+    faction_name: e.factionName,
+    name: e.name,
+    category: e.category,
+    group_title: e.groupTitle,
+    pricing: e.pricing,
+    wargear: e.wargear,
+    leader_to: e.leaderTo,
+    support_to: e.supportTo,
+    legends: e.legends,
+    default_quantity: e.defaultQuantity,
+    mfm_version: e.mfmVersion,
+  }));
+  const chunkSize = 80;
+  let total = 0;
+  for (let i = 0; i < payload.length; i += chunkSize) {
+    const chunk = payload.slice(i, i + chunkSize);
+    const { error, count } = await supabase
+      .from('unit_catalog')
+      .upsert(chunk, { onConflict: 'game_name,faction_slug,name', count: 'exact' });
+    if (error) throw error;
+    total += count ?? chunk.length;
+  }
+  return total;
 }
 
 // ======================== ARTICLES (ADMIN NEWS) ========================

@@ -61,6 +61,8 @@ export interface Miniature extends BaseEntity {
   purchasedAt: string | null;
   purchasePrice: number | null;
   store: string | null;
+  catalogUnitId?: string | null;
+  pointsSnapshot?: CatalogPricingTier[] | null;
 }
 
 export interface MiniatureWithDetails extends Miniature {
@@ -222,6 +224,36 @@ export interface UpdateArmyDTO extends Partial<CreateArmyDTO> {
   id: string;
 }
 
+export interface CatalogCostOption {
+  models: number;
+  points: number;
+  desc?: string;
+  addon?: boolean;
+}
+
+export interface CatalogPricingTier {
+  range?: string;
+  label: string;
+  costs: CatalogCostOption[];
+}
+
+/** Global datasheet from the Munitorum Field Manual. */
+export interface UnitCatalogEntry extends BaseEntity {
+  gameName: string;
+  factionSlug: string;
+  factionName: string;
+  name: string;
+  category: MiniatureCategory;
+  groupTitle: string | null;
+  pricing: CatalogPricingTier[];
+  wargear: { item: string; points: number }[];
+  leaderTo: string[];
+  supportTo: string[];
+  legends: boolean;
+  defaultQuantity: number;
+  mfmVersion: string | null;
+}
+
 export interface CreateMiniatureDTO {
   armyId: string;
   name: string;
@@ -234,6 +266,8 @@ export interface CreateMiniatureDTO {
   purchasedAt?: string | null;
   purchasePrice?: number | null;
   store?: string | null;
+  catalogUnitId?: string | null;
+  pointsSnapshot?: CatalogPricingTier[] | null;
 }
 
 export interface UpdateMiniatureDTO extends Partial<CreateMiniatureDTO> {

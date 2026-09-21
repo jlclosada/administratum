@@ -30,6 +30,7 @@ import {
     updateMiniature
 } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
+import { resumenUnidad } from "@/lib/mfm";
 import type {
     ArmyWithStats,
     Game,
@@ -376,6 +377,11 @@ export function MiniatureDetailPage() {
                       );
                     })()}
                   </div>
+                  {miniature.pointsSnapshot?.length ? (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Puntos MFM: {resumenUnidad({ pricing: miniature.pointsSnapshot })}
+                    </p>
+                  ) : null}
                   {miniature.notes && (
                     <p className="mt-2 text-sm text-muted-foreground">{miniature.notes}</p>
                   )}

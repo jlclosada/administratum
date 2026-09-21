@@ -23,15 +23,19 @@ import {
     getGameById,
     getImagesByArmy,
     getMiniaturesByArmy,
+    getUnitCatalog,
     toggleFavorite,
 } from "@/db";
+import { isWarhammer40k, resumenUnidad } from "@/lib/mfm";
 import type {
     ArmyWithStats,
+    CatalogPricingTier,
     Game,
     MiniatureCategory,
     MiniatureImage,
     MiniatureWithDetails,
-    PaintStatusType
+    PaintStatusType,
+    UnitCatalogEntry,
 } from "@/types";
 import { MINIATURE_CATEGORIES, PAINT_STATUSES, getCurrentPaintStep, getStatusesUpTo, isMiniatureComplete } from "@/types";
 import {
@@ -66,6 +70,12 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
   terrain: Mountain,
   other: Box,
 };
+
+function armyMatchesFaction(armyName: string, factionName: string): boolean {
+  const a = armyName.toLowerCase();
+  const f = factionName.toLowerCase();
+  return a === f || a.includes(f) || f.includes(a);
+}
 
 export function ArmyDetailPage() {
   const { gameId, armyId } = useParams<{ gameId: string; armyId: string }>();
@@ -102,6 +112,11 @@ export function ArmyDetailPage() {
   const [formStore, setFormStore] = useState("");
   const [formPrice, setFormPrice] = useState("");
   const [formPurchasedAt, setFormPurchasedAt] = useState("");
+  const [catalogUnits, setCatalogUnits] = useState<UnitCatalogEntry[]>([]);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [selectedCatalog, setSelectedCatalog] = useState<UnitCatalogEntry | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [allowCustomName, setAllowCustomName] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!gameId || !armyId) return;
@@ -138,6 +153,9 @@ export function ArmyDetailPage() {
     setFormStore("");
     setFormPrice("");
     setFormPurchasedAt("");
+    setCatalogQuery("");
+    setSelectedCatalog(null);
+    setAllowCustomName(false);
   }
 
   function selectFormStep(statusType: PaintStatusType) {
@@ -149,6 +167,54 @@ export function ArmyDetailPage() {
     } else {
       setFormStatuses(getStatusesUpTo(statusType));
     }
+  }
+
+  useEffect(() => {
+    if (!showCreateDialog || !game || !isWarhammer40k(game.name)) return;
+    let cancelled = false;
+    setCatalogLoading(true);
+    getUnitCatalog("Warhammer 40,000")
+      .then((rows) => {
+        if (!cancelled) setCatalogUnits(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalogUnits([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCatalogLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showCreateDialog, game]);
+
+  function pickCatalogUnit(unit: UnitCatalogEntry) {
+    setSelectedCatalog(unit);
+    setFormName(unit.name);
+    setFormCategory(unit.category);
+    setFormQuantity(1);
+    setCatalogQuery(unit.name);
+    setAllowCustomName(false);
+  }
+
+  function catalogMatches(): UnitCatalogEntry[] {
+    const q = catalogQuery.trim().toLowerCase();
+    const armyKey = army?.name ?? "";
+    const list = catalogUnits.filter((u) => {
+      if (!q) return armyMatchesFaction(armyKey, u.factionName);
+      return (
+        u.name.toLowerCase().includes(q) ||
+        u.factionName.toLowerCase().includes(q)
+      );
+    });
+    return list
+      .sort((a, b) => {
+        const aFaction = armyMatchesFaction(armyKey, a.factionName) ? 0 : 1;
+        const bFaction = armyMatchesFaction(armyKey, b.factionName) ? 0 : 1;
+        if (aFaction !== bFaction) return aFaction - bFaction;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 12);
   }
 
   async function handleCreate() {
@@ -165,6 +231,8 @@ export function ArmyDetailPage() {
         store: formStore.trim() || null,
         purchasePrice: formPrice ? parseFloat(formPrice) : null,
         purchasedAt: formPurchasedAt || null,
+        catalogUnitId: selectedCatalog?.id ?? null,
+        pointsSnapshot: (selectedCatalog?.pricing as CatalogPricingTier[] | undefined) ?? null,
       });
       setShowCreateDialog(false);
       resetForm();
@@ -392,7 +460,12 @@ export function ArmyDetailPage() {
                               </div>
                               <div className="min-w-0">
                                 <span className="font-medium text-sm truncate block">{mini.name}</span>
-                                <span className="text-xs text-muted-foreground">{mini.quantity}x</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {mini.quantity}x
+                                  {mini.pointsSnapshot?.length
+                                    ? ` · ${resumenUnidad({ pricing: mini.pointsSnapshot })}`
+                                    : ""}
+                                </span>
                               </div>
                             </div>
                           </td>
@@ -525,16 +598,78 @@ export function ArmyDetailPage() {
             <DialogHeader>
               <DialogTitle>Añadir Miniatura</DialogTitle>
               <DialogDescription>
-                Añade una nueva miniatura al ejército
+                {isWarhammer40k(game?.name)
+                  ? "Busca la unidad en el catálogo oficial y selecciónala. Nombre, tipo y puntos se rellenan solos."
+                  : "Añade una nueva miniatura al ejército"}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {isWarhammer40k(game?.name) && (
+                <div className="space-y-2">
+                  <Label>Buscar en el catálogo</Label>
+                  <Input
+                    value={catalogQuery}
+                    onChange={(e) => {
+                      setCatalogQuery(e.target.value);
+                      if (selectedCatalog) setSelectedCatalog(null);
+                    }}
+                    placeholder="Ej: Intercessors, Magnus, Rhino..."
+                    autoFocus
+                  />
+                  {catalogLoading ? (
+                    <p className="text-xs text-muted-foreground">Cargando catálogo...</p>
+                  ) : catalogUnits.length === 0 ? (
+                    <p className="text-xs text-amber-600">
+                      El catálogo aún no está en la base de datos. Un administrador debe sincronizarlo en el panel.
+                    </p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border/60">
+                      {catalogMatches().map((unit) => (
+                        <button
+                          key={unit.id}
+                          type="button"
+                          onClick={() => pickCatalogUnit(unit)}
+                          className={`flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent ${
+                            selectedCatalog?.id === unit.id ? "bg-primary/10" : ""
+                          }`}
+                        >
+                          <span className="font-medium">{unit.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {unit.factionName}
+                            {unit.legends ? " · Legends" : ""}
+                            {resumenUnidad(unit) ? ` · ${resumenUnidad(unit)}` : ""}
+                          </span>
+                        </button>
+                      ))}
+                      {catalogMatches().length === 0 && (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">
+                          {catalogQuery.trim()
+                            ? "Sin coincidencias. Activa el nombre personalizado abajo."
+                            : "Escribe el nombre de la unidad para buscarla en el catálogo."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={() => {
+                      setAllowCustomName(true);
+                      setSelectedCatalog(null);
+                    }}
+                  >
+                    La miniatura no está en el catálogo
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Nombre</Label>
                 <Input
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ej: Marines Rúbrica, Magnus el Rojo..."
+                  disabled={isWarhammer40k(game?.name) && !!selectedCatalog && !allowCustomName}
                 />
               </div>
 
