@@ -284,16 +284,17 @@ export function MiniatureDetailPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="icon"
+              className="mt-0.5 h-10 w-10 shrink-0"
               onClick={() => navigate(`/games/${gameId}/armies/${armyId}`)}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{game.name}</span>
                 <span>›</span>
@@ -306,11 +307,11 @@ export function MiniatureDetailPage() {
                     onChange={(e) => setEditName(e.target.value)}
                     className="text-2xl font-bold h-auto py-1"
                   />
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <select
                       value={editCategory}
                       onChange={(e) => setEditCategory(e.target.value as MiniatureCategory)}
-                      className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                      className="flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm sm:h-9 sm:w-auto"
                     >
                       {MINIATURE_CATEGORIES.map((cat) => (
                         <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -350,7 +351,7 @@ export function MiniatureDetailPage() {
                   <h1 className="font-display text-2xl font-bold tracking-tight mt-1 sm:text-3xl">
                     {miniature.name}
                   </h1>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{miniature.quantity}x</Badge>
                     <Badge variant="outline">{catLabel}</Badge>
                     {(() => {
@@ -390,16 +391,16 @@ export function MiniatureDetailPage() {
             </div>
           </div>
           {!editing && (
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={handleToggleFavorite}>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={handleToggleFavorite}>
                 <Heart
                   className={`h-5 w-5 ${miniature.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground"}`}
                 />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setEditing(true)}>
+              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setEditing(true)}>
                 <Edit className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(true)}>
+              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setDeleteConfirm(true)}>
                 <Trash2 className="h-5 w-5 text-destructive" />
               </Button>
             </div>

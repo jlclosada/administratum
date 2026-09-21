@@ -16,6 +16,7 @@ import {
   Home,
   ImageIcon,
   LayoutDashboard,
+  Library,
   LogOut,
   Palette,
   Settings,
@@ -33,6 +34,7 @@ const navItems = [
   { to: "/games", icon: Swords, label: "Juegos" },
   { to: "/paints", icon: Palette, label: "Mis Pinturas" },
   { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
+  { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
   { to: "/gallery", icon: ImageIcon, label: "Galería" },
   { to: "/settings", icon: Settings, label: "Ajustes" },
 ];

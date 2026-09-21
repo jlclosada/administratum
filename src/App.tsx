@@ -18,6 +18,7 @@ import { HomePage } from "@/pages/HomePage";
 import { LandingPage } from "@/pages/LandingPage";
 import { MiniatureDetailPage } from "@/pages/MiniatureDetailPage";
 import { MyPaintsPage } from "@/pages/MyPaintsPage";
+import { PointsCatalogFactionPage, PointsCatalogPage } from "@/pages/PointsCatalogPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useAuthStore } from "@/stores";
@@ -49,6 +50,8 @@ function AnimatedRoutes() {
           <Route path="paints" element={<MyPaintsPage />} />
           <Route path="lists" element={<ArmyListsPage />} />
           <Route path="lists/:listId" element={<ArmyListDetailPage />} />
+          <Route path="catalogo-puntos" element={<PointsCatalogPage />} />
+          <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
           <Route path="gallery" element={<GalleryPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="admin" element={<AdminPage />} />

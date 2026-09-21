@@ -169,7 +169,7 @@ export function GameDetailPage() {
       <div className="space-y-6">
         {/* Hero header */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60 shadow-lg">
-          <div className="relative aspect-[21/9] w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-background sm:aspect-[5/1]">
+          <div className="relative min-h-[18rem] w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-background sm:min-h-0 sm:aspect-[5/1]">
             {game.coverImage || game.icon ? (
               <img
                 src={(game.coverImage || game.icon) as string}
@@ -195,13 +195,13 @@ export function GameDetailPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             {/* Content */}
-            <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-4 p-5 sm:p-6">
+            <div className="absolute inset-x-0 bottom-0 flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4 sm:p-6">
               <div className="min-w-0">
                 <h1 className="font-display text-2xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
                   {game.name}
                 </h1>
                 {game.description && (
-                  <p className="mt-1 max-w-xl text-sm text-white/75">{game.description}</p>
+                  <p className="mt-1 line-clamp-2 max-w-xl text-sm text-white/75">{game.description}</p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-white/90">
                   <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm">
@@ -218,7 +218,7 @@ export function GameDetailPage() {
               <Button
                 onClick={() => setShowCreateDialog(true)}
                 variant="gradient"
-                className="gap-2 shadow-lg"
+                className="h-11 w-full gap-2 shadow-lg sm:h-9 sm:w-auto"
               >
                 <Plus className="h-4 w-4" />
                 Nuevo Ejército

@@ -224,7 +224,7 @@ export function ArmyListDetailPage() {
               <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
                 {list.name}
               </h1>
-              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 {list.gameName && <span>{list.gameName}</span>}
                 {list.armyName && (
                   <>
@@ -278,7 +278,61 @@ export function ArmyListDetailPage() {
         ) : (
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="divide-y divide-border/60 md:hidden">
+                {list.miniatures.map((lm) => {
+                  const mini = lm.miniature;
+                  if (!mini) return null;
+                  const rowPts = puntosCopias(
+                    mini.pointsSnapshot ?? [],
+                    lm.quantity,
+                  );
+                  return (
+                    <div key={lm.id} className="space-y-2 px-3 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{mini.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label ?? mini.category}
+                            {rowPts > 0 ? ` · ${rowPts} pts` : ""}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 shrink-0"
+                          onClick={() => handleRemoveMiniature(lm.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10"
+                            onClick={() => handleSetQuantity(lm.id, lm.quantity - 1)}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="w-8 text-center text-sm font-semibold">
+                            {lm.quantity}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10"
+                            onClick={() => handleSetQuantity(lm.id, lm.quantity + 1)}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
@@ -583,7 +637,7 @@ export function ArmyListDetailPage() {
             if (!open) setMiniSearch("");
           }}
         >
-          <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogContent className="flex max-h-[80vh] max-w-lg flex-col">
             <DialogHeader>
               <DialogTitle>Añadir Miniatura a la Lista</DialogTitle>
               <DialogDescription>
@@ -612,7 +666,7 @@ export function ArmyListDetailPage() {
                       key={mini.id}
                       type="button"
                       onClick={() => handleAddMiniature(mini.id)}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all hover:bg-accent"
+                      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all hover:bg-accent"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{mini.name}</p>
@@ -648,8 +702,8 @@ export function ArmyListDetailPage() {
                 })
               )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddMini(false)}>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" className="h-11 w-full sm:h-9 sm:w-auto" onClick={() => setShowAddMini(false)}>
                 Cerrar
               </Button>
             </DialogFooter>

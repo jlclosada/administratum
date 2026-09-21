@@ -117,7 +117,7 @@ export function AppLayout() {
           )}
         </AnimatePresence>
         <ScrollArea className="flex-1">
-          <div className="p-4 sm:p-6 lg:p-8">
+          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
             <Outlet />
           </div>
         </ScrollArea>
