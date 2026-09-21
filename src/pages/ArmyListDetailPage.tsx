@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { MiniatureStatusBadge, miniatureReadyClass } from "@/components/shared/MiniatureStatusBadge";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,11 +33,10 @@ import type {
   ArmyListWithDetails,
   MiniatureWithDetails,
 } from "@/types";
-import { MINIATURE_CATEGORIES, PAINT_STATUSES } from "@/types";
+import { MINIATURE_CATEGORIES } from "@/types";
 import {
   ArrowLeft,
   CalendarIcon,
-  Check,
   FileText,
   ImageIcon,
   Plus,
@@ -287,7 +287,7 @@ export function ArmyListDetailPage() {
                     lm.quantity,
                   );
                   return (
-                    <div key={lm.id} className="space-y-2 px-3 py-3">
+                    <div key={lm.id} className={`space-y-2 px-3 py-3 ${miniatureReadyClass(mini.statuses)}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{mini.name}</p>
@@ -295,6 +295,9 @@ export function ArmyListDetailPage() {
                             {MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label ?? mini.category}
                             {rowPts > 0 ? ` · ${rowPts} pts` : ""}
                           </p>
+                          <div className="mt-1.5">
+                            <MiniatureStatusBadge statuses={mini.statuses} />
+                          </div>
                         </div>
                         <Button
                           variant="ghost"
@@ -367,7 +370,7 @@ export function ArmyListDetailPage() {
                       return (
                         <tr
                           key={lm.id}
-                          className="border-b border-border/50 last:border-0 hover:bg-accent/30"
+                          className={`border-b border-border/50 last:border-0 hover:bg-accent/30 ${miniatureReadyClass(mini.statuses)}`}
                         >
                           <td className="px-4 py-3">
                             <span className="font-medium text-sm">
@@ -417,33 +420,7 @@ export function ArmyListDetailPage() {
                             {rowPts > 0 ? `${rowPts} pts` : "—"}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1">
-                              {PAINT_STATUSES.map((status) => {
-                                const active = mini.statuses?.includes(
-                                  status.type
-                                );
-                                if (!active) return null;
-                                return (
-                                  <div
-                                    key={status.type}
-                                    className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                                    style={{
-                                      backgroundColor: `${status.color}20`,
-                                      color: status.color,
-                                    }}
-                                  >
-                                    <Check className="h-2.5 w-2.5" />
-                                    {status.name}
-                                  </div>
-                                );
-                              })}
-                              {(!mini.statuses ||
-                                mini.statuses.length === 0) && (
-                                <span className="text-xs text-muted-foreground">
-                                  Sin estados
-                                </span>
-                              )}
-                            </div>
+                            <MiniatureStatusBadge statuses={mini.statuses} />
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Button
@@ -666,7 +643,7 @@ export function ArmyListDetailPage() {
                       key={mini.id}
                       type="button"
                       onClick={() => handleAddMiniature(mini.id)}
-                      className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all hover:bg-accent"
+                      className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all hover:bg-accent ${miniatureReadyClass(mini.statuses)}`}
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{mini.name}</p>
@@ -674,22 +651,7 @@ export function ArmyListDetailPage() {
                           {mini.gameName} · {mini.armyName} · {mini.quantity}x
                         </p>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {mini.statuses?.map((s) => {
-                          const st = PAINT_STATUSES.find(
-                            (ps) => ps.type === s
-                          );
-                          if (!st) return null;
-                          return (
-                            <div
-                              key={s}
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: st.color }}
-                              title={st.name}
-                            />
-                          );
-                        })}
-                      </div>
+                      <MiniatureStatusBadge statuses={mini.statuses} />
                       {added ? (
                         <Badge variant="secondary" className="text-[10px]">
                           +1 copia

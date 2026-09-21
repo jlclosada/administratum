@@ -305,7 +305,7 @@ export function GameDetailPage() {
                             {army.totalMiniatures} miniaturas · {army.totalPainted} pintadas
                           </span>
                           <span className="text-xs font-semibold text-white/90">
-                            {army.completionPercentage}%
+                            {(army.totalPoints ?? 0).toLocaleString("es-ES")} pts
                           </span>
                         </div>
                         <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/20">

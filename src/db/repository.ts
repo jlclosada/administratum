@@ -11,6 +11,7 @@ import type {
   ArmyPreset,
   ArmyWithStats,
   Article,
+  CatalogPricingTier,
   CreateArmyDTO,
   CreateArmyListDTO,
   CreateArmyPresetDTO,
@@ -72,19 +73,24 @@ const STATUS_ORDER: PaintStatusType[] = [
 /** Aggregate quantity/painted counts per army. */
 async function armyStats(
   armyIds: string[],
-): Promise<Map<string, { total: number; painted: number }>> {
-  const map = new Map<string, { total: number; painted: number }>();
+): Promise<Map<string, { total: number; painted: number; points: number }>> {
+  const map = new Map<string, { total: number; painted: number; points: number }>();
   if (armyIds.length === 0) return map;
   const { data, error } = await supabase
     .from('miniatures')
-    .select('army_id, quantity, painted_count')
+    .select('army_id, quantity, painted_count, points_snapshot')
     .in('army_id', armyIds);
   if (error) throw error;
   for (const row of (data ?? []) as Record<string, unknown>[]) {
     const armyId = String(row.army_id);
-    const entry = map.get(armyId) ?? { total: 0, painted: 0 };
-    entry.total += Number(row.quantity ?? 0);
+    const entry = map.get(armyId) ?? { total: 0, painted: 0, points: 0 };
+    const qty = Number(row.quantity ?? 0);
+    entry.total += qty;
     entry.painted += Number(row.painted_count ?? 0);
+    entry.points += puntosCopias(
+      (row.points_snapshot as CatalogPricingTier[] | null) ?? [],
+      qty,
+    );
     map.set(armyId, entry);
   }
   return map;
@@ -177,11 +183,12 @@ export async function deleteGame(id: string): Promise<void> {
 
 function applyArmyStats<T extends ArmyWithStats>(
   army: T,
-  stats: Map<string, { total: number; painted: number }>,
+  stats: Map<string, { total: number; painted: number; points: number }>,
 ): T {
-  const s = stats.get(army.id) ?? { total: 0, painted: 0 };
+  const s = stats.get(army.id) ?? { total: 0, painted: 0, points: 0 };
   army.totalMiniatures = s.total;
   army.totalPainted = s.painted;
+  army.totalPoints = s.points;
   army.completionPercentage =
     s.total > 0 ? Math.round((s.painted / s.total) * 100) : 0;
   return army;
@@ -692,16 +699,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   // Army progress
   const armies = mapRows<ArmyWithStats>(armiesRes.data ?? []);
-  const stats = new Map<string, { total: number; painted: number }>();
-  for (const m of miniRows) {
-    const armyId = String(m.army_id);
-    const entry = stats.get(armyId) ?? { total: 0, painted: 0 };
-    entry.total += Number(m.quantity ?? 0);
-    entry.painted += Number(m.painted_count ?? 0);
-    stats.set(armyId, entry);
-  }
+  const armyStatsMap = await armyStats(armies.map((a) => a.id));
   const armyProgress = armies
-    .map((a) => applyArmyStats(a, stats))
+    .map((a) => applyArmyStats(a, armyStatsMap))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const recentMiniatures = (

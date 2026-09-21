@@ -77,7 +77,7 @@ export function AppLayout() {
         )}
       </AnimatePresence>
 
-      <main className="relative z-10 flex flex-1 flex-col overflow-hidden">
+      <main className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Mobile top bar with burger */}
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-card/40 px-4 backdrop-blur-xl lg:hidden">
           <button
@@ -116,8 +116,8 @@ export function AppLayout() {
             </motion.div>
           )}
         </AnimatePresence>
-        <ScrollArea className="flex-1">
-          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
+        <ScrollArea className="min-w-0 flex-1">
+          <div className="min-w-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 lg:p-8">
             <Outlet />
           </div>
         </ScrollArea>

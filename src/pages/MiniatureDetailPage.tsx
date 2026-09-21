@@ -1,6 +1,7 @@
 import { PaintingProcessEditor } from "@/components/painting/PaintingProcessEditor";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { MiniatureStatusBadge } from "@/components/shared/MiniatureStatusBadge";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -354,29 +355,7 @@ export function MiniatureDetailPage() {
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{miniature.quantity}x</Badge>
                     <Badge variant="outline">{catLabel}</Badge>
-                    {(() => {
-                      const complete = isMiniatureComplete(miniature.statuses);
-                      const current = getCurrentPaintStep(miniature.statuses);
-                      if (complete) {
-                        return (
-                          <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-500">
-                            ✓ Completada
-                          </Badge>
-                        );
-                      }
-                      if (current) {
-                        return (
-                          <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-500">
-                            {current.name}
-                          </Badge>
-                        );
-                      }
-                      return (
-                        <Badge variant="outline">
-                          Sin empezar
-                        </Badge>
-                      );
-                    })()}
+                    <MiniatureStatusBadge statuses={miniature.statuses} />
                   </div>
                   {miniature.pointsSnapshot?.length ? (
                     <p className="mt-2 text-sm text-muted-foreground">

@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { MiniatureStatusBadge, miniatureReadyClass } from "@/components/shared/MiniatureStatusBadge";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -272,9 +273,9 @@ export function ArmyDetailPage() {
     <PageTransition>
       <div className="space-y-6">
         {/* Hero header */}
-        <div className="relative overflow-hidden rounded-2xl border border-border/60 shadow-lg">
+        <div className="overflow-hidden rounded-2xl border border-border/60 shadow-lg">
           <div
-            className="relative min-h-[22rem] w-full overflow-hidden sm:min-h-0 sm:aspect-[5/1]"
+            className="relative h-36 w-full overflow-hidden sm:h-auto sm:min-h-[16rem] sm:aspect-[5/1]"
             style={
               army.coverImage
                 ? undefined
@@ -296,17 +297,15 @@ export function ArmyDetailPage() {
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/10" />
-            {/* Back button */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate(`/games/${gameId}`)}
-              className="absolute left-3 top-3 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 hover:text-white"
+              className="absolute left-3 top-3 z-10 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 hover:text-white"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            {/* Content */}
-            <div className="absolute inset-x-0 bottom-0 flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4 sm:p-6">
+            <div className="absolute inset-x-0 bottom-0 hidden items-end justify-between gap-4 p-6 sm:flex">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-white/70">
                   {game.name}
@@ -316,7 +315,7 @@ export function ArmyDetailPage() {
                     className="h-4 w-4 shrink-0 rounded-full border-2 border-white/50"
                     style={{ backgroundColor: army.colorPrimary ?? "#8b5cf6" }}
                   />
-                  <h1 className="font-display text-2xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
+                  <h1 className="font-display text-4xl font-bold tracking-tight text-white drop-shadow-lg">
                     {army.name}
                   </h1>
                 </div>
@@ -333,6 +332,9 @@ export function ArmyDetailPage() {
                     {army.totalPainted} pintadas
                   </span>
                   <span className="rounded-full bg-white/20 px-2.5 py-1 font-semibold backdrop-blur-sm">
+                    {(army.totalPoints ?? 0).toLocaleString("es-ES")} pts
+                  </span>
+                  <span className="rounded-full bg-white/20 px-2.5 py-1 font-semibold backdrop-blur-sm">
                     {army.completionPercentage}% completado
                   </span>
                 </div>
@@ -347,12 +349,59 @@ export function ArmyDetailPage() {
                   setShowCreateDialog(true);
                 }}
                 variant="gradient"
-                className="h-11 w-full gap-2 shadow-lg sm:h-9 sm:w-auto"
+                className="h-9 shrink-0 gap-2 shadow-lg"
               >
                 <Plus className="h-4 w-4" />
                 Añadir Miniatura
               </Button>
             </div>
+          </div>
+          <div className="space-y-3 p-4 sm:hidden">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {game.name}
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-border"
+                  style={{ backgroundColor: army.colorPrimary ?? "#8b5cf6" }}
+                />
+                <h1 className="font-display text-xl font-bold tracking-tight">
+                  {army.name}
+                </h1>
+              </div>
+              {army.description && (
+                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                  {army.description}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="rounded-full bg-muted px-2.5 py-1">
+                {army.totalMiniatures} miniaturas
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-1">
+                {army.totalPainted} pintadas
+              </span>
+              <span className="rounded-full bg-primary/15 px-2.5 py-1 font-semibold">
+                {(army.totalPoints ?? 0).toLocaleString("es-ES")} pts
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-1 font-semibold">
+                {army.completionPercentage}%
+              </span>
+            </div>
+            <Progress value={army.completionPercentage} className="h-1.5" />
+            <Button
+              onClick={() => {
+                resetForm();
+                setShowCreateDialog(true);
+              }}
+              variant="gradient"
+              className="h-11 w-full gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Añadir Miniatura
+            </Button>
           </div>
         </div>
 
@@ -425,48 +474,37 @@ export function ArmyDetailPage() {
               <div className="divide-y divide-border/60 md:hidden">
                 {filteredMiniatures.map((mini) => {
                   const CatIcon = CATEGORY_ICONS[mini.category] ?? Box;
-                  const complete = isMiniatureComplete(mini.statuses);
-                  const currentStep = getCurrentPaintStep(mini.statuses);
                   return (
                     <div
                       key={mini.id}
-                      className="flex items-start gap-3 px-3 py-3"
-                      onClick={() => navigate(`/games/${gameId}/armies/${armyId}/miniatures/${mini.id}`)}
-                      role="button"
-                      tabIndex={0}
+                      className={`min-w-0 space-y-2 px-3 py-3 ${miniatureReadyClass(mini.statuses)}`}
                     >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <CatIcon className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-sm">{mini.name}</p>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                          {mini.quantity}x
-                          {mini.pointsSnapshot?.length
-                            ? ` · ${resumenUnidad({ pricing: mini.pointsSnapshot })}`
-                            : ""}
-                        </p>
-                        <div className="mt-1.5">
-                          {complete ? (
-                            <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-500 text-xs">
-                              Completada
-                            </Badge>
-                          ) : currentStep ? (
-                            <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-xs">
-                              {currentStep.name}
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                              Sin empezar
-                            </Badge>
-                          )}
+                      <button
+                        type="button"
+                        className="flex w-full min-w-0 items-start gap-3 text-left"
+                        onClick={() => navigate(`/games/${gameId}/armies/${armyId}/miniatures/${mini.id}`)}
+                      >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                          <CatIcon className="h-5 w-5 text-primary" />
                         </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-0.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-medium text-sm leading-snug">{mini.name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {mini.quantity}x
+                            {MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label
+                              ? ` · ${MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label}`
+                              : ""}
+                          </p>
+                          <div className="mt-1.5">
+                            <MiniatureStatusBadge statuses={mini.statuses} />
+                          </div>
+                        </div>
+                      </button>
+                      <div className="flex items-center justify-end gap-1 border-t border-border/40 pt-2">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10"
+                          variant="outline"
+                          size="sm"
+                          className="h-10 gap-1.5 px-3"
                           onClick={(e) => handleToggleFavorite(e, mini.id)}
                         >
                           <Heart
@@ -474,14 +512,16 @@ export function ArmyDetailPage() {
                               mini.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground"
                             }`}
                           />
+                          Favorito
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10"
-                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(mini.id); }}
+                          variant="outline"
+                          size="sm"
+                          className="h-10 gap-1.5 px-3 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteConfirm(mini.id)}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash2 className="h-4 w-4" />
+                          Eliminar
                         </Button>
                       </div>
                     </div>
@@ -501,12 +541,10 @@ export function ArmyDetailPage() {
                   <tbody>
                     {filteredMiniatures.map((mini) => {
                       const CatIcon = CATEGORY_ICONS[mini.category] ?? Box;
-                      const complete = isMiniatureComplete(mini.statuses);
-                      const currentStep = getCurrentPaintStep(mini.statuses);
                       return (
                         <tr
                           key={mini.id}
-                          className="group cursor-pointer border-b border-border/50 last:border-0 transition-colors hover:bg-accent/50"
+                          className={`group cursor-pointer border-b border-border/50 last:border-0 transition-colors hover:bg-accent/50 ${miniatureReadyClass(mini.statuses)}`}
                           onClick={() => navigate(`/games/${gameId}/armies/${armyId}/miniatures/${mini.id}`)}
                         >
                           <td className="px-4 py-3">
@@ -531,19 +569,7 @@ export function ArmyDetailPage() {
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {complete ? (
-                              <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-500 text-xs">
-                                ✓ Completada
-                              </Badge>
-                            ) : currentStep ? (
-                              <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-500 text-xs">
-                                {currentStep.name}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                Sin empezar
-                              </Badge>
-                            )}
+                            <MiniatureStatusBadge statuses={mini.statuses} />
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-1">

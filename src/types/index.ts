@@ -37,6 +37,7 @@ export interface ArmyWithStats extends Army {
   totalMiniatures: number;
   totalPainted: number;
   completionPercentage: number;
+  totalPoints: number;
 }
 
 // ---------- Miniature / Unit ----------
@@ -405,6 +406,29 @@ export function getNextPaintStep(
 /** A miniature is complete when it has reached "Barnizada" (varnished) */
 export function isMiniatureComplete(statuses: PaintStatusType[]): boolean {
   return statuses.includes('varnished');
+}
+
+export function getMiniatureStatusSummary(statuses: PaintStatusType[]): {
+  complete: boolean;
+  inProgress: boolean;
+  label: string;
+} {
+  const complete = isMiniatureComplete(statuses);
+  const current = getCurrentPaintStep(statuses);
+  if (complete) {
+    return { complete: true, inProgress: false, label: 'Barnizada · Completada' };
+  }
+  if (current?.type === 'wip') {
+    return { complete: false, inProgress: true, label: 'En proceso' };
+  }
+  if (current) {
+    return {
+      complete: false,
+      inProgress: current.sortOrder >= 3,
+      label: current.name,
+    };
+  }
+  return { complete: false, inProgress: false, label: 'Sin empezar' };
 }
 
 /** Given a clicked step, return all steps up to and including it */

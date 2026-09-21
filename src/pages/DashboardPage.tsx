@@ -202,6 +202,9 @@ export function DashboardPage() {
                       <span className="font-medium">{army.name}</span>
                       <span className="text-muted-foreground">
                         {army.totalPainted}/{army.totalMiniatures}
+                        {(army.totalPoints ?? 0) > 0
+                          ? ` · ${army.totalPoints.toLocaleString("es-ES")} pts`
+                          : ""}
                       </span>
                     </div>
                     <Progress
