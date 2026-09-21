@@ -28,7 +28,7 @@ import {
   updateArmyListPdf,
 } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
-import { puntosCopias, resumenUnidad } from "@/lib/mfm";
+import { puntosModelos, resumenUnidad } from "@/lib/mfm";
 import type {
   ArmyListWithDetails,
   MiniatureWithDetails,
@@ -282,9 +282,9 @@ export function ArmyListDetailPage() {
                 {list.miniatures.map((lm) => {
                   const mini = lm.miniature;
                   if (!mini) return null;
-                  const rowPts = puntosCopias(
+                  const rowPts = puntosModelos(
                     mini.pointsSnapshot ?? [],
-                    lm.quantity,
+                    (mini.quantity ?? 1) * lm.quantity,
                   );
                   return (
                     <div key={lm.id} className={`space-y-2 px-3 py-3 ${miniatureReadyClass(mini.statuses)}`}>
@@ -363,9 +363,9 @@ export function ArmyListDetailPage() {
                     {list.miniatures.map((lm) => {
                       const mini = lm.miniature;
                       if (!mini) return null;
-                      const rowPts = puntosCopias(
+                      const rowPts = puntosModelos(
                         mini.pointsSnapshot ?? [],
-                        lm.quantity,
+                        (mini.quantity ?? 1) * lm.quantity,
                       );
                       return (
                         <tr

@@ -40,7 +40,7 @@ function formatoCoste(cost: CatalogCost): string {
     return `+${cost.points}${nombre}`;
   }
   if (cost.models <= 1) return `${cost.points} pts`;
-  return `${cost.models}× ${cost.points} pts`;
+  return `${cost.models} minis · ${cost.points} pts`;
 }
 
 export function tramosUnidad(unit: CatalogUnitLike) {
@@ -191,8 +191,12 @@ export function rangoTramo(
   return { from: 1, to: Number.POSITIVE_INFINITY };
 }
 
+function costesDeUnidad(tramo: CatalogPricingTier): CatalogCost[] {
+  return (tramo.costs || []).filter((c) => !c.addon && c.models > 0);
+}
+
 function costeBaseTramo(tramo: CatalogPricingTier): number {
-  const costes = (tramo.costs || []).filter((c) => !c.addon);
+  const costes = costesDeUnidad(tramo);
   if (!costes.length) return 0;
   const uno = costes.find((c) => c.models <= 1);
   if (uno) return uno.points;
@@ -200,23 +204,94 @@ function costeBaseTramo(tramo: CatalogPricingTier): number {
   return sorted[0]?.points ?? 0;
 }
 
-/** Points of the Nth copy (1-based), using MFM copy-cost tiers. */
-export function costeCopia(pricing: CatalogPricingTier[] | null | undefined, copia: number): number {
+export function tamanosUnidad(
+  pricing: CatalogPricingTier[] | null | undefined,
+): number[] {
+  const sizes = new Set<number>();
+  for (const tramo of pricing || []) {
+    for (const cost of costesDeUnidad(tramo)) sizes.add(cost.models);
+  }
+  return [...sizes].sort((a, b) => b - a);
+}
+
+function tramoParaCopia(
+  pricing: CatalogPricingTier[] | null | undefined,
+  copia: number,
+): CatalogPricingTier | undefined {
   const tramos = pricing || [];
-  if (!tramos.length || copia < 1) return 0;
-  const match =
+  if (!tramos.length || copia < 1) return undefined;
+  return (
     tramos.find((t) => {
       const { from, to } = rangoTramo(t.range, t.label);
       return copia >= from && copia <= to;
-    }) ?? tramos[0];
-  return match ? costeBaseTramo(match) : 0;
+    }) ?? tramos[0]
+  );
+}
+
+export function costeUnidad(
+  pricing: CatalogPricingTier[] | null | undefined,
+  copia: number,
+  models: number,
+): number {
+  const tramo = tramoParaCopia(pricing, copia);
+  if (!tramo) return 0;
+  const exact = costesDeUnidad(tramo).find((c) => c.models === models);
+  if (exact) return exact.points;
+  return costeBaseTramo(tramo);
+}
+
+function empaquetarModelos(models: number, sizesDesc: number[]): number[] {
+  const units: number[] = [];
+  let rest = models;
+  for (const size of sizesDesc) {
+    while (rest >= size) {
+      units.push(size);
+      rest -= size;
+    }
+  }
+  return units;
+}
+
+/** Nth copy of the smallest legal unit (1-based), using MFM copy-cost tiers. */
+export function costeCopia(
+  pricing: CatalogPricingTier[] | null | undefined,
+  copia: number,
+): number {
+  const sizes = tamanosUnidad(pricing);
+  const models = sizes.length ? Math.min(...sizes) : 1;
+  return costeUnidad(pricing, copia, models);
+}
+
+/**
+ * Points for models currently registered.
+ * MFM "10 minis · 135 pts" is the cost of that unit size, not 10 × 135.
+ * Quantities below the smallest unit size count as that many copies (legacy qty=1).
+ */
+export function puntosModelos(
+  pricing: CatalogPricingTier[] | null | undefined,
+  models: number,
+): number {
+  const n = Math.max(0, Math.floor(Number(models) || 0));
+  if (!pricing?.length || n < 1) return 0;
+  const sizes = tamanosUnidad(pricing);
+  if (!sizes.length) return 0;
+  const minSize = Math.min(...sizes);
+  if (n < minSize) {
+    let total = 0;
+    for (let i = 1; i <= n; i += 1) total += costeUnidad(pricing, i, minSize);
+    return total;
+  }
+  return empaquetarModelos(n, sizes).reduce(
+    (sum, size, i) => sum + costeUnidad(pricing, i + 1, size),
+    0,
+  );
 }
 
 export function puntosCopias(
   pricing: CatalogPricingTier[] | null | undefined,
   copias: number,
 ): number {
-  let total = 0;
-  for (let i = 1; i <= copias; i += 1) total += costeCopia(pricing, i);
-  return total;
+  const sizes = tamanosUnidad(pricing);
+  const modelsPorUnidad = sizes.length ? Math.min(...sizes) : 1;
+  return puntosModelos(pricing, modelsPorUnidad * Math.max(0, copias));
 }

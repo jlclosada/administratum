@@ -1,5 +1,5 @@
 import { PAINT_CATALOG, PAINT_CATALOG_BY_ID } from '@/data/paints';
-import { normalizeFactionName, puntosCopias } from '@/lib/mfm';
+import { normalizeFactionName, puntosModelos } from '@/lib/mfm';
 import { supabase } from '@/lib/supabase';
 import type {
   AppConfig,
@@ -70,7 +70,12 @@ const STATUS_ORDER: PaintStatusType[] = [
   'varnished',
 ];
 
-/** Aggregate quantity/painted counts per army. */
+type ArmyPointsGroup = {
+  models: number;
+  pricing: CatalogPricingTier[];
+};
+
+/** Aggregate quantity/painted/points per army from miniatures currently registered. */
 async function armyStats(
   armyIds: string[],
 ): Promise<Map<string, { total: number; painted: number; points: number }>> {
@@ -78,20 +83,38 @@ async function armyStats(
   if (armyIds.length === 0) return map;
   const { data, error } = await supabase
     .from('miniatures')
-    .select('army_id, quantity, painted_count, points_snapshot')
+    .select('army_id, quantity, painted_count, points_snapshot, catalog_unit_id, name')
     .in('army_id', armyIds);
   if (error) throw error;
+
+  const groups = new Map<string, Map<string, ArmyPointsGroup>>();
   for (const row of (data ?? []) as Record<string, unknown>[]) {
     const armyId = String(row.army_id);
     const entry = map.get(armyId) ?? { total: 0, painted: 0, points: 0 };
     const qty = Number(row.quantity ?? 0);
     entry.total += qty;
     entry.painted += Number(row.painted_count ?? 0);
-    entry.points += puntosCopias(
-      (row.points_snapshot as CatalogPricingTier[] | null) ?? [],
-      qty,
-    );
     map.set(armyId, entry);
+
+    const unitKey = row.catalog_unit_id
+      ? `id:${row.catalog_unit_id}`
+      : `name:${String(row.name ?? '')}`;
+    const armyGroups = groups.get(armyId) ?? new Map<string, ArmyPointsGroup>();
+    const group = armyGroups.get(unitKey) ?? { models: 0, pricing: [] };
+    group.models += qty;
+    const snapshot = (row.points_snapshot as CatalogPricingTier[] | null) ?? [];
+    if (snapshot.length) group.pricing = snapshot;
+    armyGroups.set(unitKey, group);
+    groups.set(armyId, armyGroups);
+  }
+
+  for (const [armyId, armyGroups] of groups) {
+    const entry = map.get(armyId);
+    if (!entry) continue;
+    entry.points = 0;
+    for (const group of armyGroups.values()) {
+      entry.points += puntosModelos(group.pricing, group.models);
+    }
   }
   return map;
 }
@@ -755,7 +778,11 @@ async function hydrateArmyList(
     .reduce((sum, m) => sum + m.quantity, 0);
   const computedPoints = minis.reduce(
     (sum, m) =>
-      sum + puntosCopias(m.miniature?.pointsSnapshot ?? [], m.quantity),
+      sum +
+      puntosModelos(
+        m.miniature?.pointsSnapshot ?? [],
+        (m.miniature?.quantity ?? 1) * m.quantity,
+      ),
     0,
   );
   return {
@@ -912,7 +939,11 @@ async function persistListPoints(listId: string): Promise<void> {
   const minis = await getArmyListMiniatures(listId);
   const points = minis.reduce(
     (sum, m) =>
-      sum + puntosCopias(m.miniature?.pointsSnapshot ?? [], m.quantity),
+      sum +
+      puntosModelos(
+        m.miniature?.pointsSnapshot ?? [],
+        (m.miniature?.quantity ?? 1) * m.quantity,
+      ),
     0,
   );
   await supabase.from('army_lists').update({ points }).eq('id', listId);

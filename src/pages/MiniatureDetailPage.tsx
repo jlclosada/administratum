@@ -31,7 +31,7 @@ import {
     updateMiniature
 } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
-import { resumenUnidad } from "@/lib/mfm";
+import { puntosModelos, resumenUnidad } from "@/lib/mfm";
 import type {
     ArmyWithStats,
     Game,
@@ -353,13 +353,16 @@ export function MiniatureDetailPage() {
                     {miniature.name}
                   </h1>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{miniature.quantity}x</Badge>
+                    <Badge variant="secondary">{miniature.quantity} minis</Badge>
                     <Badge variant="outline">{catLabel}</Badge>
                     <MiniatureStatusBadge statuses={miniature.statuses} />
                   </div>
                   {miniature.pointsSnapshot?.length ? (
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Puntos MFM: {resumenUnidad({ pricing: miniature.pointsSnapshot })}
+                      {puntosModelos(miniature.pointsSnapshot, miniature.quantity).toLocaleString("es-ES")} pts
+                      {resumenUnidad({ pricing: miniature.pointsSnapshot })
+                        ? ` · catálogo: ${resumenUnidad({ pricing: miniature.pointsSnapshot })}`
+                        : ""}
                     </p>
                   ) : null}
                   {miniature.notes && (

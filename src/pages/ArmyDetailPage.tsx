@@ -27,7 +27,7 @@ import {
     getUnitCatalog,
     toggleFavorite,
 } from "@/db";
-import { isWarhammer40k, resumenUnidad, unitBelongsToArmy, canonicalFactionName } from "@/lib/mfm";
+import { isWarhammer40k, puntosModelos, resumenUnidad, unitBelongsToArmy, canonicalFactionName } from "@/lib/mfm";
 import type {
     ArmyWithStats,
     CatalogPricingTier,
@@ -187,7 +187,7 @@ export function ArmyDetailPage() {
     setSelectedCatalog(unit);
     setFormName(unit.name);
     setFormCategory(unit.category);
-    setFormQuantity(1);
+    setFormQuantity(Math.max(1, unit.defaultQuantity || 1));
     setCatalogQuery(unit.name);
     setAllowCustomName(false);
   }
@@ -490,10 +490,12 @@ export function ArmyDetailPage() {
                         <div className="min-w-0 flex-1">
                           <p className="break-words font-medium text-sm leading-snug">{mini.name}</p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {mini.quantity}x
-                            {MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label
-                              ? ` · ${MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label}`
-                              : ""}
+                            {mini.quantity} minis
+                            {mini.pointsSnapshot?.length
+                              ? ` · ${puntosModelos(mini.pointsSnapshot, mini.quantity).toLocaleString("es-ES")} pts`
+                              : MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label
+                                ? ` · ${MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label}`
+                                : ""}
                           </p>
                           <div className="mt-1.5">
                             <MiniatureStatusBadge statuses={mini.statuses} />
@@ -555,9 +557,9 @@ export function ArmyDetailPage() {
                               <div className="min-w-0">
                                 <span className="block truncate text-sm font-medium">{mini.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  {mini.quantity}x
+                                  {mini.quantity} minis
                                   {mini.pointsSnapshot?.length
-                                    ? ` · ${resumenUnidad({ pricing: mini.pointsSnapshot })}`
+                                    ? ` · ${puntosModelos(mini.pointsSnapshot, mini.quantity).toLocaleString("es-ES")} pts`
                                     : ""}
                                 </span>
                               </div>
@@ -783,7 +785,7 @@ export function ArmyDetailPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Cantidad</Label>
+                  <Label>Cantidad de miniaturas</Label>
                   <Input
                     type="number"
                     min={1}
@@ -793,6 +795,12 @@ export function ArmyDetailPage() {
                       setFormQuantity(val);
                     }}
                   />
+                  {selectedCatalog?.pricing?.length ? (
+                    <p className="text-xs text-muted-foreground">
+                      {puntosModelos(selectedCatalog.pricing as CatalogPricingTier[], formQuantity).toLocaleString("es-ES")} pts
+                      {resumenUnidad(selectedCatalog) ? ` · ${resumenUnidad(selectedCatalog)}` : ""}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
