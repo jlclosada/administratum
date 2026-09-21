@@ -240,16 +240,31 @@ export function costeUnidad(
   return costeBaseTramo(tramo);
 }
 
-function empaquetarModelos(models: number, sizesDesc: number[]): number[] {
-  const units: number[] = [];
-  let rest = models;
-  for (const size of sizesDesc) {
-    while (rest >= size) {
-      units.push(size);
-      rest -= size;
-    }
-  }
-  return units;
+export function opcionesComposicion(
+  pricing: CatalogPricingTier[] | null | undefined,
+): { models: number; points: number }[] {
+  return tamanosUnidad(pricing)
+    .slice()
+    .sort((a, b) => a - b)
+    .map((models) => ({ models, points: costeUnidad(pricing, 1, models) }));
+}
+
+export function tamanoMinimoUnidad(
+  pricing: CatalogPricingTier[] | null | undefined,
+): number {
+  const sizes = tamanosUnidad(pricing);
+  return sizes.length ? Math.min(...sizes) : 1;
+}
+
+export function tamanoUnidadLista(
+  pricing: CatalogPricingTier[] | null | undefined,
+  modelsRegistrados: number,
+): number {
+  const sizes = tamanosUnidad(pricing);
+  const n = Math.max(1, Math.floor(Number(modelsRegistrados) || 1));
+  if (!sizes.length) return n;
+  if (sizes.includes(n)) return n;
+  return sizes.filter((s) => s <= n).sort((a, b) => b - a)[0] ?? tamanoMinimoUnidad(pricing);
 }
 
 /** Nth copy of the smallest legal unit (1-based), using MFM copy-cost tiers. */
@@ -257,41 +272,95 @@ export function costeCopia(
   pricing: CatalogPricingTier[] | null | undefined,
   copia: number,
 ): number {
-  const sizes = tamanosUnidad(pricing);
-  const models = sizes.length ? Math.min(...sizes) : 1;
-  return costeUnidad(pricing, copia, models);
+  return costeUnidad(pricing, copia, tamanoMinimoUnidad(pricing));
 }
 
 /**
- * Points for models currently registered.
- * MFM "10 minis · 135 pts" is the cost of that unit size, not 10 × 135.
- * Quantities below the smallest unit size count as that many copies (legacy qty=1).
+ * Army collection points: minimum unit size at 1st-copy cost only.
+ * 5 Terminators = 155; 10 = 2 × 155. List copy-tiers (3rd+) are ignored.
  */
-export function puntosModelos(
+export function puntosEjercito(
   pricing: CatalogPricingTier[] | null | undefined,
   models: number,
 ): number {
   const n = Math.max(0, Math.floor(Number(models) || 0));
   if (!pricing?.length || n < 1) return 0;
-  const sizes = tamanosUnidad(pricing);
-  if (!sizes.length) return 0;
-  const minSize = Math.min(...sizes);
-  if (n < minSize) {
-    let total = 0;
-    for (let i = 1; i <= n; i += 1) total += costeUnidad(pricing, i, minSize);
-    return total;
+  const minSize = tamanoMinimoUnidad(pricing);
+  const costeMin = costeUnidad(pricing, 1, minSize);
+  const unidades = Math.max(1, Math.floor(n / minSize));
+  return unidades * costeMin;
+}
+
+export function puntosModelos(
+  pricing: CatalogPricingTier[] | null | undefined,
+  models: number,
+): number {
+  return puntosEjercito(pricing, models);
+}
+
+export interface FilaListaPuntos {
+  id: string;
+  quantity: number;
+  miniature?: {
+    name?: string;
+    quantity?: number;
+    catalogUnitId?: string | null;
+    pointsSnapshot?: CatalogPricingTier[] | null;
+  } | null;
+}
+
+/** List points: each copy uses MFM unit size and copy-tier (3rd+ can cost more). */
+export function puntosListaPorFilas(rows: FilaListaPuntos[]): Map<string, number> {
+  const puntos = new Map<string, number>();
+  const groups = new Map<string, FilaListaPuntos[]>();
+  for (const row of rows) {
+    const mini = row.miniature;
+    const key = mini?.catalogUnitId
+      ? `id:${mini.catalogUnitId}`
+      : `name:${mini?.name ?? row.id}`;
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
   }
-  return empaquetarModelos(n, sizes).reduce(
-    (sum, size, i) => sum + costeUnidad(pricing, i + 1, size),
-    0,
-  );
+  for (const group of groups.values()) {
+    const pricing = group[0]?.miniature?.pointsSnapshot ?? [];
+    let copia = 1;
+    for (const row of group) {
+      const size = tamanoUnidadLista(pricing, row.miniature?.quantity ?? 1);
+      const copias = Math.max(1, Math.floor(Number(row.quantity) || 1));
+      let pts = 0;
+      for (let i = 0; i < copias; i += 1) {
+        pts += costeUnidad(pricing, copia, size);
+        copia += 1;
+      }
+      puntos.set(row.id, pts);
+    }
+  }
+  return puntos;
+}
+
+export function puntosListaTotal(rows: FilaListaPuntos[]): number {
+  let total = 0;
+  for (const pts of puntosListaPorFilas(rows).values()) total += pts;
+  return total;
+}
+
+export function puntosCopiasUnidad(
+  pricing: CatalogPricingTier[] | null | undefined,
+  modelsPorUnidad: number,
+  copias: number,
+): number {
+  const n = Math.max(0, Math.floor(Number(copias) || 0));
+  if (n < 1) return 0;
+  const size = tamanoUnidadLista(pricing, modelsPorUnidad);
+  let total = 0;
+  for (let i = 1; i <= n; i += 1) total += costeUnidad(pricing, i, size);
+  return total;
 }
 
 export function puntosCopias(
   pricing: CatalogPricingTier[] | null | undefined,
   copias: number,
 ): number {
-  const sizes = tamanosUnidad(pricing);
-  const modelsPorUnidad = sizes.length ? Math.min(...sizes) : 1;
-  return puntosModelos(pricing, modelsPorUnidad * Math.max(0, copias));
+  return puntosCopiasUnidad(pricing, tamanoMinimoUnidad(pricing), copias);
 }

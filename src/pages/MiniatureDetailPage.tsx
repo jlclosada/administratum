@@ -31,7 +31,7 @@ import {
     updateMiniature
 } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
-import { puntosModelos, resumenUnidad } from "@/lib/mfm";
+import { opcionesComposicion, puntosEjercito, resumenUnidad } from "@/lib/mfm";
 import type {
     ArmyWithStats,
     Game,
@@ -318,18 +318,40 @@ export function MiniatureDetailPage() {
                         <option key={cat.value} value={cat.value}>{cat.label}</option>
                       ))}
                     </select>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Cantidad</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={editQuantity}
-                        onChange={(e) => {
-                          const val = Math.max(1, parseInt(e.target.value) || 1);
-                          setEditQuantity(val);
-                        }}
-                        className="w-20"
-                      />
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <Label className="text-xs text-muted-foreground">Composición</Label>
+                      {miniature.pointsSnapshot?.length && opcionesComposicion(miniature.pointsSnapshot).length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {opcionesComposicion(miniature.pointsSnapshot).map((opcion) => {
+                            const selected = editQuantity === opcion.models;
+                            return (
+                              <button
+                                key={opcion.models}
+                                type="button"
+                                onClick={() => setEditQuantity(opcion.models)}
+                                className={`min-h-11 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                                  selected
+                                    ? "border-primary bg-primary/15 font-semibold"
+                                    : "border-border hover:bg-accent"
+                                }`}
+                              >
+                                {opcion.models} minis
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <Input
+                          type="number"
+                          min={1}
+                          value={editQuantity}
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value) || 1);
+                            setEditQuantity(val);
+                          }}
+                          className="w-20"
+                        />
+                      )}
                     </div>
                   </div>
                   <Textarea
@@ -359,7 +381,7 @@ export function MiniatureDetailPage() {
                   </div>
                   {miniature.pointsSnapshot?.length ? (
                     <p className="mt-2 text-sm text-muted-foreground">
-                      {puntosModelos(miniature.pointsSnapshot, miniature.quantity).toLocaleString("es-ES")} pts
+                      {puntosEjercito(miniature.pointsSnapshot, miniature.quantity).toLocaleString("es-ES")} pts
                       {resumenUnidad({ pricing: miniature.pointsSnapshot })
                         ? ` · catálogo: ${resumenUnidad({ pricing: miniature.pointsSnapshot })}`
                         : ""}

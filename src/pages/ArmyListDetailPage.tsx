@@ -28,7 +28,7 @@ import {
   updateArmyListPdf,
 } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
-import { puntosModelos, resumenUnidad } from "@/lib/mfm";
+import { puntosListaPorFilas, resumenUnidad } from "@/lib/mfm";
 import type {
   ArmyListWithDetails,
   MiniatureWithDetails,
@@ -48,7 +48,7 @@ import {
   X,
   ZoomIn,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 export function ArmyListDetailPage() {
@@ -70,6 +70,10 @@ export function ArmyListDetailPage() {
 
   // Image lightbox
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const ptsFilas = useMemo(
+    () => (list ? puntosListaPorFilas(list.miniatures) : new Map<string, number>()),
+    [list],
+  );
 
   const loadData = useCallback(async () => {
     if (!listId) return;
@@ -282,10 +286,7 @@ export function ArmyListDetailPage() {
                 {list.miniatures.map((lm) => {
                   const mini = lm.miniature;
                   if (!mini) return null;
-                  const rowPts = puntosModelos(
-                    mini.pointsSnapshot ?? [],
-                    (mini.quantity ?? 1) * lm.quantity,
-                  );
+                  const rowPts = ptsFilas.get(lm.id) ?? 0;
                   return (
                     <div key={lm.id} className={`space-y-2 px-3 py-3 ${miniatureReadyClass(mini.statuses)}`}>
                       <div className="flex items-start justify-between gap-2">
@@ -363,10 +364,7 @@ export function ArmyListDetailPage() {
                     {list.miniatures.map((lm) => {
                       const mini = lm.miniature;
                       if (!mini) return null;
-                      const rowPts = puntosModelos(
-                        mini.pointsSnapshot ?? [],
-                        (mini.quantity ?? 1) * lm.quantity,
-                      );
+                      const rowPts = ptsFilas.get(lm.id) ?? 0;
                       return (
                         <tr
                           key={lm.id}

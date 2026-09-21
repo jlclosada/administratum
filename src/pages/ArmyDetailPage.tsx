@@ -27,7 +27,7 @@ import {
     getUnitCatalog,
     toggleFavorite,
 } from "@/db";
-import { isWarhammer40k, puntosModelos, resumenUnidad, unitBelongsToArmy, canonicalFactionName } from "@/lib/mfm";
+import { isWarhammer40k, opcionesComposicion, puntosEjercito, resumenUnidad, tamanoMinimoUnidad, unitBelongsToArmy, canonicalFactionName } from "@/lib/mfm";
 import type {
     ArmyWithStats,
     CatalogPricingTier,
@@ -113,6 +113,11 @@ export function ArmyDetailPage() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [allowCustomName, setAllowCustomName] = useState(false);
 
+  const armyPoints = miniatures.reduce(
+    (sum, mini) => sum + puntosEjercito(mini.pointsSnapshot ?? [], mini.quantity),
+    0,
+  );
+
   const loadData = useCallback(async () => {
     if (!gameId || !armyId) return;
     try {
@@ -187,7 +192,7 @@ export function ArmyDetailPage() {
     setSelectedCatalog(unit);
     setFormName(unit.name);
     setFormCategory(unit.category);
-    setFormQuantity(Math.max(1, unit.defaultQuantity || 1));
+    setFormQuantity(Math.max(1, unit.defaultQuantity || tamanoMinimoUnidad(unit.pricing) || 1));
     setCatalogQuery(unit.name);
     setAllowCustomName(false);
   }
@@ -332,7 +337,7 @@ export function ArmyDetailPage() {
                     {army.totalPainted} pintadas
                   </span>
                   <span className="rounded-full bg-white/20 px-2.5 py-1 font-semibold backdrop-blur-sm">
-                    {(army.totalPoints ?? 0).toLocaleString("es-ES")} pts
+                    {armyPoints.toLocaleString("es-ES")} pts
                   </span>
                   <span className="rounded-full bg-white/20 px-2.5 py-1 font-semibold backdrop-blur-sm">
                     {army.completionPercentage}% completado
@@ -384,7 +389,7 @@ export function ArmyDetailPage() {
                 {army.totalPainted} pintadas
               </span>
               <span className="rounded-full bg-primary/15 px-2.5 py-1 font-semibold">
-                {(army.totalPoints ?? 0).toLocaleString("es-ES")} pts
+                {armyPoints.toLocaleString("es-ES")} pts
               </span>
               <span className="rounded-full bg-muted px-2.5 py-1 font-semibold">
                 {army.completionPercentage}%
@@ -492,7 +497,7 @@ export function ArmyDetailPage() {
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {mini.quantity} minis
                             {mini.pointsSnapshot?.length
-                              ? ` · ${puntosModelos(mini.pointsSnapshot, mini.quantity).toLocaleString("es-ES")} pts`
+                              ? ` · ${puntosEjercito(mini.pointsSnapshot, mini.quantity).toLocaleString("es-ES")} pts`
                               : MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label
                                 ? ` · ${MINIATURE_CATEGORIES.find((c) => c.value === mini.category)?.label}`
                                 : ""}
@@ -559,7 +564,7 @@ export function ArmyDetailPage() {
                                 <span className="text-xs text-muted-foreground">
                                   {mini.quantity} minis
                                   {mini.pointsSnapshot?.length
-                                    ? ` · ${puntosModelos(mini.pointsSnapshot, mini.quantity).toLocaleString("es-ES")} pts`
+                                    ? ` · ${puntosEjercito(mini.pointsSnapshot, mini.quantity).toLocaleString("es-ES")} pts`
                                     : ""}
                                 </span>
                               </div>
@@ -785,20 +790,45 @@ export function ArmyDetailPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Cantidad de miniaturas</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={formQuantity}
-                    onChange={(e) => {
-                      const val = Math.max(1, parseInt(e.target.value) || 1);
-                      setFormQuantity(val);
-                    }}
-                  />
+                  <Label>Composición de la unidad</Label>
+                  {selectedCatalog && opcionesComposicion(selectedCatalog.pricing as CatalogPricingTier[]).length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {opcionesComposicion(selectedCatalog.pricing as CatalogPricingTier[]).map((opcion) => {
+                        const selected = formQuantity === opcion.models;
+                        return (
+                          <button
+                            key={opcion.models}
+                            type="button"
+                            onClick={() => setFormQuantity(opcion.models)}
+                            className={`min-h-11 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                              selected
+                                ? "border-primary bg-primary/15 font-semibold"
+                                : "border-border hover:bg-accent"
+                            }`}
+                          >
+                            <span className="block">{opcion.models} minis</span>
+                            <span className="text-xs text-muted-foreground">
+                              {puntosEjercito(selectedCatalog.pricing as CatalogPricingTier[], opcion.models).toLocaleString("es-ES")} pts
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Input
+                      type="number"
+                      min={1}
+                      value={formQuantity}
+                      onChange={(e) => {
+                        const val = Math.max(1, parseInt(e.target.value) || 1);
+                        setFormQuantity(val);
+                      }}
+                    />
+                  )}
                   {selectedCatalog?.pricing?.length ? (
                     <p className="text-xs text-muted-foreground">
-                      {puntosModelos(selectedCatalog.pricing as CatalogPricingTier[], formQuantity).toLocaleString("es-ES")} pts
-                      {resumenUnidad(selectedCatalog) ? ` · ${resumenUnidad(selectedCatalog)}` : ""}
+                      Colección: unidad mínima {tamanoMinimoUnidad(selectedCatalog.pricing as CatalogPricingTier[])} minis.
+                      {resumenUnidad(selectedCatalog) ? ` En listas: ${resumenUnidad(selectedCatalog)}` : ""}
                     </p>
                   ) : null}
                 </div>
