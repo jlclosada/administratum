@@ -1247,21 +1247,44 @@ export async function getUnitCatalogCount(): Promise<number> {
 export async function upsertUnitCatalog(
   entries: Omit<UnitCatalogEntry, 'id' | 'createdAt' | 'updatedAt'>[],
 ): Promise<number> {
-  const payload = entries.map((e) => ({
-    game_name: e.gameName,
-    faction_slug: e.factionSlug,
-    faction_name: e.factionName,
-    name: e.name,
-    category: e.category,
-    group_title: e.groupTitle,
-    pricing: e.pricing,
-    wargear: e.wargear,
-    leader_to: e.leaderTo,
-    support_to: e.supportTo,
-    legends: e.legends,
-    default_quantity: e.defaultQuantity,
-    mfm_version: e.mfmVersion,
-  }));
+  const unique = new Map<
+    string,
+    {
+      game_name: string;
+      faction_slug: string;
+      faction_name: string;
+      name: string;
+      category: string;
+      group_title: string | null;
+      pricing: UnitCatalogEntry['pricing'];
+      wargear: UnitCatalogEntry['wargear'];
+      leader_to: string[];
+      support_to: string[];
+      legends: boolean;
+      default_quantity: number;
+      mfm_version: string | null;
+    }
+  >();
+  for (const e of entries) {
+    const key = `${e.gameName}\0${e.factionSlug}\0${e.name}`;
+    if (unique.has(key)) continue;
+    unique.set(key, {
+      game_name: e.gameName,
+      faction_slug: e.factionSlug,
+      faction_name: e.factionName,
+      name: e.name,
+      category: e.category,
+      group_title: e.groupTitle,
+      pricing: e.pricing,
+      wargear: e.wargear,
+      leader_to: e.leaderTo,
+      support_to: e.supportTo,
+      legends: e.legends,
+      default_quantity: e.defaultQuantity,
+      mfm_version: e.mfmVersion,
+    });
+  }
+  const payload = [...unique.values()];
   const chunkSize = 80;
   let total = 0;
   for (let i = 0; i < payload.length; i += chunkSize) {
