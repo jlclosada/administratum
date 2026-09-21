@@ -31,6 +31,9 @@ src-tauri/gen/
 *.db-shm
 *.db-wal
 
+# MFM scrape cache
+scripts/mfm/.cache/
+
 # Logs
 *.log
 npm-debug.log*

@@ -323,6 +323,11 @@ export function AdminPage() {
               Unidades en base de datos:{" "}
               <span className="font-semibold">{catalogCount}</span>
             </p>
+            <p className="text-xs text-muted-foreground">
+              Cada día un cron vuelve a leer el Munitorum Field Manual. Si cambian
+              los puntos, se actualizan el catálogo y todas las miniaturas de los
+              usuarios enlazadas a esas fichas.
+            </p>
             <Button
               onClick={handleSyncCatalog}
               disabled={syncingCatalog}

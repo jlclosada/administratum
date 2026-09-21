@@ -2,6 +2,7 @@ export {
   addImage,
   addImageToList,
   addMiniatureToList,
+  setListMiniatureQuantity,
   addPaintingProcess,
   addPaintingProcessMedia,
   addUserPaint,

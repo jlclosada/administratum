@@ -1,5 +1,5 @@
 import { PAINT_CATALOG, PAINT_CATALOG_BY_ID } from '@/data/paints';
-import { normalizeFactionName } from '@/lib/mfm';
+import { normalizeFactionName, puntosCopias } from '@/lib/mfm';
 import { supabase } from '@/lib/supabase';
 import type {
   AppConfig,
@@ -753,8 +753,14 @@ async function hydrateArmyList(
       ),
     )
     .reduce((sum, m) => sum + m.quantity, 0);
+  const computedPoints = minis.reduce(
+    (sum, m) =>
+      sum + puntosCopias(m.miniature?.pointsSnapshot ?? [], m.quantity),
+    0,
+  );
   return {
     ...mapped,
+    points: computedPoints,
     miniatures: minis,
     images,
     totalMiniatures,
@@ -843,6 +849,19 @@ export async function addMiniatureToList(
   miniatureId: string,
   quantity: number,
 ): Promise<void> {
+  const { data: existing } = await supabase
+    .from('army_list_miniatures')
+    .select('id, quantity')
+    .eq('list_id', listId)
+    .eq('miniature_id', miniatureId)
+    .maybeSingle();
+  if (existing?.id) {
+    await setListMiniatureQuantity(
+      String(existing.id),
+      Number(existing.quantity ?? 0) + Math.max(1, quantity),
+    );
+    return;
+  }
   const { count } = await supabase
     .from('army_list_miniatures')
     .select('*', { count: 'exact', head: true })
@@ -850,18 +869,53 @@ export async function addMiniatureToList(
   const { error } = await supabase.from('army_list_miniatures').insert({
     list_id: listId,
     miniature_id: miniatureId,
-    quantity,
+    quantity: Math.max(1, quantity),
     sort_order: count ?? 0,
   });
   if (error) throw error;
+  await persistListPoints(listId);
+}
+
+export async function setListMiniatureQuantity(
+  id: string,
+  quantity: number,
+): Promise<void> {
+  if (quantity < 1) {
+    await removeMiniatureFromList(id);
+    return;
+  }
+  const { data, error } = await supabase
+    .from('army_list_miniatures')
+    .update({ quantity })
+    .eq('id', id)
+    .select('list_id')
+    .single();
+  if (error) throw error;
+  if (data?.list_id) await persistListPoints(String(data.list_id));
 }
 
 export async function removeMiniatureFromList(id: string): Promise<void> {
+  const { data } = await supabase
+    .from('army_list_miniatures')
+    .select('list_id')
+    .eq('id', id)
+    .maybeSingle();
   const { error } = await supabase
     .from('army_list_miniatures')
     .delete()
     .eq('id', id);
   if (error) throw error;
+  if (data?.list_id) await persistListPoints(String(data.list_id));
+}
+
+async function persistListPoints(listId: string): Promise<void> {
+  const minis = await getArmyListMiniatures(listId);
+  const points = minis.reduce(
+    (sum, m) =>
+      sum + puntosCopias(m.miniature?.pointsSnapshot ?? [], m.quantity),
+    0,
+  );
+  await supabase.from('army_lists').update({ points }).eq('id', listId);
 }
 
 async function getArmyListMiniatures(

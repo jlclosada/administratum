@@ -47,7 +47,6 @@ export function ArmyListsPage() {
   const [formName, setFormName] = useState("");
   const [formGameId, setFormGameId] = useState("");
   const [formArmyId, setFormArmyId] = useState("");
-  const [formPoints, setFormPoints] = useState("");
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
 
@@ -80,7 +79,6 @@ export function ArmyListsPage() {
     setFormName("");
     setFormGameId("");
     setFormArmyId("");
-    setFormPoints("");
     setFormDate("");
     setFormNotes("");
   }
@@ -92,7 +90,7 @@ export function ArmyListsPage() {
         name: formName.trim(),
         gameId: formGameId || null,
         armyId: formArmyId || null,
-        points: formPoints ? parseInt(formPoints) : 0,
+        points: 0,
         gameDate: formDate || null,
         notes: formNotes,
       });
@@ -225,11 +223,9 @@ export function ArmyListsPage() {
 
                       {/* Stats */}
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {list.points > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {list.points} pts
-                          </Badge>
-                        )}
+                        <Badge variant="secondary" className="text-xs">
+                          {list.points} pts
+                        </Badge>
                         <span>
                           {list.totalMiniatures} miniaturas
                         </span>
@@ -328,25 +324,13 @@ export function ArmyListsPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Puntos</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={formPoints}
-                    onChange={(e) => setFormPoints(e.target.value)}
-                    placeholder="Ej: 2000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Fecha de partida</Label>
-                  <Input
-                    type="date"
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>Fecha de partida</Label>
+                <Input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">

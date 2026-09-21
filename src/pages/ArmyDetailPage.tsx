@@ -26,7 +26,7 @@ import {
     getUnitCatalog,
     toggleFavorite,
 } from "@/db";
-import { isWarhammer40k, resumenUnidad } from "@/lib/mfm";
+import { isWarhammer40k, resumenUnidad, unitBelongsToArmy, canonicalFactionName } from "@/lib/mfm";
 import type {
     ArmyWithStats,
     CatalogPricingTier,
@@ -70,12 +70,6 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
   terrain: Mountain,
   other: Box,
 };
-
-function armyMatchesFaction(armyName: string, factionName: string): boolean {
-  const a = armyName.toLowerCase();
-  const f = factionName.toLowerCase();
-  return a === f || a.includes(f) || f.includes(a);
-}
 
 export function ArmyDetailPage() {
   const { gameId, armyId } = useParams<{ gameId: string; armyId: string }>();
@@ -197,24 +191,18 @@ export function ArmyDetailPage() {
     setAllowCustomName(false);
   }
 
+  function armyCatalog(): UnitCatalogEntry[] {
+    const name = army?.name ?? "";
+    return catalogUnits
+      .filter((u) => unitBelongsToArmy(name, u.factionName))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   function catalogMatches(): UnitCatalogEntry[] {
     const q = catalogQuery.trim().toLowerCase();
-    const armyKey = army?.name ?? "";
-    const list = catalogUnits.filter((u) => {
-      if (!q) return armyMatchesFaction(armyKey, u.factionName);
-      return (
-        u.name.toLowerCase().includes(q) ||
-        u.factionName.toLowerCase().includes(q)
-      );
-    });
-    return list
-      .sort((a, b) => {
-        const aFaction = armyMatchesFaction(armyKey, a.factionName) ? 0 : 1;
-        const bFaction = armyMatchesFaction(armyKey, b.factionName) ? 0 : 1;
-        if (aFaction !== bFaction) return aFaction - bFaction;
-        return a.name.localeCompare(b.name);
-      })
-      .slice(0, 12);
+    return armyCatalog()
+      .filter((u) => !q || u.name.toLowerCase().includes(q))
+      .slice(0, 20);
   }
 
   async function handleCreate() {
@@ -599,7 +587,11 @@ export function ArmyDetailPage() {
               <DialogTitle>Añadir Miniatura</DialogTitle>
               <DialogDescription>
                 {isWarhammer40k(game?.name)
-                  ? "Busca la unidad en el catálogo oficial y selecciónala. Nombre, tipo y puntos se rellenan solos."
+                  ? `Solo unidades de ${army?.name ?? "este ejército"}${
+                      canonicalFactionName(army?.name ?? "")
+                        ? ` (${canonicalFactionName(army?.name ?? "")})`
+                        : ""
+                    }.`
                   : "Añade una nueva miniatura al ejército"}
               </DialogDescription>
             </DialogHeader>
@@ -613,7 +605,7 @@ export function ArmyDetailPage() {
                       setCatalogQuery(e.target.value);
                       if (selectedCatalog) setSelectedCatalog(null);
                     }}
-                    placeholder="Ej: Intercessors, Magnus, Rhino..."
+                    placeholder={`Buscar en ${army?.name ?? "este ejército"}...`}
                     autoFocus
                   />
                   {catalogLoading ? (
@@ -621,6 +613,12 @@ export function ArmyDetailPage() {
                   ) : catalogUnits.length === 0 ? (
                     <p className="text-xs text-amber-600">
                       El catálogo aún no está en la base de datos. Un administrador debe sincronizarlo en el panel.
+                    </p>
+                  ) : armyCatalog().length === 0 ? (
+                    <p className="text-xs text-amber-600">
+                      No hay fichas MFM para «{army?.name}». Usa el nombre oficial
+                      de la facción (por ejemplo Thousand Sons para Mil Hijos) o
+                      añade la miniatura a mano.
                     </p>
                   ) : (
                     <div className="max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border/60">
@@ -644,8 +642,8 @@ export function ArmyDetailPage() {
                       {catalogMatches().length === 0 && (
                         <p className="px-3 py-2 text-xs text-muted-foreground">
                           {catalogQuery.trim()
-                            ? "Sin coincidencias. Activa el nombre personalizado abajo."
-                            : "Escribe el nombre de la unidad para buscarla en el catálogo."}
+                            ? "Sin coincidencias en este ejército."
+                            : "Escribe para filtrar las unidades de este ejército."}
                         </p>
                       )}
                     </div>

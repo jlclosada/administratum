@@ -22,10 +22,12 @@ import {
   getArmyListById,
   removeImageFromList,
   removeMiniatureFromList,
+  setListMiniatureQuantity,
   updateArmyList,
   updateArmyListPdf,
 } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
+import { puntosCopias, resumenUnidad } from "@/lib/mfm";
 import type {
   ArmyListWithDetails,
   MiniatureWithDetails,
@@ -42,6 +44,7 @@ import {
   Sword,
   Trash2,
   Upload,
+  Minus,
   X,
   ZoomIn,
 } from "lucide-react";
@@ -88,10 +91,22 @@ export function ArmyListDetailPage() {
   async function handleLoadMiniatures() {
     try {
       const minis = await getAllMiniaturesFlat();
-      setAllMiniatures(minis);
+      const scoped = list?.armyId
+        ? minis.filter((m) => m.armyId === list.armyId)
+        : minis;
+      setAllMiniatures(scoped);
       setShowAddMini(true);
     } catch (err) {
       console.error("Failed to load miniatures:", err);
+    }
+  }
+
+  async function handleSetQuantity(rowId: string, quantity: number) {
+    try {
+      await setListMiniatureQuantity(rowId, quantity);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to update quantity:", err);
     }
   }
 
@@ -217,15 +232,15 @@ export function ArmyListDetailPage() {
                     <span>{list.armyName}</span>
                   </>
                 )}
-                {list.points > 0 && (
-                  <Badge variant="secondary">{list.points} pts</Badge>
-                )}
                 {list.gameDate && (
                   <span className="flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" />
                     {new Date(list.gameDate).toLocaleDateString()}
                   </span>
                 )}
+                <Badge variant="secondary" className="text-sm font-semibold">
+                  {list.points} pts
+                </Badge>
               </div>
 
               {/* Progress */}
@@ -274,7 +289,10 @@ export function ArmyListDetailPage() {
                         Categoría
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Cant.
+                        Copias
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Puntos
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Estado
@@ -288,6 +306,10 @@ export function ArmyListDetailPage() {
                     {list.miniatures.map((lm) => {
                       const mini = lm.miniature;
                       if (!mini) return null;
+                      const rowPts = puntosCopias(
+                        mini.pointsSnapshot ?? [],
+                        lm.quantity,
+                      );
                       return (
                         <tr
                           key={lm.id}
@@ -297,6 +319,11 @@ export function ArmyListDetailPage() {
                             <span className="font-medium text-sm">
                               {mini.name}
                             </span>
+                            {mini.pointsSnapshot?.length ? (
+                              <p className="text-[11px] text-muted-foreground">
+                                {resumenUnidad({ pricing: mini.pointsSnapshot })}
+                              </p>
+                            ) : null}
                           </td>
                           <td className="px-4 py-3">
                             <Badge variant="outline" className="text-xs">
@@ -305,10 +332,35 @@ export function ArmyListDetailPage() {
                               )?.label ?? mini.category}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-center">
-                            <Badge variant="secondary" className="text-xs">
-                              {lm.quantity}x
-                            </Badge>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() =>
+                                  handleSetQuantity(lm.id, lm.quantity - 1)
+                                }
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </Button>
+                              <span className="w-6 text-center text-sm font-medium">
+                                {lm.quantity}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() =>
+                                  handleSetQuantity(lm.id, lm.quantity + 1)
+                                }
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm font-medium tabular-nums">
+                            {rowPts > 0 ? `${rowPts} pts` : "—"}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-1">
@@ -559,13 +611,8 @@ export function ArmyListDetailPage() {
                     <button
                       key={mini.id}
                       type="button"
-                      disabled={added}
                       onClick={() => handleAddMiniature(mini.id)}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all ${
-                        added
-                          ? "opacity-50 cursor-not-allowed"
-                          : "hover:bg-accent"
-                      }`}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all hover:bg-accent"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{mini.name}</p>
@@ -591,7 +638,7 @@ export function ArmyListDetailPage() {
                       </div>
                       {added ? (
                         <Badge variant="secondary" className="text-[10px]">
-                          Añadida
+                          +1 copia
                         </Badge>
                       ) : (
                         <Plus className="h-4 w-4 text-primary shrink-0" />
