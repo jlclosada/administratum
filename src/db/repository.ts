@@ -21,6 +21,8 @@ import type {
   CreateMiniatureDTO,
   CreatePaintingProcessDTO,
   DashboardStats,
+  DownloadEntry,
+  FactionCatalogEntry,
   Game,
   GuideQuery,
   Miniature,
@@ -1342,6 +1344,72 @@ export async function upsertUnitCatalog(
     total += count ?? chunk.length;
   }
   return total;
+}
+
+// ======================== FACTION CATALOG (MFM DETACHMENTS + ART) ========================
+
+/**
+ * Per-faction reference data (detachments, artwork) from the MFM.
+ * Degrades to an empty list if the `faction_catalog` table does not exist yet.
+ */
+export async function getFactionCatalog(
+  gameName?: string,
+): Promise<FactionCatalogEntry[]> {
+  try {
+    let query = supabase.from('faction_catalog').select('*');
+    if (gameName) query = query.eq('game_name', gameName);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return mapRows<FactionCatalogEntry>(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function upsertFactionCatalog(
+  entries: Omit<FactionCatalogEntry, 'id' | 'createdAt' | 'updatedAt'>[],
+): Promise<number> {
+  const payload = entries.map((e) => ({
+    game_name: e.gameName,
+    faction_slug: e.factionSlug,
+    faction_name: e.factionName,
+    image: e.image,
+    parent_faction: e.parentFaction,
+    detachments: e.detachments,
+    mfm_version: e.mfmVersion,
+  }));
+  const chunkSize = 80;
+  let total = 0;
+  for (let i = 0; i < payload.length; i += chunkSize) {
+    const chunk = payload.slice(i, i + chunkSize);
+    const { error, count } = await supabase
+      .from('faction_catalog')
+      .upsert(chunk, { onConflict: 'game_name,faction_slug', count: 'exact' });
+    if (error) throw error;
+    total += count ?? chunk.length;
+  }
+  return total;
+}
+
+// ======================== DOWNLOADS CATALOG (WARHAMMER COMMUNITY) ========================
+
+/**
+ * Official downloadable PDFs mirrored from Warhammer Community.
+ * Degrades to an empty list if the `downloads_catalog` table does not exist yet.
+ */
+export async function getDownloads(gameName?: string): Promise<DownloadEntry[]> {
+  try {
+    let query = supabase
+      .from('downloads_catalog')
+      .select('*')
+      .order('source_updated_at', { ascending: false, nullsFirst: false });
+    if (gameName) query = query.eq('game_name', gameName);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return mapRows<DownloadEntry>(data);
+  } catch {
+    return [];
+  }
 }
 
 // ======================== ARTICLES (ADMIN NEWS) ========================

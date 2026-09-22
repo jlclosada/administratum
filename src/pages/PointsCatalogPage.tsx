@@ -3,12 +3,24 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getUnitCatalog } from "@/db";
-import type { UnitCatalogEntry } from "@/types";
+import { getFactionCatalog, getUnitCatalog } from "@/db";
+import type { Detachment, FactionCatalogEntry, UnitCatalogEntry } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Library, Search, Shield } from "lucide-react";
+import {
+    ArrowLeft,
+    Award,
+    Bot,
+    ChevronDown,
+    Crosshair,
+    Library,
+    Search,
+    Shield,
+    Sparkles,
+    Sword,
+    Target,
+    Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -17,9 +29,24 @@ interface FactionSummary {
   name: string;
   count: number;
   version: string | null;
+  image: string | null;
+  detachmentCount: number;
 }
 
-function groupFactions(units: UnitCatalogEntry[]): FactionSummary[] {
+const CATEGORY_ICON: Record<string, typeof Users> = {
+  vehicle: Bot,
+  character: Crosshair,
+  squad: Users,
+};
+
+function categoryIcon(category: string) {
+  return CATEGORY_ICON[category] ?? Sword;
+}
+
+function joinFactions(
+  units: UnitCatalogEntry[],
+  factions: FactionCatalogEntry[],
+): FactionSummary[] {
   const map = new Map<string, FactionSummary>();
   for (const unit of units) {
     const current = map.get(unit.factionSlug);
@@ -31,6 +58,25 @@ function groupFactions(units: UnitCatalogEntry[]): FactionSummary[] {
         name: unit.factionName,
         count: 1,
         version: unit.mfmVersion,
+        image: null,
+        detachmentCount: 0,
+      });
+    }
+  }
+  for (const faction of factions) {
+    const current = map.get(faction.factionSlug);
+    if (current) {
+      current.image = faction.image;
+      current.detachmentCount = faction.detachments.length;
+      current.version ??= faction.mfmVersion;
+    } else {
+      map.set(faction.factionSlug, {
+        slug: faction.factionSlug,
+        name: faction.factionName,
+        count: 0,
+        version: faction.mfmVersion,
+        image: faction.image,
+        detachmentCount: faction.detachments.length,
       });
     }
   }
@@ -40,17 +86,24 @@ function groupFactions(units: UnitCatalogEntry[]): FactionSummary[] {
 export function PointsCatalogPage() {
   const navigate = useNavigate();
   const [units, setUnits] = useState<UnitCatalogEntry[]>([]);
+  const [factions, setFactions] = useState<FactionCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    getUnitCatalog("Warhammer 40,000")
-      .then(setUnits)
+    Promise.all([
+      getUnitCatalog("Warhammer 40,000"),
+      getFactionCatalog("Warhammer 40,000"),
+    ])
+      .then(([u, f]) => {
+        setUnits(u);
+        setFactions(f);
+      })
       .catch((err) => console.error("Failed to load catalog:", err))
       .finally(() => setLoading(false));
   }, []);
 
-  const factions = useMemo(() => groupFactions(units), [units]);
+  const factionSummaries = useMemo(() => joinFactions(units, factions), [units, factions]);
   const q = query.trim().toLowerCase();
 
   const matchingUnits = useMemo(() => {
@@ -65,14 +118,14 @@ export function PointsCatalogPage() {
   }, [units, q]);
 
   const matchingFactions = useMemo(() => {
-    if (!q) return factions;
-    return factions.filter(
+    if (!q) return factionSummaries;
+    return factionSummaries.filter(
       (f) =>
         f.name.toLowerCase().includes(q) ||
         f.slug.includes(q) ||
         matchingUnits.some((u) => u.factionSlug === f.slug),
     );
-  }, [factions, q, matchingUnits]);
+  }, [factionSummaries, q, matchingUnits]);
 
   if (loading) {
     return (
@@ -96,7 +149,7 @@ export function PointsCatalogPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             <span className="text-gradient animate-gradient">
@@ -105,7 +158,7 @@ export function PointsCatalogPage() {
           </h1>
           <p className="text-muted-foreground">
             Biblioteca Munitorum: busca una miniatura o entra en un ejército para
-            ver todos los valores.
+            ver unidades y destacamentos.
           </p>
         </div>
 
@@ -168,36 +221,47 @@ export function PointsCatalogPage() {
               hidden: { opacity: 0 },
               show: { opacity: 1, transition: { staggerChildren: 0.03 } },
             }}
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
             <AnimatePresence>
               {matchingFactions.map((faction) => (
-                <motion.div
+                <motion.button
                   key={faction.slug}
+                  type="button"
                   variants={{
                     hidden: { opacity: 0, y: 12 },
                     show: { opacity: 1, y: 0 },
                   }}
                   layout
+                  onClick={() => navigate(`/catalogo-puntos/${faction.slug}`)}
+                  className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
                 >
-                  <Card
-                    className="cursor-pointer transition-all hover:border-primary/40 hover:shadow-lg"
-                    onClick={() => navigate(`/catalogo-puntos/${faction.slug}`)}
-                  >
-                    <CardContent className="flex items-center gap-3 p-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                        <Shield className="h-5 w-5 text-primary" />
+                  <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-muted to-background">
+                    {faction.image ? (
+                      <img
+                        src={faction.image}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Shield className="h-10 w-10 text-muted-foreground/30" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold truncate">{faction.name}</h3>
-                        <p className="text-xs text-muted-foreground">
-                          {faction.count} miniaturas
-                          {faction.version ? ` · MFM ${faction.version}` : ""}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-4">
+                      <h3 className="font-semibold text-white">{faction.name}</h3>
+                      <p className="mt-0.5 text-xs text-white/70">
+                        {faction.count} miniaturas
+                        {faction.detachmentCount > 0
+                          ? ` · ${faction.detachmentCount} destacamentos`
+                          : ""}
+                        {faction.version ? ` · MFM ${faction.version}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                </motion.button>
               ))}
             </AnimatePresence>
           </motion.div>
@@ -212,26 +276,118 @@ export function PointsCatalogPage() {
   );
 }
 
+function DetachmentCard({ detachment }: { detachment: Detachment }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/40 transition-colors hover:border-primary/30">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-start justify-between gap-3 p-4 text-left"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-foreground">{detachment.name}</h3>
+            {detachment.dp !== null && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                <Target className="h-3 w-3" />
+                {detachment.dp} DP
+              </span>
+            )}
+          </div>
+          {detachment.unique && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Sparkles className="h-3 w-3 shrink-0 text-amber-400" />
+              {detachment.unique}
+            </p>
+          )}
+          {detachment.objectives.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {detachment.objectives.map((o) => (
+                <span
+                  key={o}
+                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                >
+                  {o}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <motion.div
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="mt-1 shrink-0 text-muted-foreground"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </motion.div>
+      </button>
+      <AnimatePresence>
+        {open && detachment.enhancements.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden border-t border-border/60"
+          >
+            <div className="divide-y divide-border/50">
+              {detachment.enhancements.map((e) => (
+                <div
+                  key={e.name}
+                  className="flex items-center justify-between gap-3 px-4 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{e.name}</p>
+                    {(e.leaderTo?.length || e.supportTo?.length) && (
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {e.leaderTo?.length ? `Líder: ${e.leaderTo.join(", ")}` : ""}
+                        {e.leaderTo?.length && e.supportTo?.length ? " · " : ""}
+                        {e.supportTo?.length ? `Apoyo: ${e.supportTo.join(", ")}` : ""}
+                      </p>
+                    )}
+                  </div>
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">
+                    +{e.points}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function PointsCatalogFactionPage() {
   const { factionSlug } = useParams<{ factionSlug: string }>();
   const navigate = useNavigate();
   const [units, setUnits] = useState<UnitCatalogEntry[]>([]);
+  const [faction, setFaction] = useState<FactionCatalogEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    getUnitCatalog("Warhammer 40,000")
-      .then(setUnits)
+    Promise.all([
+      getUnitCatalog("Warhammer 40,000"),
+      getFactionCatalog("Warhammer 40,000"),
+    ])
+      .then(([u, f]) => {
+        setUnits(u);
+        setFaction(f.find((x) => x.factionSlug === factionSlug) ?? null);
+      })
       .catch((err) => console.error("Failed to load catalog:", err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [factionSlug]);
 
   const armyUnits = useMemo(
     () => units.filter((u) => u.factionSlug === factionSlug),
     [units, factionSlug],
   );
-  const factionName = armyUnits[0]?.factionName ?? factionSlug;
-  const version = armyUnits[0]?.mfmVersion;
+  const factionName = faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug;
+  const version = faction?.mfmVersion ?? armyUnits[0]?.mfmVersion;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -258,7 +414,7 @@ export function PointsCatalogFactionPage() {
     );
   }
 
-  if (armyUnits.length === 0) {
+  if (armyUnits.length === 0 && !faction) {
     return (
       <PageTransition>
         <EmptyState
@@ -275,86 +431,128 @@ export function PointsCatalogFactionPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-6">
-        <div className="flex items-start gap-3">
+      <div className="space-y-8">
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-2xl border border-border/60">
+          <div className="relative aspect-[21/9] w-full overflow-hidden bg-gradient-to-br from-muted to-background sm:aspect-[3/1]">
+            {faction?.image ? (
+              <img
+                src={faction.image}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <Shield className="h-16 w-16 text-muted-foreground/30" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+          </div>
           <button
             type="button"
             onClick={() => navigate("/catalogo-puntos")}
-            className="mt-1 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
             aria-label="Volver"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+            <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
               {factionName}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-white/70">
               {armyUnits.length} miniaturas
+              {faction?.detachments.length ? ` · ${faction.detachments.length} destacamentos` : ""}
               {version ? ` · MFM ${version}` : ""}
             </p>
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filtrar miniatura…"
-            className="pl-10"
-          />
-        </div>
+        {/* Detachments */}
+        {faction && faction.detachments.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Destacamentos</h2>
+              <Badge variant="secondary">{faction.detachments.length}</Badge>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {faction.detachments.map((d) => (
+                <DetachmentCard key={d.name} detachment={d} />
+              ))}
+            </div>
+          </section>
+        )}
 
-        {filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Ninguna miniatura coincide con la búsqueda.
-          </p>
-        ) : (
-          groups.map(([group, list]) => (
-            <section key={group} className="space-y-2">
-              {groups.length > 1 && group !== "Unidades" && (
-                <h2 className="text-sm font-semibold text-muted-foreground">
-                  {group}
-                </h2>
-              )}
-              <Card>
-                <CardContent className="p-0">
-                  <div className="divide-y divide-border/60">
-                    {list.map((unit) => (
+        {/* Units */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold">Unidades</h2>
+            <Badge variant="secondary">{armyUnits.length}</Badge>
+          </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filtrar miniatura…"
+              className="pl-10"
+            />
+          </div>
+
+          {filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ninguna miniatura coincide con la búsqueda.
+            </p>
+          ) : (
+            groups.map(([group, list]) => (
+              <div key={group} className="space-y-2">
+                {groups.length > 1 && group !== "Unidades" && (
+                  <h3 className="text-sm font-semibold text-muted-foreground">
+                    {group}
+                  </h3>
+                )}
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {list.map((unit) => {
+                    const Icon = categoryIcon(unit.category);
+                    return (
                       <div
                         key={unit.id}
-                        className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-2 rounded-xl border border-border/60 bg-card/40 p-3.5 transition-colors hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium">{unit.name}</p>
-                            {unit.legends && (
-                              <Badge variant="outline" className="text-[10px]">
-                                Legends
-                              </Badge>
-                            )}
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
                           </div>
-                          {unit.wargear?.length ? (
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {unit.wargear
-                                .map((w) => `${w.item} +${w.points}`)
-                                .join(" · ")}
-                            </p>
-                          ) : null}
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="font-medium">{unit.name}</p>
+                              {unit.legends && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  Legends
+                                </Badge>
+                              )}
+                            </div>
+                            {unit.wargear?.length ? (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {unit.wargear
+                                  .map((w) => `${w.item} +${w.points}`)
+                                  .join(" · ")}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
-                        <UnitPoints
-                          unit={unit}
-                          className="sm:max-w-md sm:shrink-0"
-                        />
+                        <UnitPoints unit={unit} className="shrink-0 pl-[42px] sm:pl-0" />
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
-          ))
-        )}
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </section>
       </div>
     </PageTransition>
   );

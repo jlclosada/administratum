@@ -20,6 +20,7 @@ const ArmyListsPage = lazy(() => import("@/pages/ArmyListsPage").then((m) => ({ 
 const ArticleDetailPage = lazy(() => import("@/pages/ArticleDetailPage").then((m) => ({ default: m.ArticleDetailPage })));
 const ArticleEditorPage = lazy(() => import("@/pages/ArticleEditorPage").then((m) => ({ default: m.ArticleEditorPage })));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const DownloadsPage = lazy(() => import("@/pages/DownloadsPage").then((m) => ({ default: m.DownloadsPage })));
 const GalleryPage = lazy(() => import("@/pages/GalleryPage").then((m) => ({ default: m.GalleryPage })));
 const GameDetailPage = lazy(() => import("@/pages/GameDetailPage").then((m) => ({ default: m.GameDetailPage })));
 const GamesPage = lazy(() => import("@/pages/GamesPage").then((m) => ({ default: m.GamesPage })));
@@ -67,6 +68,7 @@ function AnimatedRoutes() {
             <Route path="lists/:listId" element={<ArmyListDetailPage />} />
             <Route path="catalogo-puntos" element={<PointsCatalogPage />} />
             <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
+            <Route path="descargas" element={<DownloadsPage />} />
             <Route path="gallery" element={<GalleryPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />
