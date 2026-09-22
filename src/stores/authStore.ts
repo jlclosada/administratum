@@ -1,4 +1,5 @@
 import { removeAllUserFiles } from '@/lib/storage';
+import { setSentryUser } from '@/lib/sentry';
 import { supabase } from '@/lib/supabase';
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
@@ -40,6 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     subscribed = true;
 
     supabase.auth.getSession().then(({ data }) => {
+      setSentryUser(data.session?.user ? { id: data.session.user.id, email: data.session.user.email } : null);
       set({
         session: data.session,
         user: data.session?.user ?? null,
@@ -48,6 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
 
     supabase.auth.onAuthStateChange((event, session) => {
+      setSentryUser(session?.user ? { id: session.user.id, email: session.user.email } : null);
       set({
         session,
         user: session?.user ?? null,

@@ -1,3 +1,4 @@
+import { reportError } from "@/lib/sentry";
 import type { ErrorInfo, ReactNode } from "react";
 import { Component } from "react";
 
@@ -22,6 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[ErrorBoundary]", error, info.componentStack);
+    reportError(error, { componentStack: info.componentStack ?? undefined });
   }
 
   render() {

@@ -27,6 +27,8 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-public-key
 ```
 
+Optionally, add `VITE_SENTRY_DSN` (from a [Sentry](https://sentry.io) React project) to report production errors — the app works fine without it, it just won't have error monitoring.
+
 ### 3. Run locally
 
 ```bash
@@ -40,7 +42,7 @@ Open the app, create an account (email + password) and sign in. Each user only s
 
 1. Push the repository to GitHub and import it in [Vercel](https://vercel.com).
 2. Framework preset: **Vite**. Build command `npm run build`, output directory `dist` (already configured via [`vercel.json`](vercel.json)).
-3. Add the environment variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project settings.
+3. Add the environment variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (and optionally `VITE_SENTRY_DSN`) in the Vercel project settings.
 4. Deploy.
 
 ---
@@ -62,7 +64,7 @@ Administratum is a premium web application for managing wargaming miniature coll
 - **Dashboard Analytics**: Pie charts, progress bars, army completion percentages, recent activity
 - **Image Gallery**: Upload and browse miniature photography (Supabase Storage)
 - **Dark UI**: Steam + Discord + Notion inspired interface with smooth animations
-- **Error Recovery**: Full error boundary — crashes show a recovery screen, not a black page
+- **Error Recovery**: Full error boundary — crashes show a recovery screen, not a black page. Errors are reported to Sentry when `VITE_SENTRY_DSN` is configured
 
 ## Architecture
 
