@@ -1,12 +1,13 @@
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
+import { StarRating } from "@/components/shared/StarRating";
 import { Button } from "@/components/ui/button";
-import { getArticles } from "@/db";
+import { getArticles, getGuides, guideRating } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
-import type { Article } from "@/types";
+import type { Article, PaintingGuide } from "@/types";
 import { motion } from "framer-motion";
-import { Newspaper, Plus } from "lucide-react";
+import { ArrowRight, BookOpen, Newspaper, Palette, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -22,19 +23,26 @@ export function HomePage() {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const [articles, setArticles] = useState<Article[]>([]);
+  const [guides, setGuides] = useState<PaintingGuide[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getArticles(isAdmin ? false : true)
-      .then(setArticles)
-      .catch((err) => console.error("Failed to load articles:", err))
+    Promise.all([
+      getArticles(isAdmin ? false : true),
+      getGuides({ sort: "top" }),
+    ])
+      .then(([a, g]) => {
+        setArticles(a);
+        setGuides(g.slice(0, 3));
+      })
+      .catch((err) => console.error("Failed to load home content:", err))
       .finally(() => setLoading(false));
   }, [isAdmin]);
 
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <LoadingSpinner size="lg" text="Cargando noticias..." />
+        <LoadingSpinner size="lg" text="Cargando..." />
       </div>
     );
   }
@@ -183,6 +191,66 @@ export function HomePage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Featured guides */}
+        {guides.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <h2 className="font-display text-xl font-bold tracking-tight">
+                  Guías destacadas
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/guias")}
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Ver todas
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-3">
+              {guides.map((g, i) => (
+                <motion.button
+                  key={g.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  type="button"
+                  onClick={() => navigate(`/guias/${g.id}`)}
+                  className="group overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
+                >
+                  <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 to-background">
+                    {g.coverImage ? (
+                      <img
+                        src={g.coverImage}
+                        alt={g.title}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Palette className="h-10 w-10 text-primary/25" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="line-clamp-2 font-semibold text-foreground">
+                      {g.title}
+                    </h3>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        por {g.authorName}
+                      </span>
+                      <StarRating value={guideRating(g)} size="sm" readOnly />
+                    </div>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
           </div>
         )}
       </div>
