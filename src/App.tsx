@@ -2,6 +2,10 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { AuthPage } from "@/pages/AuthPage";
 import { LandingPage } from "@/pages/LandingPage";
+import { AvisoLegalPage } from "@/pages/legal/AvisoLegalPage";
+import { CookiesPage } from "@/pages/legal/CookiesPage";
+import { PrivacidadPage } from "@/pages/legal/PrivacidadPage";
+import { TerminosPage } from "@/pages/legal/TerminosPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { useAuthStore } from "@/stores";
 import { AnimatePresence } from "framer-motion";
@@ -73,7 +77,8 @@ function AnimatedRoutes() {
   );
 }
 
-export default function App() {
+/** Everything that depends on auth state — loading, password recovery, landing/auth, or the main app. */
+function AppGate() {
   const { user, initialized, init, recoveryMode } = useAuthStore();
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
 
@@ -128,9 +133,24 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <>
       <AnimatedRoutes />
       {toaster}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Reachable regardless of auth state — legal pages are never gated. */}
+        <Route path="/legal/aviso-legal" element={<AvisoLegalPage />} />
+        <Route path="/legal/privacidad" element={<PrivacidadPage />} />
+        <Route path="/legal/cookies" element={<CookiesPage />} />
+        <Route path="/legal/terminos" element={<TerminosPage />} />
+        <Route path="*" element={<AppGate />} />
+      </Routes>
     </BrowserRouter>
   );
 }
