@@ -298,6 +298,16 @@ export interface DownloadEntry extends BaseEntity {
   isNew: boolean;
 }
 
+/** An entry in the "Últimos updates" feed — a detected points or download change. */
+export interface CatalogUpdate extends BaseEntity {
+  gameName: string;
+  type: 'points' | 'download';
+  title: string;
+  description: string;
+  link: string | null;
+  occurredAt: string;
+}
+
 export interface CreateMiniatureDTO {
   armyId: string;
   name: string;

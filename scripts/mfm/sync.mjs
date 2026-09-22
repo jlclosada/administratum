@@ -20,7 +20,7 @@ async function fetchExisting() {
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase
       .from('unit_catalog')
-      .select('id, game_name, faction_slug, name, pricing')
+      .select('id, game_name, faction_slug, faction_name, name, pricing')
       .range(from, from + pageSize - 1);
     if (error) throw error;
     if (!data?.length) break;
@@ -50,6 +50,21 @@ function toRow(unit) {
 
 function pricingChanged(a, b) {
   return JSON.stringify(a ?? null) !== JSON.stringify(b ?? null);
+}
+
+/** First non-addon cost's points, as a cheap "headline" number for a change description. */
+function basePoints(pricing) {
+  const cost = (pricing || [])
+    .flatMap((tier) => tier.costs || [])
+    .find((c) => !c.addon);
+  return cost ? cost.points : null;
+}
+
+async function logCatalogUpdates(rows) {
+  if (rows.length === 0) return;
+  const { error } = await supabase.from('catalog_updates').insert(rows);
+  if (error) throw error;
+  console.log(`[catalog_updates] ${rows.length} cambios de puntos registrados.`);
 }
 
 async function upsertRows(table, onConflict, rows) {
@@ -103,7 +118,7 @@ const changedKeys = [];
 for (const unit of units) {
   const old = existingByKey.get(catalogKey(unit));
   if (old && pricingChanged(old.pricing, unit.pricing)) {
-    changedKeys.push({ ...old, pricing: unit.pricing, name: unit.name });
+    changedKeys.push({ ...old, pricing_old: old.pricing, pricing: unit.pricing, name: unit.name });
   }
 }
 
@@ -118,4 +133,21 @@ console.log(
 const miniaturesUpdated = await updateMiniatures(changedKeys);
 console.log(
   `Puntos actualizados: ${changedKeys.length} fichas del catálogo, ${miniaturesUpdated} miniaturas de usuarios.`,
+);
+
+await logCatalogUpdates(
+  changedKeys.map((u) => {
+    const before = basePoints(u.pricing_old);
+    const after = basePoints(u.pricing);
+    return {
+      game_name: u.game_name,
+      type: 'points',
+      title: u.name,
+      description:
+        before !== null && after !== null && before !== after
+          ? `${u.faction_name} · ${before} → ${after} pts`
+          : `${u.faction_name} · puntos actualizados`,
+      link: `/catalogo-puntos/${u.faction_slug}`,
+    };
+  }),
 );

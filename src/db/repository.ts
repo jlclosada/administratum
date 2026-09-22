@@ -12,6 +12,7 @@ import type {
   ArmyWithStats,
   Article,
   CatalogPricingTier,
+  CatalogUpdate,
   CreateArmyDTO,
   CreateArmyListDTO,
   CreateArmyPresetDTO,
@@ -1407,6 +1408,32 @@ export async function getDownloads(gameName?: string): Promise<DownloadEntry[]> 
     const { data, error } = await query;
     if (error || !data) return [];
     return mapRows<DownloadEntry>(data);
+  } catch {
+    return [];
+  }
+}
+
+// ======================== CATALOG UPDATES (ACTIVITY FEED) ========================
+
+/**
+ * Recent points-catalog and downloads-catalog changes detected by the sync
+ * crons — powers the "Últimos updates" section on the home page.
+ * Degrades to an empty list if the `catalog_updates` table does not exist yet.
+ */
+export async function getRecentUpdates(
+  gameName?: string,
+  limit = 8,
+): Promise<CatalogUpdate[]> {
+  try {
+    let query = supabase
+      .from('catalog_updates')
+      .select('*')
+      .order('occurred_at', { ascending: false })
+      .limit(limit);
+    if (gameName) query = query.eq('game_name', gameName);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return mapRows<CatalogUpdate>(data);
   } catch {
     return [];
   }

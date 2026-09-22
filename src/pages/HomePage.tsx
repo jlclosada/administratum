@@ -3,11 +3,11 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { StarRating } from "@/components/shared/StarRating";
 import { Button } from "@/components/ui/button";
-import { getArticles, getGuides, guideRating } from "@/db";
+import { getArticles, getGuides, getRecentUpdates, guideRating } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
-import type { Article, PaintingGuide } from "@/types";
+import type { Article, CatalogUpdate, PaintingGuide } from "@/types";
 import { motion } from "framer-motion";
-import { ArrowRight, BookOpen, Newspaper, Palette, Plus } from "lucide-react";
+import { ArrowRight, BookOpen, Download, Newspaper, Palette, Plus, Sparkles, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,21 +19,76 @@ function formatDate(iso: string): string {
   });
 }
 
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours < 1) return "hace un momento";
+  if (hours < 24) return `hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `hace ${days}d`;
+  return formatDate(iso);
+}
+
+function UpdatesFeed({ updates }: { updates: CatalogUpdate[] }) {
+  const navigate = useNavigate();
+  if (updates.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold tracking-tight">
+          Últimos updates
+        </h2>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border/60">
+        {updates.map((u, i) => {
+          const Icon = u.type === "points" ? Target : Download;
+          return (
+            <button
+              key={u.id}
+              type="button"
+              disabled={!u.link}
+              onClick={() => u.link && navigate(u.link)}
+              className="flex w-full items-center gap-3 border-b border-border/50 bg-card/40 px-4 py-3 text-left transition-colors last:border-0 enabled:hover:bg-accent/50 disabled:cursor-default"
+              style={{ animationDelay: `${i * 30}ms` }}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <Icon className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{u.title}</p>
+                <p className="truncate text-xs text-muted-foreground">{u.description}</p>
+              </div>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {timeAgo(u.occurredAt)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const [articles, setArticles] = useState<Article[]>([]);
   const [guides, setGuides] = useState<PaintingGuide[]>([]);
+  const [updates, setUpdates] = useState<CatalogUpdate[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       getArticles(isAdmin ? false : true),
       getGuides({ sort: "top" }),
+      getRecentUpdates("Warhammer 40,000"),
     ])
-      .then(([a, g]) => {
+      .then(([a, g, u]) => {
         setArticles(a);
         setGuides(g.slice(0, 3));
+        setUpdates(u);
       })
       .catch((err) => console.error("Failed to load home content:", err))
       .finally(() => setLoading(false));
@@ -73,6 +128,8 @@ export function HomePage() {
             </Button>
           )}
         </div>
+
+        <UpdatesFeed updates={updates} />
 
         {articles.length === 0 ? (
           <EmptyState

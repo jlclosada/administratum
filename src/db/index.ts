@@ -50,6 +50,7 @@ export {
   getMiniatureById,
   getMiniaturesByArmy,
   getMyGuideRating,
+  getRecentUpdates,
   getUserPaints,
   getWishlistPaints,
   getUnitCatalog,
