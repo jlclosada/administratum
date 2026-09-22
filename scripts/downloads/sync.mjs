@@ -28,6 +28,14 @@ function toRow(entry) {
   };
 }
 
+async function fetchExisting() {
+  const { data, error } = await supabase
+    .from('downloads_catalog')
+    .select('game_name, slug, source_updated_at');
+  if (error) throw error;
+  return data ?? [];
+}
+
 async function upsertRows(rows) {
   const chunkSize = 80;
   for (let i = 0; i < rows.length; i += chunkSize) {
@@ -40,10 +48,53 @@ async function upsertRows(rows) {
   }
 }
 
+async function logCatalogUpdates(rows) {
+  if (rows.length === 0) return;
+  const { error } = await supabase.from('catalog_updates').insert(rows);
+  if (error) throw error;
+  console.log(`[catalog_updates] ${rows.length} documentos nuevos/actualizados registrados.`);
+}
+
 const scraped = await scrapeAll({
   onProgress: ({ gameSlug, count }) => console.log(`[${gameSlug}] ${count} descargas encontradas`),
 });
 console.log(`Descargas: ${scraped.entryCount} archivos`);
 
+const existing = await fetchExisting();
+const existingByKey = new Map(
+  existing.map((r) => [`${r.game_name}\0${r.slug}`, r]),
+);
+
+// On a from-scratch sync (empty table) every entry is technically "new" —
+// skip logging so the very first run doesn't flood the feed with the whole
+// catalog, mirroring how the MFM sync only logs pricing *changes*, never
+// the initial population.
+const isFirstSync = existing.length === 0;
+
+const updates = [];
+for (const entry of scraped.entries) {
+  if (isFirstSync) break;
+  const key = `${entry.gameName}\0${entry.slug}`;
+  const old = existingByKey.get(key);
+  if (!old) {
+    updates.push({
+      game_name: entry.gameName,
+      type: 'download',
+      title: entry.title,
+      description: `${entry.category} · documento nuevo`,
+      link: '/descargas',
+    });
+  } else if (entry.sourceUpdatedAt && entry.sourceUpdatedAt !== old.source_updated_at) {
+    updates.push({
+      game_name: entry.gameName,
+      type: 'download',
+      title: entry.title,
+      description: `${entry.category} · documento actualizado`,
+      link: '/descargas',
+    });
+  }
+}
+
 await upsertRows(scraped.entries.map(toRow));
+await logCatalogUpdates(updates);
 console.log('Sincronización completada.');

@@ -660,4 +660,37 @@ create policy "downloads_catalog_admin_write" on public.downloads_catalog
   using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
   with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
 
+-- ============================================================
+-- Catalog updates (activity feed for the two crons above)
+-- ============================================================
+-- One row per change the sync scripts actually detect: a unit's points
+-- moved, or a new/updated document appeared in the downloads catalog.
+-- Shown as "Últimos updates" on the home page.
+create table if not exists public.catalog_updates (
+  id uuid primary key default gen_random_uuid(),
+  game_name text not null default 'Warhammer 40,000',
+  type text not null check (type in ('points', 'download')),
+  title text not null,
+  description text not null default '',
+  link text,
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_catalog_updates_game
+  on public.catalog_updates (game_name, occurred_at desc);
+
+alter table public.catalog_updates enable row level security;
+
+drop policy if exists "catalog_updates_read" on public.catalog_updates;
+drop policy if exists "catalog_updates_admin_write" on public.catalog_updates;
+
+create policy "catalog_updates_read" on public.catalog_updates
+  for select to authenticated using (true);
+
+create policy "catalog_updates_admin_write" on public.catalog_updates
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
 

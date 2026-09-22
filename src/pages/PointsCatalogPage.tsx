@@ -5,6 +5,7 @@ import { PageTransition } from "@/components/shared/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getFactionCatalog, getUnitCatalog } from "@/db";
+import { cn } from "@/lib/utils";
 import type { Detachment, FactionCatalogEntry, UnitCatalogEntry } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -39,8 +40,18 @@ const CATEGORY_ICON: Record<string, typeof Users> = {
   squad: Users,
 };
 
+const CATEGORY_LABEL: Record<string, string> = {
+  vehicle: "Vehículos",
+  character: "Personajes",
+  squad: "Escuadras",
+};
+
 function categoryIcon(category: string) {
   return CATEGORY_ICON[category] ?? Sword;
+}
+
+function categoryLabel(category: string) {
+  return CATEGORY_LABEL[category] ?? "Otros";
 }
 
 function joinFactions(
@@ -361,6 +372,38 @@ function DetachmentCard({ detachment }: { detachment: Detachment }) {
   );
 }
 
+function UnitCard({ unit }: { unit: UnitCatalogEntry }) {
+  const Icon = categoryIcon(unit.category);
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:border-primary/40 hover:shadow-lg">
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
+          <Icon className="h-4.5 w-4.5 text-muted-foreground" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="font-semibold leading-tight">{unit.name}</p>
+            {unit.legends && (
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                Legends
+              </Badge>
+            )}
+          </div>
+          {unit.wargear?.length ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {unit.wargear.map((w) => `${w.item} +${w.points}`).join(" · ")}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <UnitPoints unit={unit} className="pl-[46px]" />
+    </div>
+  );
+}
+
+const CATEGORY_FILTERS = ["all", "character", "squad", "vehicle", "other"] as const;
+type CategoryFilter = (typeof CATEGORY_FILTERS)[number];
+
 export function PointsCatalogFactionPage() {
   const { factionSlug } = useParams<{ factionSlug: string }>();
   const navigate = useNavigate();
@@ -368,6 +411,8 @@ export function PointsCatalogFactionPage() {
   const [faction, setFaction] = useState<FactionCatalogEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<CategoryFilter>("all");
+  const [showLegends, setShowLegends] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -389,11 +434,25 @@ export function PointsCatalogFactionPage() {
   const factionName = faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug;
   const version = faction?.mfmVersion ?? armyUnits[0]?.mfmVersion;
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const u of armyUnits) {
+      const key = CATEGORY_ICON[u.category] ? u.category : "other";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [armyUnits]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return armyUnits;
-    return armyUnits.filter((u) => u.name.toLowerCase().includes(q));
-  }, [armyUnits, query]);
+    return armyUnits.filter((u) => {
+      if (q && !u.name.toLowerCase().includes(q)) return false;
+      if (!showLegends && u.legends) return false;
+      if (category === "all") return true;
+      if (category === "other") return !CATEGORY_ICON[u.category];
+      return u.category === category;
+    });
+  }, [armyUnits, query, category, showLegends]);
 
   const groups = useMemo(() => {
     const map = new Map<string, UnitCatalogEntry[]>();
@@ -502,52 +561,58 @@ export function PointsCatalogFactionPage() {
             />
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            {CATEGORY_FILTERS.map((c) => {
+              const count = c === "all" ? armyUnits.length : categoryCounts[c] ?? 0;
+              if (c !== "all" && count === 0) return null;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    category === c
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                  )}
+                >
+                  {c === "all" ? "Todas" : categoryLabel(c)}
+                  <span className="ml-1.5 opacity-60">{count}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setShowLegends((v) => !v)}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                showLegends
+                  ? "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                  : "border-destructive/40 bg-destructive/10 text-destructive",
+              )}
+            >
+              {showLegends ? "Ocultar Legends" : "Legends ocultas"}
+            </button>
+          </div>
+
           {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Ninguna miniatura coincide con la búsqueda.
             </p>
           ) : (
             groups.map(([group, list]) => (
-              <div key={group} className="space-y-2">
+              <div key={group} className="space-y-2.5">
                 {groups.length > 1 && group !== "Unidades" && (
-                  <h3 className="text-sm font-semibold text-muted-foreground">
+                  <h3 className="flex items-center gap-2 pt-1 text-sm font-semibold text-muted-foreground">
                     {group}
+                    <span className="h-px flex-1 bg-border/60" />
                   </h3>
                 )}
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  {list.map((unit) => {
-                    const Icon = categoryIcon(unit.category);
-                    return (
-                      <div
-                        key={unit.id}
-                        className="flex flex-col gap-2 rounded-xl border border-border/60 bg-card/40 p-3.5 transition-colors hover:border-primary/30 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex min-w-0 items-start gap-2.5">
-                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <p className="font-medium">{unit.name}</p>
-                              {unit.legends && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  Legends
-                                </Badge>
-                              )}
-                            </div>
-                            {unit.wargear?.length ? (
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                {unit.wargear
-                                  .map((w) => `${w.item} +${w.points}`)
-                                  .join(" · ")}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                        <UnitPoints unit={unit} className="shrink-0 pl-[42px] sm:pl-0" />
-                      </div>
-                    );
-                  })}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {list.map((unit) => (
+                    <UnitCard key={unit.id} unit={unit} />
+                  ))}
                 </div>
               </div>
             ))
