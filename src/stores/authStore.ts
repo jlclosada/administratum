@@ -76,13 +76,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   signUp: async (email, password, displayName) => {
     set({ loading: true });
     try {
+      // Called only after the user has checked "acepto los términos" in the
+      // signup form, so this timestamp doubles as a record of that consent.
+      const metadata: Record<string, string> = {
+        terms_accepted_at: new Date().toISOString(),
+      };
+      if (displayName) {
+        metadata.display_name = displayName;
+        metadata.full_name = displayName;
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: displayName
-            ? { display_name: displayName, full_name: displayName }
-            : undefined,
+          data: metadata,
           emailRedirectTo: `${window.location.origin}/`,
         },
       });

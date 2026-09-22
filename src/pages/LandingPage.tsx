@@ -50,6 +50,14 @@ const features = [
   },
 ];
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 interface LandingPageProps {
   onEnter: (mode?: "login" | "signup") => void;
 }
@@ -67,11 +75,20 @@ export function LandingPage({ onEnter }: LandingPageProps) {
       .catch(() => {});
   }, []);
 
+  const [featuredArticle, ...restArticles] = articles;
+
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-background">
-      {/* Ambient backdrop */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="aurora" />
+    <div className="relative isolate min-h-screen w-full overflow-x-hidden bg-background">
+      {/* Backdrop image, blurred + darkened for legibility. `isolate` above
+          pins this to its own stacking context so it always stays behind
+          the content sections regardless of what else is on the page. */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <img
+          src="/images/landing-hero.jpg"
+          alt=""
+          className="h-full w-full scale-110 object-cover opacity-80 blur-sm"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/55 to-background" />
         <div className="absolute inset-0 grid-pattern opacity-[0.04]" />
       </div>
 
@@ -79,8 +96,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
       <header className="relative z-20">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient glow-sm">
-              <span className="font-display text-lg font-black leading-none text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-mono-gradient glow-mono-sm">
+              <span className="font-display text-lg font-black leading-none text-zinc-900">
                 A
               </span>
             </div>
@@ -99,7 +116,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             <button
               type="button"
               onClick={() => onEnter("signup")}
-              className="hidden rounded-lg bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 sm:inline-flex"
+              className="hidden rounded-lg bg-mono-gradient px-4 py-2 text-sm font-semibold text-zinc-900 shadow-lg transition-all hover:brightness-110 sm:inline-flex"
             >
               Empezar gratis
             </button>
@@ -116,12 +133,12 @@ export function LandingPage({ onEnter }: LandingPageProps) {
           className="mx-auto max-w-3xl text-center"
         >
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <Sparkles className="h-3.5 w-3.5 text-zinc-300" />
             Tu taller de miniaturas, reinventado
           </div>
           <h1 className="text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-5xl md:text-6xl">
             Gestiona y comparte tu colección de{" "}
-            <span className="text-gradient animate-gradient">wargaming</span>
+            <span className="text-mono-gradient">wargaming</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             Organiza ejércitos, registra tus procesos de pintura, descubre guías
@@ -132,7 +149,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             <button
               type="button"
               onClick={() => onEnter("signup")}
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient px-6 py-3.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 hover:shadow-xl sm:w-auto"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-mono-gradient px-6 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg transition-all hover:brightness-110 hover:shadow-xl sm:w-auto"
             >
               Crear cuenta gratis
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -140,7 +157,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             <button
               type="button"
               onClick={() => onEnter("login")}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background/40 px-6 py-3.5 text-sm font-semibold text-foreground backdrop-blur-sm transition-all hover:border-primary/40 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background/40 px-6 py-3.5 text-sm font-semibold text-foreground backdrop-blur-sm transition-all hover:border-zinc-400/50 sm:w-auto"
             >
               Ya tengo cuenta
             </button>
@@ -160,8 +177,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
               transition={{ duration: 0.4, delay: i * 0.05 }}
               className="glass-card rounded-2xl p-5"
             >
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
-                <f.icon className="h-5 w-5 text-primary" />
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                <f.icon className="h-5 w-5 text-zinc-300" />
               </div>
               <h3 className="font-semibold text-foreground">{f.title}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{f.desc}</p>
@@ -171,45 +188,91 @@ export function LandingPage({ onEnter }: LandingPageProps) {
       </section>
 
       {/* Latest articles */}
-      {articles.length > 0 && (
+      {featuredArticle && (
         <section className="relative z-10 mx-auto max-w-6xl px-5 py-12 sm:px-8">
           <div className="mb-6 flex items-center gap-2">
-            <Newspaper className="h-5 w-5 text-primary" />
+            <Newspaper className="h-5 w-5 text-zinc-300" />
             <h2 className="font-display text-2xl font-bold tracking-tight">
               Últimas noticias
             </h2>
           </div>
-          <div className="grid gap-5 sm:grid-cols-3">
-            {articles.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => onEnter("login")}
-                className="group overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
-              >
-                <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 to-background">
-                  {a.coverImage ? (
-                    <img
-                      src={a.coverImage}
-                      alt={a.title}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <Newspaper className="h-10 w-10 text-primary/25" />
-                    </div>
+          <div className="grid gap-5 lg:grid-cols-3">
+            {/* Featured article — larger card */}
+            <button
+              type="button"
+              onClick={() => onEnter("login")}
+              className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-zinc-400/40 hover:shadow-2xl lg:col-span-2"
+            >
+              <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-zinc-700/30 to-background sm:aspect-[16/8]">
+                {featuredArticle.coverImage ? (
+                  <img
+                    src={featuredArticle.coverImage}
+                    alt={featuredArticle.title}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <Newspaper className="h-12 w-12 text-zinc-500/40" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+                  {featuredArticle.tags[0] && (
+                    <span className="mb-2 inline-block rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
+                      {featuredArticle.tags[0]}
+                    </span>
                   )}
-                </div>
-                <div className="p-4">
-                  <h3 className="line-clamp-2 font-semibold text-foreground">
-                    {a.title}
+                  <h3 className="line-clamp-2 text-lg font-bold text-white sm:text-xl">
+                    {featuredArticle.title}
                   </h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                    {a.excerpt}
+                  <p className="mt-1.5 line-clamp-2 text-sm text-white/70">
+                    {featuredArticle.excerpt}
                   </p>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-white/50">
+                    <span>{formatDate(featuredArticle.createdAt)}</span>
+                    <span className="inline-flex items-center gap-1 text-white/70 opacity-0 transition-opacity group-hover:opacity-100">
+                      Leer más
+                      <ArrowRight className="h-3 w-3" />
+                    </span>
+                  </div>
                 </div>
-              </button>
-            ))}
+              </div>
+            </button>
+
+            {/* Secondary articles */}
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
+              {restArticles.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onEnter("login")}
+                  className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-zinc-400/40 hover:shadow-xl"
+                >
+                  <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-zinc-700/30 to-background">
+                    {a.coverImage ? (
+                      <img
+                        src={a.coverImage}
+                        alt={a.title}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Newspaper className="h-8 w-8 text-zinc-500/40" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-4">
+                      <h3 className="line-clamp-2 text-sm font-semibold text-white">
+                        {a.title}
+                      </h3>
+                      <span className="mt-1 block text-[11px] text-white/50">
+                        {formatDate(a.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -229,9 +292,9 @@ export function LandingPage({ onEnter }: LandingPageProps) {
                 key={g.id}
                 type="button"
                 onClick={() => onEnter("login")}
-                className="group overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
+                className="group overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-zinc-400/40 hover:shadow-xl"
               >
-                <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 to-background">
+                <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-zinc-700/30 to-background">
                   {g.coverImage ? (
                     <img
                       src={g.coverImage}
@@ -240,7 +303,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <Palette className="h-10 w-10 text-primary/25" />
+                      <Palette className="h-10 w-10 text-zinc-500/40" />
                     </div>
                   )}
                 </div>
@@ -264,10 +327,10 @@ export function LandingPage({ onEnter }: LandingPageProps) {
       {/* CTA */}
       <section className="relative z-10 mx-auto max-w-6xl px-5 py-16 sm:px-8">
         <div className="glass-card relative overflow-hidden rounded-3xl px-6 py-12 text-center sm:px-12">
-          <div className="pointer-events-none absolute inset-0 spotlight opacity-70" />
-          <Users className="relative mx-auto mb-4 h-10 w-10 text-primary" />
+          <div className="pointer-events-none absolute inset-0 spotlight-mono opacity-70" />
+          <Users className="relative mx-auto mb-4 h-10 w-10 text-zinc-300" />
           <h2 className="relative font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            Únete a la comunidad de hobbyistas
+            ¿Listo para organizar tu hobby?
           </h2>
           <p className="relative mx-auto mt-3 max-w-xl text-muted-foreground">
             Empieza a organizar tu colección y comparte tus guías de pintura hoy
@@ -276,7 +339,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
           <button
             type="button"
             onClick={() => onEnter("signup")}
-            className="group relative mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-brand-gradient px-7 py-3.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 hover:shadow-xl"
+            className="group relative mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-mono-gradient px-7 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg transition-all hover:brightness-110 hover:shadow-xl"
           >
             Empezar ahora
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

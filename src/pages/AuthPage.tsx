@@ -22,6 +22,7 @@ import {
     User as UserIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 type Mode = "login" | "signup" | "reset";
 
@@ -505,10 +506,26 @@ export function AuthPage({
                   />
                   <span>
                     Acepto los{" "}
-                    <span className="font-medium text-foreground">
+                    <Link
+                      to="/legal/terminos"
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                    >
                       términos del servicio
-                    </span>{" "}
-                    y la política de privacidad.
+                    </Link>{" "}
+                    y la{" "}
+                    <Link
+                      to="/legal/privacidad"
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                    >
+                      política de privacidad
+                    </Link>
+                    .
                   </span>
                 </label>
               )}
