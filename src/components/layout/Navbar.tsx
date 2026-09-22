@@ -30,22 +30,22 @@ import {
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
+// Primary: content the user comes to browse or reference.
 const primaryItems = [
   { to: "/", icon: Home, label: "Inicio" },
   { to: "/guias", icon: BookOpen, label: "Guías" },
-  { to: "/games", icon: Swords, label: "Mi Colección" },
-  { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-];
-
-const moreItems = [
-  { to: "/paints", icon: Palette, label: "Mis Pinturas" },
   { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
   { to: "/descargas", icon: Download, label: "Descargas" },
-  { to: "/gallery", icon: ImageIcon, label: "Galería" },
 ];
 
-const allMobileItems = [...primaryItems, ...moreItems];
+// Profile: the user's own collection and progress.
+const profileItems = [
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/games", icon: Swords, label: "Mi Colección" },
+  { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
+  { to: "/paints", icon: Palette, label: "Mis Pinturas" },
+  { to: "/gallery", icon: ImageIcon, label: "Galería" },
+];
 
 function isItemActive(pathname: string, to: string): boolean {
   return to === "/" ? pathname === "/" : pathname.startsWith(to);
@@ -63,7 +63,7 @@ export function Navbar() {
     (user?.user_metadata?.full_name as string | undefined) ??
     "";
 
-  const moreActive = moreItems.some((i) => isItemActive(location.pathname, i.to));
+  const profileActive = profileItems.some((i) => isItemActive(location.pathname, i.to));
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-card/60 backdrop-blur-xl">
@@ -105,31 +105,6 @@ export function Navbar() {
             );
           })}
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  moreActive
-                    ? "bg-brand-soft text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                )}
-              >
-                Más
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {moreItems.map((item) => (
-                <DropdownMenuItem key={item.to} onClick={() => navigate(item.to)}>
-                  <item.icon className="h-4 w-4 text-muted-foreground" />
-                  {item.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           {isAdmin && (
             <NavLink
               to="/admin"
@@ -148,13 +123,16 @@ export function Navbar() {
 
         <div className="flex-1 lg:hidden" />
 
-        {/* Profile dropdown (desktop) */}
+        {/* Profile dropdown (desktop) — groups everything related to the user's own collection */}
         <div className="hidden items-center lg:flex">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition-colors hover:bg-accent"
+                className={cn(
+                  "flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition-colors hover:bg-accent",
+                  profileActive && "bg-brand-soft"
+                )}
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-xs font-bold uppercase text-white">
                   {(displayName || user?.email || "?").charAt(0)}
@@ -165,7 +143,7 @@ export function Navbar() {
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <span className="block truncate text-foreground">
                   {displayName || "Mi perfil"}
@@ -174,6 +152,20 @@ export function Navbar() {
                   {user?.email}
                 </span>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {profileItems.map((item) => {
+                const active = isItemActive(location.pathname, item.to);
+                return (
+                  <DropdownMenuItem
+                    key={item.to}
+                    onClick={() => navigate(item.to)}
+                    className={active ? "text-foreground" : undefined}
+                  >
+                    <item.icon className={cn("h-4 w-4 text-muted-foreground", active && "text-primary")} />
+                    {item.label}
+                  </DropdownMenuItem>
+                );
+              })}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate("/settings")}>
                 <Settings className="h-4 w-4 text-muted-foreground" />
@@ -213,9 +205,37 @@ export function Navbar() {
             className="overflow-hidden border-t border-border/60 lg:hidden"
           >
             <nav className="space-y-1 px-4 py-3">
+              <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Explorar
+              </p>
+              {primaryItems.map((item) => {
+                const active = isItemActive(location.pathname, item.to);
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-brand-soft text-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className={cn("h-4.5 w-4.5", active && "text-primary")} />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
+
+              <div className="my-2 h-px bg-border/70" />
+
+              <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Mi cuenta
+              </p>
               {(isAdmin
-                ? [...allMobileItems, { to: "/admin", icon: ShieldCheck, label: "Administración" }]
-                : allMobileItems
+                ? [...profileItems, { to: "/admin", icon: ShieldCheck, label: "Administración" }]
+                : profileItems
               ).map((item) => {
                 const active = isItemActive(location.pathname, item.to);
                 return (

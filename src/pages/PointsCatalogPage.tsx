@@ -17,9 +17,6 @@ import {
     Library,
     Search,
     Shield,
-    Sparkles,
-    Sword,
-    Target,
     Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -46,12 +43,18 @@ const CATEGORY_LABEL: Record<string, string> = {
   squad: "Escuadras",
 };
 
-function categoryIcon(category: string) {
-  return CATEGORY_ICON[category] ?? Sword;
-}
+const CATEGORY_ACCENT: Record<string, string> = {
+  vehicle: "border-l-amber-500/70",
+  character: "border-l-sky-500/70",
+  squad: "border-l-emerald-500/70",
+};
 
 function categoryLabel(category: string) {
   return CATEGORY_LABEL[category] ?? "Otros";
+}
+
+function categoryAccent(category: string) {
+  return CATEGORY_ACCENT[category] ?? "border-l-violet-500/70";
 }
 
 function joinFactions(
@@ -203,7 +206,10 @@ export function PointsCatalogPage() {
                     onClick={() =>
                       navigate(`/catalogo-puntos/${unit.factionSlug}`)
                     }
-                    className="flex w-full flex-col gap-2 border-b border-border/50 px-4 py-3 text-left last:border-0 hover:bg-accent/50 sm:flex-row sm:items-center sm:justify-between"
+                    className={cn(
+                      "flex w-full flex-col gap-2 border-b border-b-border/50 border-l-2 px-4 py-3 text-left last:border-b-0 hover:bg-accent/50 sm:flex-row sm:items-center sm:justify-between",
+                      categoryAccent(unit.category),
+                    )}
                   >
                     <div className="min-w-0">
                       <p className="font-medium truncate">{unit.name}</p>
@@ -287,52 +293,43 @@ export function PointsCatalogPage() {
   );
 }
 
-function DetachmentCard({ detachment }: { detachment: Detachment }) {
+function DetachmentRow({ detachment }: { detachment: Detachment }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/40 transition-colors hover:border-primary/30">
+    <div>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-start justify-between gap-3 p-4 text-left"
+        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold text-foreground">{detachment.name}</h3>
+            <h3 className="font-medium text-foreground">{detachment.name}</h3>
             {detachment.dp !== null && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                <Target className="h-3 w-3" />
+              <span className="text-xs font-semibold tabular-nums text-primary">
                 {detachment.dp} DP
               </span>
             )}
           </div>
           {detachment.unique && (
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Sparkles className="h-3 w-3 shrink-0 text-amber-400" />
-              {detachment.unique}
-            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{detachment.unique}</p>
           )}
           {detachment.objectives.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {detachment.objectives.map((o) => (
-                <span
-                  key={o}
-                  className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                >
-                  {o}
-                </span>
-              ))}
-            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {detachment.objectives.join(" · ")}
+            </p>
           )}
         </div>
-        <motion.div
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="mt-1 shrink-0 text-muted-foreground"
-        >
-          <ChevronDown className="h-4 w-4" />
-        </motion.div>
+        {detachment.enhancements.length > 0 && (
+          <motion.div
+            animate={{ rotate: open ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="mt-1 shrink-0 text-muted-foreground"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </motion.div>
+        )}
       </button>
       <AnimatePresence>
         {open && detachment.enhancements.length > 0 && (
@@ -341,16 +338,16 @@ function DetachmentCard({ detachment }: { detachment: Detachment }) {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-border/60"
+            className="overflow-hidden border-t border-border/50 bg-muted/20"
           >
-            <div className="divide-y divide-border/50">
+            <div className="divide-y divide-border/40">
               {detachment.enhancements.map((e) => (
                 <div
                   key={e.name}
-                  className="flex items-center justify-between gap-3 px-4 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 px-4 py-2 pl-6 text-sm"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{e.name}</p>
+                    <p className="truncate">{e.name}</p>
                     {(e.leaderTo?.length || e.supportTo?.length) && (
                       <p className="truncate text-[11px] text-muted-foreground">
                         {e.leaderTo?.length ? `Líder: ${e.leaderTo.join(", ")}` : ""}
@@ -359,7 +356,7 @@ function DetachmentCard({ detachment }: { detachment: Detachment }) {
                       </p>
                     )}
                   </div>
-                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">
+                  <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
                     +{e.points}
                   </span>
                 </div>
@@ -372,31 +369,30 @@ function DetachmentCard({ detachment }: { detachment: Detachment }) {
   );
 }
 
-function UnitCard({ unit }: { unit: UnitCatalogEntry }) {
-  const Icon = categoryIcon(unit.category);
+function UnitRow({ unit }: { unit: UnitCatalogEntry }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/40 p-4 transition-all hover:border-primary/40 hover:shadow-lg">
-      <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted">
-          <Icon className="h-4.5 w-4.5 text-muted-foreground" />
+    <div
+      className={cn(
+        "flex flex-col gap-2 border-l-2 border-t border-t-border/50 px-4 py-3 transition-colors first:border-t-0 hover:bg-accent/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+        categoryAccent(unit.category),
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-medium leading-tight">{unit.name}</p>
+          {unit.legends && (
+            <Badge variant="outline" className="shrink-0 text-[10px]">
+              Legends
+            </Badge>
+          )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="font-semibold leading-tight">{unit.name}</p>
-            {unit.legends && (
-              <Badge variant="outline" className="shrink-0 text-[10px]">
-                Legends
-              </Badge>
-            )}
-          </div>
-          {unit.wargear?.length ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {unit.wargear.map((w) => `${w.item} +${w.points}`).join(" · ")}
-            </p>
-          ) : null}
-        </div>
+        {unit.wargear?.length ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {unit.wargear.map((w) => `${w.item} +${w.points}`).join(" · ")}
+          </p>
+        ) : null}
       </div>
-      <UnitPoints unit={unit} className="pl-[46px]" />
+      <UnitPoints unit={unit} />
     </div>
   );
 }
@@ -535,9 +531,9 @@ export function PointsCatalogFactionPage() {
               <h2 className="font-semibold">Destacamentos</h2>
               <Badge variant="secondary">{faction.detachments.length}</Badge>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60">
               {faction.detachments.map((d) => (
-                <DetachmentCard key={d.name} detachment={d} />
+                <DetachmentRow key={d.name} detachment={d} />
               ))}
             </div>
           </section>
@@ -609,9 +605,9 @@ export function PointsCatalogFactionPage() {
                     <span className="h-px flex-1 bg-border/60" />
                   </h3>
                 )}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="overflow-hidden rounded-xl border border-border/60">
                   {list.map((unit) => (
-                    <UnitCard key={unit.id} unit={unit} />
+                    <UnitRow key={unit.id} unit={unit} />
                   ))}
                 </div>
               </div>
