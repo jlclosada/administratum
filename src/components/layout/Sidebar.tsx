@@ -25,7 +25,7 @@ import {
   Swords
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
   { to: "/", icon: Home, label: "Inicio" },
@@ -354,6 +354,19 @@ export function Sidebar({ variant = "desktop", onNavigate }: SidebarProps) {
                 <LogOut className="h-4 w-4 shrink-0" />
                 Cerrar sesión
               </button>
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 pt-1 text-[10px] text-muted-foreground/70">
+                <Link to="/legal/privacidad" className="hover:text-muted-foreground">
+                  Privacidad
+                </Link>
+                <span aria-hidden>·</span>
+                <Link to="/legal/terminos" className="hover:text-muted-foreground">
+                  Términos
+                </Link>
+                <span aria-hidden>·</span>
+                <Link to="/legal/cookies" className="hover:text-muted-foreground">
+                  Cookies
+                </Link>
+              </div>
             </>
           )}
         </div>
