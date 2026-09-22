@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { flattenCatalog, dedupeCatalog, catalogKey } from './catalog.mjs';
+import { flattenCatalog, dedupeCatalog, catalogKey, flattenFactions } from './catalog.mjs';
 import { scrapeAll } from './scrape.js';
 
 const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -52,16 +52,26 @@ function pricingChanged(a, b) {
   return JSON.stringify(a ?? null) !== JSON.stringify(b ?? null);
 }
 
-async function upsertRows(rows) {
+async function upsertRows(table, onConflict, rows) {
   const chunkSize = 80;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    const { error } = await supabase
-      .from('unit_catalog')
-      .upsert(chunk, { onConflict: 'game_name,faction_slug,name' });
+    const { error } = await supabase.from(table).upsert(chunk, { onConflict });
     if (error) throw error;
-    console.log(`Upsert ${Math.min(i + chunkSize, rows.length)}/${rows.length}`);
+    console.log(`[${table}] Upsert ${Math.min(i + chunkSize, rows.length)}/${rows.length}`);
   }
+}
+
+function toFactionRow(faction) {
+  return {
+    game_name: faction.gameName,
+    faction_slug: faction.factionSlug,
+    faction_name: faction.factionName,
+    image: faction.image,
+    parent_faction: faction.parentFaction,
+    detachments: faction.detachments,
+    mfm_version: faction.mfmVersion,
+  };
 }
 
 async function updateMiniatures(changed) {
@@ -97,7 +107,13 @@ for (const unit of units) {
   }
 }
 
-await upsertRows(units.map(toRow));
+await upsertRows('unit_catalog', 'game_name,faction_slug,name', units.map(toRow));
+
+const factions = flattenFactions(scraped);
+await upsertRows('faction_catalog', 'game_name,faction_slug', factions.map(toFactionRow));
+console.log(
+  `Facciones: ${factions.length} (${factions.reduce((n, f) => n + f.detachments.length, 0)} destacamentos)`,
+);
 
 const miniaturesUpdated = await updateMiniatures(changedKeys);
 console.log(

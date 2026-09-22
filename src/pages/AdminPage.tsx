@@ -13,13 +13,14 @@ import {
     getArmyPresets,
     getDashboardStats,
     getUnitCatalogCount,
+    upsertFactionCatalog,
     upsertUnitCatalog,
     updateAppConfig,
 } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import type { AppConfig, ArmyPreset, DashboardStats, UnitCatalogEntry } from "@/types";
+import type { AppConfig, ArmyPreset, DashboardStats, FactionCatalogEntry, UnitCatalogEntry } from "@/types";
 import { PRESET_GAMES } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -206,13 +207,15 @@ export function AdminPage() {
         version?: string;
         unitCount?: number;
         units: Omit<UnitCatalogEntry, "id" | "createdAt" | "updatedAt">[];
+        factions?: Omit<FactionCatalogEntry, "id" | "createdAt" | "updatedAt">[];
       };
       if (!file.units?.length) throw new Error("El catálogo está vacío");
       await upsertUnitCatalog(file.units);
+      if (file.factions?.length) await upsertFactionCatalog(file.factions);
       const n = await getUnitCatalogCount();
       setCatalogCount(n);
       toast.success(
-        `Catálogo sincronizado: ${n} unidades (MFM ${file.version ?? ""})`,
+        `Catálogo sincronizado: ${n} unidades${file.factions?.length ? `, ${file.factions.length} facciones` : ""} (MFM ${file.version ?? ""})`,
       );
     } catch (err) {
       console.error("Failed to sync catalog:", err);

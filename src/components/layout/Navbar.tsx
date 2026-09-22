@@ -14,6 +14,7 @@ import {
     BookOpen,
     ChevronDown,
     ClipboardList,
+    Download,
     Home,
     ImageIcon,
     LayoutDashboard,
@@ -32,7 +33,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 const primaryItems = [
   { to: "/", icon: Home, label: "Inicio" },
   { to: "/guias", icon: BookOpen, label: "Guías" },
-  { to: "/games", icon: Swords, label: "Juegos" },
+  { to: "/games", icon: Swords, label: "Mi Colección" },
   { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
 ];
@@ -40,6 +41,7 @@ const primaryItems = [
 const moreItems = [
   { to: "/paints", icon: Palette, label: "Mis Pinturas" },
   { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
+  { to: "/descargas", icon: Download, label: "Descargas" },
   { to: "/gallery", icon: ImageIcon, label: "Galería" },
 ];
 

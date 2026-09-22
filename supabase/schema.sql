@@ -574,4 +574,90 @@ alter table public.miniatures
 alter table public.miniatures
   add column if not exists points_snapshot jsonb;
 
+-- ============================================================
+-- Faction catalog (Munitorum Field Manual) — detachments + faction art
+-- ============================================================
+-- One row per faction/game. Detachments (with their enhancements) are
+-- stored as jsonb since they're read-only reference data scraped from the
+-- MFM, never queried by sub-field. `image` is a hotlinked URL to the MFM's
+-- own faction artwork (mfm.warhammer-community.com), not re-hosted.
+create table if not exists public.faction_catalog (
+  id uuid primary key default gen_random_uuid(),
+  game_name text not null default 'Warhammer 40,000',
+  faction_slug text not null,
+  faction_name text not null,
+  image text,
+  parent_faction text,
+  detachments jsonb not null default '[]',
+  mfm_version text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (game_name, faction_slug)
+);
+
+create index if not exists idx_faction_catalog_game
+  on public.faction_catalog (game_name);
+
+drop trigger if exists set_updated_at on public.faction_catalog;
+create trigger set_updated_at before update on public.faction_catalog
+  for each row execute function public.set_updated_at();
+
+alter table public.faction_catalog enable row level security;
+
+drop policy if exists "faction_catalog_read" on public.faction_catalog;
+drop policy if exists "faction_catalog_admin_write" on public.faction_catalog;
+
+create policy "faction_catalog_read" on public.faction_catalog
+  for select to authenticated using (true);
+
+create policy "faction_catalog_admin_write" on public.faction_catalog
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+-- ============================================================
+-- Downloads catalog (Warhammer Community — official PDFs)
+-- ============================================================
+-- Mirrors https://www.warhammer-community.com/en-gb/downloads/warhammer-40000/
+-- (faction packs, core rules, FAQs/errata, event companions, etc.), kept in
+-- sync by a daily cron (see scripts/downloads/). `source_updated_at` is
+-- Games Workshop's own "Last Updated" date for the file — used to detect
+-- when a PDF has been replaced, independent of when *we* last synced it.
+create table if not exists public.downloads_catalog (
+  id uuid primary key default gen_random_uuid(),
+  game_name text not null default 'Warhammer 40,000',
+  slug text not null,
+  title text not null,
+  category text not null,
+  file_url text not null,
+  file_size text,
+  thumbnail text,
+  topics text[] not null default '{}',
+  source_updated_at date,
+  is_new boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (game_name, slug)
+);
+
+create index if not exists idx_downloads_catalog_game
+  on public.downloads_catalog (game_name, category);
+
+drop trigger if exists set_updated_at on public.downloads_catalog;
+create trigger set_updated_at before update on public.downloads_catalog
+  for each row execute function public.set_updated_at();
+
+alter table public.downloads_catalog enable row level security;
+
+drop policy if exists "downloads_catalog_read" on public.downloads_catalog;
+drop policy if exists "downloads_catalog_admin_write" on public.downloads_catalog;
+
+create policy "downloads_catalog_read" on public.downloads_catalog
+  for select to authenticated using (true);
+
+create policy "downloads_catalog_admin_write" on public.downloads_catalog
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
 

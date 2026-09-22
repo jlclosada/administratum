@@ -33,6 +33,7 @@ src-tauri/gen/
 
 # MFM scrape cache
 scripts/mfm/.cache/
+scripts/downloads/.cache/
 
 # Logs
 *.log

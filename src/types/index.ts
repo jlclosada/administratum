@@ -255,6 +255,49 @@ export interface UnitCatalogEntry extends BaseEntity {
   mfmVersion: string | null;
 }
 
+export interface DetachmentEnhancement {
+  name: string;
+  points: number;
+  leaderTo?: string[];
+  supportTo?: string[];
+}
+
+/** A single detachment (army-building rule set) for a faction, from the MFM. */
+export interface Detachment {
+  name: string;
+  /** Detachment points cost, when the MFM lists one (null for most detachments). */
+  dp: number | null;
+  objectives: string[];
+  /** Name of the detachment's unique rule, when the MFM names one. */
+  unique?: string;
+  enhancements: DetachmentEnhancement[];
+}
+
+/** Per-faction reference data from the Munitorum Field Manual: art + detachments. */
+export interface FactionCatalogEntry extends BaseEntity {
+  gameName: string;
+  factionSlug: string;
+  factionName: string;
+  image: string | null;
+  parentFaction: string | null;
+  detachments: Detachment[];
+  mfmVersion: string | null;
+}
+
+/** A downloadable PDF mirrored from Warhammer Community's downloads page. */
+export interface DownloadEntry extends BaseEntity {
+  gameName: string;
+  slug: string;
+  title: string;
+  category: string;
+  fileUrl: string;
+  fileSize: string | null;
+  thumbnail: string | null;
+  topics: string[];
+  sourceUpdatedAt: string | null;
+  isNew: boolean;
+}
+
 export interface CreateMiniatureDTO {
   armyId: string;
   name: string;

@@ -14,7 +14,10 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   test: {
-    environment: 'jsdom',
+    // happy-dom, not jsdom: several of jsdom's own transitive deps
+    // (parse5 8.x, @exodus/bytes, @asamuzakjp/css-color) currently ship
+    // ESM-only builds that jsdom's CJS require() calls can't load.
+    environment: 'happy-dom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,

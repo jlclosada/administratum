@@ -42,6 +42,23 @@ export function catalogKey(unit) {
   return `${unit.gameName}\0${unit.factionSlug}\0${unit.name}`;
 }
 
+/** Faction-level rows (art + detachments) — parallel to flattenCatalog's units. */
+export function flattenFactions(scraped) {
+  return (scraped.factions || []).map((faction) => ({
+    gameName: 'Warhammer 40,000',
+    factionSlug: faction.slug,
+    factionName: faction.name,
+    image: faction.image || null,
+    parentFaction: faction.parent || null,
+    detachments: faction.detachments || [],
+    mfmVersion: scraped.version || faction.version || null,
+  }));
+}
+
+export function factionKey(faction) {
+  return `${faction.gameName}\0${faction.factionSlug}`;
+}
+
 export function dedupeCatalog(units) {
   const map = new Map();
   for (const unit of units) {
