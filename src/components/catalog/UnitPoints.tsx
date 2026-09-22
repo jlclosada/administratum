@@ -2,10 +2,10 @@ import { etiquetaTramo, type CatalogUnitLike } from "@/lib/mfm";
 import { cn } from "@/lib/utils";
 
 /**
- * Every buy-in option (model count, addon) for a unit rendered as its own
- * chip with the points total as the big, bold number — the previous version
- * joined several options into one line of small text, which made it hard to
- * tell them apart at a glance.
+ * Renders every buy-in option (model count, addon) as a column in a divided
+ * row — not a chip or a card. Options share one baseline, separated by a
+ * hairline, so a unit with several sizes reads like a price list, not a grid
+ * of boxes.
  */
 export function UnitPoints({
   unit,
@@ -20,51 +20,48 @@ export function UnitPoints({
   const multiTier = tiers.length > 1;
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-1", className)}>
       {tiers.map((tier, i) => {
         const label = etiquetaTramo(tier.label);
         const regular = tier.costs.filter((c) => !c.addon);
         const addons = tier.costs.filter((c) => c.addon);
         return (
-          <div key={`${tier.label}-${i}`}>
+          <div key={`${tier.label}-${i}`} className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
             {multiTier && label && (
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <span className="mr-auto text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {label}
-              </p>
+              </span>
             )}
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap items-stretch justify-end divide-x divide-border/70 text-right">
               {regular.map((c, ci) => (
-                <div
-                  key={ci}
-                  className={cn(
-                    "rounded-lg border border-border/70 bg-muted/50 text-center",
-                    size === "sm" ? "min-w-[52px] px-2 py-1" : "min-w-[64px] px-2.5 py-1.5",
-                  )}
-                >
-                  <p
-                    className={cn(
-                      "font-bold leading-none tabular-nums text-foreground",
-                      size === "sm" ? "text-sm" : "text-base",
-                    )}
-                  >
-                    {c.points}
-                  </p>
-                  <p className="mt-0.5 whitespace-nowrap text-[9px] leading-none text-muted-foreground">
+                <div key={ci} className={cn("flex flex-col justify-center", size === "sm" ? "px-2 first:pl-0" : "px-2.5 first:pl-0")}>
+                  <span className="whitespace-nowrap">
+                    <span
+                      className={cn(
+                        "font-semibold tabular-nums text-foreground",
+                        size === "sm" ? "text-sm" : "text-base",
+                      )}
+                    >
+                      {c.points}
+                    </span>
+                    <span className="ml-1 text-[10px] font-medium text-muted-foreground">pts</span>
+                  </span>
+                  <span className="whitespace-nowrap text-[10px] leading-tight text-muted-foreground">
                     {c.models} {c.models === 1 ? "modelo" : "modelos"}
                     {c.desc ? ` · ${c.desc}` : ""}
-                  </p>
+                  </span>
                 </div>
               ))}
-              {addons.map((c, ci) => (
-                <span
-                  key={ci}
-                  className="inline-flex items-center rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
-                >
-                  +{c.points}
-                  {c.desc ? ` ${c.desc}` : ""}
-                </span>
-              ))}
             </div>
+            {addons.length > 0 && (
+              <div className="flex flex-wrap justify-end gap-x-2.5 gap-y-0.5">
+                {addons.map((c, ci) => (
+                  <span key={ci} className="whitespace-nowrap text-xs text-primary">
+                    +{c.points} {c.desc ?? ""}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}

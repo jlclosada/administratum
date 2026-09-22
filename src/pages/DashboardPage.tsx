@@ -1,28 +1,44 @@
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
-import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getDashboardStats } from "@/db";
+import { cn } from "@/lib/utils";
 import type { DashboardStats } from "@/types";
 import { PAINT_STATUSES, getCurrentPaintStep, isMiniatureComplete } from "@/types";
-import { motion } from "framer-motion";
-import { Check, Paintbrush, Shield, Sword, Target, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
+import CountUp from "react-countup";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
-};
+function parseValue(value: number | string): { end: number; suffix: string } | null {
+  if (typeof value === "number") return { end: value, suffix: "" };
+  const match = value.match(/^(\d+(?:\.\d+)?)(.*)$/);
+  if (!match) return null;
+  return { end: parseFloat(match[1] ?? "0"), suffix: match[2] ?? "" };
+}
 
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
+function StatColumn({
+  label,
+  value,
+  subtitle,
+  accent,
+}: {
+  label: string;
+  value: number | string;
+  subtitle?: string;
+  accent: string;
+}) {
+  const parsed = parseValue(value);
+  return (
+    <div className={cn("border-t-2 px-5 py-4", accent)}>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1.5 text-3xl font-bold tabular-nums tracking-tight text-foreground">
+        {parsed ? <CountUp end={parsed.end} suffix={parsed.suffix} duration={1.2} separator="." /> : value}
+      </p>
+      {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -84,57 +100,37 @@ export function DashboardPage() {
           <p className="text-muted-foreground">Resumen de tu colección de miniaturas</p>
         </div>
 
-        {/* Stats Grid */}
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          <motion.div variants={item}>
-            <StatCard
-              label="Total Miniaturas"
-              value={stats.totalMiniatures}
-              icon={<Sword className="h-5 w-5" />}
-              color="#8b5cf6"
-            />
-          </motion.div>
-          <motion.div variants={item}>
-            <StatCard
-              label="Pintadas"
-              value={stats.totalPainted}
-              icon={<Paintbrush className="h-5 w-5" />}
-              color="#34d399"
-            />
-          </motion.div>
-          <motion.div variants={item}>
-            <StatCard
-              label="Completado"
-              value={`${stats.completionPercentage}%`}
-              icon={<Target className="h-5 w-5" />}
-              subtitle={`${stats.totalPainted} de ${stats.totalMiniatures}`}
-              color="#f59e0b"
-            />
-          </motion.div>
-          <motion.div variants={item}>
-            <StatCard
-              label="Ejércitos"
-              value={stats.totalArmies}
-              icon={<Shield className="h-5 w-5" />}
-              subtitle={`En ${stats.totalGames} juegos`}
-              color="#60a5fa"
-            />
-          </motion.div>
-        </motion.div>
+        {/* Stat strip */}
+        <div className="grid grid-cols-2 divide-x divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 sm:grid-cols-4 sm:divide-y-0">
+          <StatColumn
+            label="Miniaturas"
+            value={stats.totalMiniatures}
+            accent="border-t-violet-500/70"
+          />
+          <StatColumn
+            label="Pintadas"
+            value={stats.totalPainted}
+            accent="border-t-emerald-500/70"
+          />
+          <StatColumn
+            label="Completado"
+            value={`${stats.completionPercentage}%`}
+            subtitle={`${stats.totalPainted} de ${stats.totalMiniatures}`}
+            accent="border-t-amber-500/70"
+          />
+          <StatColumn
+            label="Ejércitos"
+            value={stats.totalArmies}
+            subtitle={`En ${stats.totalGames} juegos`}
+            accent="border-t-sky-500/70"
+          />
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Status Distribution Pie Chart */}
+          {/* Status Distribution */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Distribución de Estados
-              </CardTitle>
+              <CardTitle>Distribución de estados</CardTitle>
             </CardHeader>
             <CardContent>
               {pieData.length > 0 ? (
@@ -168,12 +164,12 @@ export function DashboardPage() {
                       <div key={entry.name} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           <div
-                            className="h-3 w-3 rounded-full"
+                            className="h-2.5 w-2.5 rounded-full"
                             style={{ backgroundColor: entry.color }}
                           />
                           <span className="text-muted-foreground">{entry.name}</span>
                         </div>
-                        <span className="font-medium">{entry.value}</span>
+                        <span className="font-medium tabular-nums">{entry.value}</span>
                       </div>
                     ))}
                   </div>
@@ -189,10 +185,7 @@ export function DashboardPage() {
           {/* Army Progress */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-primary" />
-                Progreso por Ejército
-              </CardTitle>
+              <CardTitle>Progreso por ejército</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {stats.armyProgress.length > 0 ? (
@@ -200,7 +193,7 @@ export function DashboardPage() {
                   <div key={army.id} className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">{army.name}</span>
-                      <span className="text-muted-foreground">
+                      <span className="tabular-nums text-muted-foreground">
                         {army.totalPainted}/{army.totalMiniatures}
                         {(army.totalPoints ?? 0) > 0
                           ? ` · ${army.totalPoints.toLocaleString("es-ES")} pts`
@@ -209,12 +202,12 @@ export function DashboardPage() {
                     </div>
                     <Progress
                       value={army.completionPercentage}
-                      className="h-2"
+                      className="h-1.5"
                       indicatorClassName={
                         army.completionPercentage === 100
-                          ? "bg-green-500"
+                          ? "bg-emerald-500"
                           : army.completionPercentage > 50
-                          ? "bg-yellow-500"
+                          ? "bg-amber-500"
                           : "bg-primary"
                       }
                     />
@@ -233,60 +226,49 @@ export function DashboardPage() {
         {stats.recentMiniatures.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Últimas Miniaturas Añadidas</CardTitle>
+              <CardTitle>Últimas miniaturas añadidas</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="p-0">
+              <div className="divide-y divide-border/50">
                 {stats.recentMiniatures.map((mini) => (
-                  <motion.div
+                  <div
                     key={mini.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    whileHover={{ x: 4 }}
-                    className="flex items-center justify-between rounded-xl border border-border/60 bg-card/40 p-3 backdrop-blur-sm transition-colors hover:border-primary/30"
+                    className="flex items-center justify-between gap-3 px-6 py-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lg">
-                        <Sword className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{mini.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {mini.quantity}x · {mini.category}
-                        </p>
-                      </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{mini.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {mini.quantity}x · {mini.category}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        const statuses = mini.statuses ?? [];
-                        const complete = isMiniatureComplete(statuses);
-                        const current = getCurrentPaintStep(statuses);
-                        if (complete) {
-                          return (
-                            <div className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/20 text-emerald-500">
-                              <Check className="h-2.5 w-2.5" />
-                              Completada
-                            </div>
-                          );
-                        }
-                        if (current) {
-                          return (
-                            <div
-                              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                              style={{ backgroundColor: `${current.color}20`, color: current.color }}
-                            >
-                              {current.name}
-                            </div>
-                          );
-                        }
+                    {(() => {
+                      const statuses = mini.statuses ?? [];
+                      const complete = isMiniatureComplete(statuses);
+                      const current = getCurrentPaintStep(statuses);
+                      if (complete) {
                         return (
-                          <div className="rounded-full px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted">
-                            Sin empezar
-                          </div>
+                          <span className="shrink-0 text-xs font-medium text-emerald-500">
+                            Completada
+                          </span>
                         );
-                      })()}
-                    </div>
-                  </motion.div>
+                      }
+                      if (current) {
+                        return (
+                          <span
+                            className="shrink-0 text-xs font-medium"
+                            style={{ color: current.color }}
+                          >
+                            {current.name}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                          Sin empezar
+                        </span>
+                      );
+                    })()}
+                  </div>
                 ))}
               </div>
             </CardContent>
