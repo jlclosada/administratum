@@ -1,62 +1,74 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { AdminPage } from "@/pages/AdminPage";
-import { ArmyDetailPage } from "@/pages/ArmyDetailPage";
-import { ArmyListDetailPage } from "@/pages/ArmyListDetailPage";
-import { ArmyListsPage } from "@/pages/ArmyListsPage";
-import { ArticleDetailPage } from "@/pages/ArticleDetailPage";
-import { ArticleEditorPage } from "@/pages/ArticleEditorPage";
 import { AuthPage } from "@/pages/AuthPage";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { GalleryPage } from "@/pages/GalleryPage";
-import { GameDetailPage } from "@/pages/GameDetailPage";
-import { GamesPage } from "@/pages/GamesPage";
-import { GuideDetailPage } from "@/pages/GuideDetailPage";
-import { GuideEditorPage } from "@/pages/GuideEditorPage";
-import { GuidesPage } from "@/pages/GuidesPage";
-import { HomePage } from "@/pages/HomePage";
 import { LandingPage } from "@/pages/LandingPage";
-import { MiniatureDetailPage } from "@/pages/MiniatureDetailPage";
-import { MyPaintsPage } from "@/pages/MyPaintsPage";
-import { PointsCatalogFactionPage, PointsCatalogPage } from "@/pages/PointsCatalogPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
-import { SettingsPage } from "@/pages/SettingsPage";
 import { useAuthStore } from "@/stores";
 import { AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
+
+const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
+const ArmyDetailPage = lazy(() => import("@/pages/ArmyDetailPage").then((m) => ({ default: m.ArmyDetailPage })));
+const ArmyListDetailPage = lazy(() => import("@/pages/ArmyListDetailPage").then((m) => ({ default: m.ArmyListDetailPage })));
+const ArmyListsPage = lazy(() => import("@/pages/ArmyListsPage").then((m) => ({ default: m.ArmyListsPage })));
+const ArticleDetailPage = lazy(() => import("@/pages/ArticleDetailPage").then((m) => ({ default: m.ArticleDetailPage })));
+const ArticleEditorPage = lazy(() => import("@/pages/ArticleEditorPage").then((m) => ({ default: m.ArticleEditorPage })));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const GalleryPage = lazy(() => import("@/pages/GalleryPage").then((m) => ({ default: m.GalleryPage })));
+const GameDetailPage = lazy(() => import("@/pages/GameDetailPage").then((m) => ({ default: m.GameDetailPage })));
+const GamesPage = lazy(() => import("@/pages/GamesPage").then((m) => ({ default: m.GamesPage })));
+const GuideDetailPage = lazy(() => import("@/pages/GuideDetailPage").then((m) => ({ default: m.GuideDetailPage })));
+const GuideEditorPage = lazy(() => import("@/pages/GuideEditorPage").then((m) => ({ default: m.GuideEditorPage })));
+const GuidesPage = lazy(() => import("@/pages/GuidesPage").then((m) => ({ default: m.GuidesPage })));
+const HomePage = lazy(() => import("@/pages/HomePage").then((m) => ({ default: m.HomePage })));
+const MiniatureDetailPage = lazy(() => import("@/pages/MiniatureDetailPage").then((m) => ({ default: m.MiniatureDetailPage })));
+const MyPaintsPage = lazy(() => import("@/pages/MyPaintsPage").then((m) => ({ default: m.MyPaintsPage })));
+const PointsCatalogPage = lazy(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogPage })));
+const PointsCatalogFactionPage = lazy(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogFactionPage })));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+
+function RouteFallback() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <LoadingSpinner size="lg" text="Cargando..." />
+    </div>
+  );
+}
 
 function AnimatedRoutes() {
   const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="articulos/nuevo" element={<ArticleEditorPage />} />
-          <Route path="articulos/:articleId" element={<ArticleDetailPage />} />
-          <Route path="articulos/:articleId/editar" element={<ArticleEditorPage />} />
-          <Route path="guias" element={<GuidesPage />} />
-          <Route path="guias/nueva" element={<GuideEditorPage />} />
-          <Route path="guias/:guideId" element={<GuideDetailPage />} />
-          <Route path="guias/:guideId/editar" element={<GuideEditorPage />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="games" element={<GamesPage />} />
-          <Route path="games/:gameId" element={<GameDetailPage />} />
-          <Route path="games/:gameId/armies/:armyId" element={<ArmyDetailPage />} />
-          <Route path="games/:gameId/armies/:armyId/miniatures/:miniatureId" element={<MiniatureDetailPage />} />
-          <Route path="paints" element={<MyPaintsPage />} />
-          <Route path="lists" element={<ArmyListsPage />} />
-          <Route path="lists/:listId" element={<ArmyListDetailPage />} />
-          <Route path="catalogo-puntos" element={<PointsCatalogPage />} />
-          <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
-          <Route path="gallery" element={<GalleryPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="admin" element={<AdminPage />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<AppLayout />}>
+            <Route index element={<HomePage />} />
+            <Route path="articulos/nuevo" element={<ArticleEditorPage />} />
+            <Route path="articulos/:articleId" element={<ArticleDetailPage />} />
+            <Route path="articulos/:articleId/editar" element={<ArticleEditorPage />} />
+            <Route path="guias" element={<GuidesPage />} />
+            <Route path="guias/nueva" element={<GuideEditorPage />} />
+            <Route path="guias/:guideId" element={<GuideDetailPage />} />
+            <Route path="guias/:guideId/editar" element={<GuideEditorPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="games" element={<GamesPage />} />
+            <Route path="games/:gameId" element={<GameDetailPage />} />
+            <Route path="games/:gameId/armies/:armyId" element={<ArmyDetailPage />} />
+            <Route path="games/:gameId/armies/:armyId/miniatures/:miniatureId" element={<MiniatureDetailPage />} />
+            <Route path="paints" element={<MyPaintsPage />} />
+            <Route path="lists" element={<ArmyListsPage />} />
+            <Route path="lists/:listId" element={<ArmyListDetailPage />} />
+            <Route path="catalogo-puntos" element={<PointsCatalogPage />} />
+            <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
+            <Route path="gallery" element={<GalleryPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="admin" element={<AdminPage />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </AnimatePresence>
   );
 }
