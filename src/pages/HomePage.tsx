@@ -3,11 +3,11 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { StarRating } from "@/components/shared/StarRating";
 import { Button } from "@/components/ui/button";
-import { getArticles, getGuides, getRecentUpdates, guideRating } from "@/db";
+import { getArticles, getCurrentMiniatureSpotlight, getGuides, getRecentUpdates, guideRating } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
-import type { Article, CatalogUpdate, PaintingGuide } from "@/types";
+import type { Article, CatalogUpdate, MiniatureSpotlight, PaintingGuide } from "@/types";
 import { motion } from "framer-motion";
-import { ArrowRight, BookOpen, Download, Newspaper, Palette, Plus, Sparkles, Target } from "lucide-react";
+import { ArrowRight, BookOpen, Download, Newspaper, Palette, Plus, Star, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -29,20 +29,26 @@ function timeAgo(iso: string): string {
   return formatDate(iso);
 }
 
+/**
+ * Reads as a terminal readout — the app's own sync crons (MFM points,
+ * downloads) framed as transmission log lines, not another card feed.
+ * Kept low-key on purpose: small type, muted phosphor-green accents only
+ * on the prompt glyphs, no scanline theatrics.
+ */
 function UpdatesFeed({ updates }: { updates: CatalogUpdate[] }) {
   const navigate = useNavigate();
   if (updates.length === 0) return null;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" />
-        <h2 className="font-display text-xl font-bold tracking-tight">
-          Últimos updates
-        </h2>
+    <div className="overflow-hidden rounded-xl border border-emerald-500/20 bg-[#050807]">
+      <div className="flex items-center gap-2 border-b border-emerald-500/20 bg-emerald-500/[0.04] px-4 py-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-glow" />
+        <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-500/80">
+          Registro de transmisiones
+        </span>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-border/60">
-        {updates.map((u, i) => {
+      <div className="divide-y divide-emerald-500/10 font-mono text-xs">
+        {updates.map((u) => {
           const Icon = u.type === "points" ? Target : Download;
           return (
             <button
@@ -50,24 +56,59 @@ function UpdatesFeed({ updates }: { updates: CatalogUpdate[] }) {
               type="button"
               disabled={!u.link}
               onClick={() => u.link && navigate(u.link)}
-              className="flex w-full items-center gap-3 border-b border-border/50 bg-card/40 px-4 py-3 text-left transition-colors last:border-0 enabled:hover:bg-accent/50 disabled:cursor-default"
-              style={{ animationDelay: `${i * 30}ms` }}
+              className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left transition-colors enabled:hover:bg-emerald-500/[0.06] disabled:cursor-default"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                <Icon className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{u.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{u.description}</p>
-              </div>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                {timeAgo(u.occurredAt)}
+              <span className="mt-0.5 text-emerald-500/60">&gt;</span>
+              <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500/50" />
+              <span className="min-w-0 flex-1 truncate text-zinc-300">
+                {u.title}
+                <span className="text-zinc-500"> — {u.description}</span>
               </span>
+              <span className="shrink-0 tabular-nums text-zinc-600">{timeAgo(u.occurredAt)}</span>
             </button>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function MiniatureOfTheMonth({ spotlight }: { spotlight: MiniatureSpotlight | null }) {
+  if (!spotlight) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative isolate overflow-hidden rounded-2xl border border-border/60"
+    >
+      <div className="relative aspect-[21/9] w-full overflow-hidden bg-gradient-to-br from-muted to-background sm:aspect-[3/1]">
+        {spotlight.image ? (
+          <img src={spotlight.image} alt={spotlight.title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <Star className="h-14 w-14 text-primary/20" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/10" />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-5 sm:p-6">
+        <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.15em] text-white/60">
+          <Star className="h-3 w-3 fill-current" />
+          Miniatura del mes
+        </span>
+        <h2 className="font-display text-2xl font-bold text-white drop-shadow-lg sm:text-3xl">
+          {spotlight.title}
+        </h2>
+        <p className="text-sm text-white/70">
+          {[spotlight.factionName, spotlight.painterName ? `pintada por ${spotlight.painterName}` : null]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        {spotlight.description && (
+          <p className="mt-1 max-w-2xl text-sm text-white/60">{spotlight.description}</p>
+        )}
+      </div>
+    </motion.div>
   );
 }
 
@@ -77,6 +118,7 @@ export function HomePage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [guides, setGuides] = useState<PaintingGuide[]>([]);
   const [updates, setUpdates] = useState<CatalogUpdate[]>([]);
+  const [spotlight, setSpotlight] = useState<MiniatureSpotlight | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -84,11 +126,13 @@ export function HomePage() {
       getArticles(isAdmin ? false : true),
       getGuides({ sort: "top" }),
       getRecentUpdates("Warhammer 40,000"),
+      getCurrentMiniatureSpotlight(),
     ])
-      .then(([a, g, u]) => {
+      .then(([a, g, u, s]) => {
         setArticles(a);
         setGuides(g.slice(0, 3));
         setUpdates(u);
+        setSpotlight(s);
       })
       .catch((err) => console.error("Failed to load home content:", err))
       .finally(() => setLoading(false));
@@ -129,6 +173,8 @@ export function HomePage() {
           )}
         </div>
 
+        <MiniatureOfTheMonth spotlight={spotlight} />
+
         <UpdatesFeed updates={updates} />
 
         {articles.length === 0 ? (
@@ -158,7 +204,7 @@ export function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 type="button"
                 onClick={() => navigate(`/articulos/${featured.id}`)}
-                className="group grid w-full overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-2xl md:grid-cols-2"
+                className="group grid w-full overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-[border-color,box-shadow] hover:border-primary/40 hover:shadow-2xl md:grid-cols-2"
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/20 to-background md:aspect-auto">
                   {featured.coverImage ? (
@@ -213,7 +259,7 @@ export function HomePage() {
                     transition={{ delay: i * 0.04 }}
                     type="button"
                     onClick={() => navigate(`/articulos/${a.id}`)}
-                    className="group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
+                    className="group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-[border-color,box-shadow] hover:border-primary/40 hover:shadow-xl"
                   >
                     <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 to-background">
                       {a.coverImage ? (
@@ -279,7 +325,7 @@ export function HomePage() {
                   transition={{ delay: i * 0.05 }}
                   type="button"
                   onClick={() => navigate(`/guias/${g.id}`)}
-                  className="group overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
+                  className="group overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-[border-color,box-shadow] hover:border-primary/40 hover:shadow-xl"
                 >
                   <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 to-background">
                     {g.coverImage ? (
