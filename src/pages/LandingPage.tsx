@@ -88,11 +88,18 @@ export function LandingPage({ onEnter }: LandingPageProps) {
           than the image's native resolution supports, which read as
           pixelated/zoomed on anything taller than one screen. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen overflow-hidden">
-        <img
-          src="/images/landing-hero.jpg"
-          alt=""
-          className="h-full w-full object-cover object-center opacity-80 blur-sm"
-        />
+        {/* Separate portrait source for narrow viewports — matches a phone's
+            own aspect ratio instead of cropping the desktop (landscape)
+            photo down to a sliver, so neither image needs resizing to
+            "cover" a shape it wasn't composed for. */}
+        <picture>
+          <source media="(max-width: 639px)" srcSet="/images/landing-hero-mobile.jpg" />
+          <img
+            src="/images/landing-hero.jpg"
+            alt=""
+            className="h-full w-full object-cover object-center opacity-40 blur-sm"
+          />
+        </picture>
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/55 to-background" />
         <div className="absolute inset-0 grid-pattern opacity-[0.04]" />
       </div>
