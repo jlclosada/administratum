@@ -80,13 +80,26 @@ export function LandingPage({ onEnter }: LandingPageProps) {
     <div className="relative isolate min-h-screen w-full overflow-x-hidden bg-background">
       {/* Backdrop image, blurred + darkened for legibility. `isolate` above
           pins this to its own stacking context so it always stays behind
-          the content sections regardless of what else is on the page. */}
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <img
-          src="/images/landing-hero.jpg"
-          alt=""
-          className="h-full w-full object-cover object-center opacity-80 blur-sm"
-        />
+          the content sections regardless of what else is on the page.
+          Capped to one viewport tall (not `inset-0` on the scrollable
+          `min-h-screen` parent) so the browser only ever has to scale the
+          source image to cover 100vh, not the full page height — letting
+          it stretch to the whole page was forcing a much bigger upscale
+          than the image's native resolution supports, which read as
+          pixelated/zoomed on anything taller than one screen. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-screen overflow-hidden">
+        {/* Separate portrait source for narrow viewports — matches a phone's
+            own aspect ratio instead of cropping the desktop (landscape)
+            photo down to a sliver, so neither image needs resizing to
+            "cover" a shape it wasn't composed for. */}
+        <picture>
+          <source media="(max-width: 639px)" srcSet="/images/landing-hero-mobile.jpg" />
+          <img
+            src="/images/landing-hero.jpg"
+            alt=""
+            className="h-full w-full object-cover object-center opacity-70"
+          />
+        </picture>
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/55 to-background" />
         <div className="absolute inset-0 grid-pattern opacity-[0.04]" />
       </div>
@@ -94,15 +107,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
       {/* Nav */}
       <header className="relative z-20">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-mono-gradient glow-mono-sm">
-              <span className="font-display text-lg font-black leading-none text-zinc-900">
-                A
-              </span>
-            </div>
-            <span className="font-display text-sm font-bold tracking-[0.18em] text-foreground">
-              ADMINISTRATUM
-            </span>
+          <div className="flex items-center">
+            <img src="/images/logo.png" alt="Administratum" className="h-9 w-auto" />
           </div>
           <div className="flex items-center gap-2">
             <button

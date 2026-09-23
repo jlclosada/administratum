@@ -19,6 +19,7 @@ import {
     Shield,
     Users,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -55,6 +56,39 @@ function categoryLabel(category: string) {
 
 function categoryAccent(category: string) {
   return CATEGORY_ACCENT[category] ?? "border-l-violet-500/70";
+}
+
+/**
+ * Terminal-readout chrome for the catalog's list sections — same panel
+ * language as the home page's transmission log, dark + monospace + a
+ * status dot. Body rows stay in the regular sans/foreground colors so the
+ * data itself (what people are here to read) is never harder to scan.
+ */
+function ConsolePanel({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count?: number;
+  children: ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-emerald-500/20 bg-[#050807]">
+      <div className="flex items-center gap-2 border-b border-emerald-500/20 bg-emerald-500/[0.04] px-4 py-2">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 animate-pulse-glow" />
+        <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-500/80">
+          {label}
+        </span>
+        {count !== undefined && (
+          <span className="ml-auto font-mono text-[11px] tabular-nums text-emerald-500/50">
+            {String(count).padStart(3, "0")}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
 }
 
 function joinFactions(
@@ -196,7 +230,7 @@ export function PointsCatalogPage() {
                 Ninguna miniatura coincide con «{query}».
               </p>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-border/60">
+              <ConsolePanel label="Búsqueda // resultados" count={matchingUnits.length}>
                 {matchingUnits.map((unit) => (
                   <button
                     key={unit.id}
@@ -205,7 +239,7 @@ export function PointsCatalogPage() {
                       navigate(`/catalogo-puntos/${unit.factionSlug}`)
                     }
                     className={cn(
-                      "flex w-full flex-col gap-2 border-b border-b-border/50 border-l-2 px-4 py-3 text-left last:border-b-0 hover:bg-accent/50 sm:flex-row sm:items-center sm:justify-between",
+                      "flex w-full flex-col gap-2 border-b border-b-emerald-500/10 border-l-2 px-4 py-3 text-left last:border-b-0 hover:bg-emerald-500/[0.05] sm:flex-row sm:items-center sm:justify-between",
                       categoryAccent(unit.category),
                     )}
                   >
@@ -219,7 +253,7 @@ export function PointsCatalogPage() {
                     <UnitPoints unit={unit} className="sm:max-w-md sm:text-right" />
                   </button>
                 ))}
-              </div>
+              </ConsolePanel>
             )}
           </section>
         )}
@@ -299,7 +333,7 @@ function DetachmentRow({ detachment }: { detachment: Detachment }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
+        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-emerald-500/[0.05]"
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -336,9 +370,9 @@ function DetachmentRow({ detachment }: { detachment: Detachment }) {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-border/50 bg-muted/20"
+            className="overflow-hidden border-t border-emerald-500/10 bg-black/30"
           >
-            <div className="divide-y divide-border/40">
+            <div className="divide-y divide-emerald-500/10">
               {detachment.enhancements.map((e) => (
                 <div
                   key={e.name}
@@ -371,7 +405,7 @@ function UnitRow({ unit }: { unit: UnitCatalogEntry }) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-l-2 border-t border-t-border/50 px-4 py-3 transition-colors first:border-t-0 hover:bg-accent/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+        "flex flex-col gap-2 border-l-2 border-t border-t-emerald-500/10 px-4 py-3 transition-colors first:border-t-0 hover:bg-emerald-500/[0.05] sm:flex-row sm:items-center sm:justify-between sm:gap-4",
         categoryAccent(unit.category),
       )}
     >
@@ -529,11 +563,13 @@ export function PointsCatalogFactionPage() {
               <h2 className="font-semibold">Destacamentos</h2>
               <Badge variant="secondary">{faction.detachments.length}</Badge>
             </div>
-            <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60">
-              {faction.detachments.map((d) => (
-                <DetachmentRow key={d.name} detachment={d} />
-              ))}
-            </div>
+            <ConsolePanel label="Munitorum // destacamentos" count={faction.detachments.length}>
+              <div className="divide-y divide-emerald-500/10">
+                {faction.detachments.map((d) => (
+                  <DetachmentRow key={d.name} detachment={d} />
+                ))}
+              </div>
+            </ConsolePanel>
           </section>
         )}
 
@@ -595,21 +631,22 @@ export function PointsCatalogFactionPage() {
               Ninguna miniatura coincide con la búsqueda.
             </p>
           ) : (
-            groups.map(([group, list]) => (
-              <div key={group} className="space-y-2.5">
-                {groups.length > 1 && group !== "Unidades" && (
-                  <h3 className="flex items-center gap-2 pt-1 text-sm font-semibold text-muted-foreground">
-                    {group}
-                    <span className="h-px flex-1 bg-border/60" />
-                  </h3>
-                )}
-                <div className="overflow-hidden rounded-xl border border-border/60">
-                  {list.map((unit) => (
-                    <UnitRow key={unit.id} unit={unit} />
-                  ))}
+            <ConsolePanel label="Munitorum // unidades" count={filtered.length}>
+              {groups.map(([group, list], gi) => (
+                <div key={group} className={cn(gi !== 0 && "border-t border-emerald-500/10")}>
+                  {groups.length > 1 && group !== "Unidades" && (
+                    <p className="border-b border-emerald-500/10 bg-emerald-500/[0.03] px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-500/60">
+                      {group}
+                    </p>
+                  )}
+                  <div>
+                    {list.map((unit) => (
+                      <UnitRow key={unit.id} unit={unit} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </ConsolePanel>
           )}
         </section>
       </div>

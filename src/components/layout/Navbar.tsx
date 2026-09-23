@@ -74,16 +74,9 @@ export function Navbar() {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="flex shrink-0 items-center gap-2.5"
+          className="flex shrink-0 items-center"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient glow-sm">
-            <span className="font-display text-lg font-black leading-none text-white">
-              A
-            </span>
-          </div>
-          <span className="hidden font-display text-sm font-bold tracking-[0.18em] text-foreground sm:inline">
-            ADMINISTRATUM
-          </span>
+          <img src="/images/logo.png" alt="Administratum" className="h-9 w-auto" />
         </button>
 
         {/* Desktop nav */}
