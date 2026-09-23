@@ -38,7 +38,7 @@ export function UnitPoints({
                   <span className="whitespace-nowrap">
                     <span
                       className={cn(
-                        "font-semibold tabular-nums text-foreground",
+                        "font-mono font-medium tabular-nums text-foreground",
                         size === "sm" ? "text-sm" : "text-base",
                       )}
                     >
@@ -57,7 +57,7 @@ export function UnitPoints({
               <div className="flex flex-wrap justify-end gap-x-2.5 gap-y-0.5">
                 {addons.map((c, ci) => (
                   <span key={ci} className="whitespace-nowrap text-xs text-primary">
-                    +{c.points} {c.desc ?? ""}
+                    <span className="font-mono tabular-nums">+{c.points}</span> {c.desc ?? ""}
                   </span>
                 ))}
               </div>

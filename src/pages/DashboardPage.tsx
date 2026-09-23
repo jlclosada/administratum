@@ -32,7 +32,7 @@ function StatColumn({
   return (
     <div className={cn("border-t-2 px-5 py-4", accent)}>
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1.5 text-3xl font-bold tabular-nums tracking-tight text-foreground">
+      <p className="mt-1.5 font-mono text-3xl font-medium tabular-nums tracking-tight text-foreground">
         {parsed ? <CountUp end={parsed.end} suffix={parsed.suffix} duration={1.2} separator="." /> : value}
       </p>
       {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
@@ -95,7 +95,7 @@ export function DashboardPage() {
         {/* Header */}
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            <span className="text-gradient animate-gradient">Dashboard</span>
+            Dashboard
           </h1>
           <p className="text-muted-foreground">Resumen de tu colección de miniaturas</p>
         </div>
@@ -169,7 +169,7 @@ export function DashboardPage() {
                           />
                           <span className="text-muted-foreground">{entry.name}</span>
                         </div>
-                        <span className="font-medium tabular-nums">{entry.value}</span>
+                        <span className="font-mono text-sm tabular-nums">{entry.value}</span>
                       </div>
                     ))}
                   </div>
@@ -193,7 +193,7 @@ export function DashboardPage() {
                   <div key={army.id} className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">{army.name}</span>
-                      <span className="tabular-nums text-muted-foreground">
+                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
                         {army.totalPainted}/{army.totalMiniatures}
                         {(army.totalPoints ?? 0) > 0
                           ? ` · ${army.totalPoints.toLocaleString("es-ES")} pts`

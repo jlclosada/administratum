@@ -57,9 +57,7 @@ export function GuidesPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              <span className="text-gradient animate-gradient">
-                Guías de pintura
-              </span>
+              Guías de pintura
             </h1>
             <p className="text-muted-foreground">
               Tutoriales publicados por la comunidad. Aprende y comparte.

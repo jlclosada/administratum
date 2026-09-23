@@ -130,7 +130,7 @@ export function ArmyListsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              <span className="text-gradient animate-gradient">Mis Listas</span>
+              Mis Listas
             </h1>
             <p className="text-muted-foreground">
               Crea y gestiona tus listas de ejército para partidas

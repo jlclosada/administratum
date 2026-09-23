@@ -117,7 +117,7 @@ export function GamesPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              <span className="text-gradient animate-gradient">Sistemas de Juego</span>
+              Sistemas de Juego
             </h1>
             <p className="text-muted-foreground">Gestiona tus colecciones por sistema de juego</p>
           </div>

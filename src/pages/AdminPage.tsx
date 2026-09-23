@@ -275,7 +275,7 @@ export function AdminPage() {
           </div>
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              <span className="text-gradient animate-gradient">Administración</span>
+              Administración
             </h1>
             <p className="text-muted-foreground">
               Panel del creador · gestiona la web

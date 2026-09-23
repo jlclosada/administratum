@@ -17,7 +17,6 @@ import {
     Lock,
     Palette,
     ShieldCheck,
-    Sparkles,
     Swords,
     User as UserIcon,
 } from "lucide-react";
@@ -236,13 +235,8 @@ export function AuthPage({
 
         {/* Headline + features */}
         <div className="relative z-10 max-w-md">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Tu taller de miniaturas, reinventado
-          </div>
           <h1 className="text-4xl font-bold leading-tight tracking-tight text-foreground xl:text-5xl">
-            Domina tu colección de{" "}
-            <span className="text-gradient animate-gradient">wargaming</span>
+            Domina tu colección de wargaming
           </h1>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground">
             Gestiona ejércitos, registra tus procesos de pintura y organiza cada
