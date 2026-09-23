@@ -7,7 +7,7 @@ import { CookiesPage } from "@/pages/legal/CookiesPage";
 import { PrivacidadPage } from "@/pages/legal/PrivacidadPage";
 import { TerminosPage } from "@/pages/legal/TerminosPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
-import { useAuthStore } from "@/stores";
+import { useAuthStore, useProfileStore } from "@/stores";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -88,11 +88,23 @@ function AnimatedRoutes() {
 /** Everything that depends on auth state — loading, password recovery, landing/auth, or the main app. */
 function AppGate() {
   const { user, initialized, init, recoveryMode } = useAuthStore();
+  const { fetchProfile, clear: clearProfile } = useProfileStore();
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
 
   useEffect(() => {
     init();
   }, [init]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    } else {
+      clearProfile();
+    }
+    // Re-fetch only when the signed-in user actually changes, not on every
+    // token refresh (which produces a new `user` object with the same id).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const toaster = (
     <Toaster

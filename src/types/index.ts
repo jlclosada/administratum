@@ -9,6 +9,29 @@ export interface BaseEntity {
   updatedAt: string;
 }
 
+// ---------- User profile ----------
+/** Public personalization data for a user (avatar, bio, ...) — separate from Supabase auth metadata. */
+export interface Profile {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string;
+  location: string;
+  favoriteFaction: string | null;
+  website: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateProfileDTO {
+  displayName?: string;
+  avatarUrl?: string | null;
+  bio?: string;
+  location?: string;
+  favoriteFaction?: string | null;
+  website?: string | null;
+}
+
 // ---------- Game System ----------
 export interface Game extends BaseEntity {
   name: string;

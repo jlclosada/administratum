@@ -1,3 +1,4 @@
+import { AvatarUploader } from "@/components/shared/AvatarUploader";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuthStore } from "@/stores";
+import { Textarea } from "@/components/ui/textarea";
+import { getFactionCatalog } from "@/db";
+import { useAuthStore, useProfileStore } from "@/stores";
+import type { FactionCatalogEntry } from "@/types";
 import {
     AlertCircle,
     AlertTriangle,
@@ -21,11 +25,15 @@ import {
     Loader2,
     LogOut,
     Mail,
+    MapPin,
     ShieldCheck,
+    Swords,
     Trash2,
     UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const BIO_MAX_LENGTH = 280;
 
 const APP_VERSION = "1.1.0";
 
@@ -64,12 +72,34 @@ function Alert({ feedback }: { feedback: Feedback }) {
 export function SettingsPage() {
   const { user, signOut, updateProfile, updateEmail, updatePassword, deleteAccount } =
     useAuthStore();
+  const { profile, updateProfile: updateProfileFields } = useProfileStore();
   const currentName = useDisplayName();
 
   // Profile
   const [name, setName] = useState(currentName);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [bio, setBio] = useState("");
+  const [location, setLocation] = useState("");
+  const [favoriteFaction, setFavoriteFaction] = useState("");
+  const [website, setWebsite] = useState("");
+  const [factions, setFactions] = useState<FactionCatalogEntry[]>([]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<Feedback>(null);
+
+  useEffect(() => {
+    if (!profile) return;
+    setAvatarUrl(profile.avatarUrl);
+    setBio(profile.bio ?? "");
+    setLocation(profile.location ?? "");
+    setFavoriteFaction(profile.favoriteFaction ?? "");
+    setWebsite(profile.website ?? "");
+  }, [profile]);
+
+  useEffect(() => {
+    getFactionCatalog("Warhammer 40,000")
+      .then(setFactions)
+      .catch(() => setFactions([]));
+  }, []);
 
   // Email
   const [email, setEmail] = useState("");
@@ -90,6 +120,18 @@ export function SettingsPage() {
 
   const initial = (currentName || user?.email || "?").charAt(0).toUpperCase();
 
+  const handleAvatarChange = async (url: string | null) => {
+    setAvatarUrl(url);
+    try {
+      await updateProfileFields({ avatarUrl: url });
+    } catch (err) {
+      setProfileMsg({
+        type: "error",
+        text: err instanceof Error ? err.message : "No se pudo guardar el avatar.",
+      });
+    }
+  };
+
   const handleProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileMsg(null);
@@ -97,9 +139,36 @@ export function SettingsPage() {
       setProfileMsg({ type: "error", text: "El nombre no puede estar vacío." });
       return;
     }
+    if (bio.length > BIO_MAX_LENGTH) {
+      setProfileMsg({
+        type: "error",
+        text: `La biografía no puede superar los ${BIO_MAX_LENGTH} caracteres.`,
+      });
+      return;
+    }
+    let normalizedWebsite: string | null = null;
+    if (website.trim()) {
+      const withProtocol = /^https?:\/\//i.test(website.trim())
+        ? website.trim()
+        : `https://${website.trim()}`;
+      try {
+        normalizedWebsite = new URL(withProtocol).toString();
+      } catch {
+        setProfileMsg({ type: "error", text: "El enlace no es válido." });
+        return;
+      }
+    }
     setSavingProfile(true);
     try {
       await updateProfile(name.trim());
+      await updateProfileFields({
+        displayName: name.trim(),
+        bio: bio.trim(),
+        location: location.trim(),
+        favoriteFaction: favoriteFaction || null,
+        website: normalizedWebsite,
+      });
+      setWebsite(normalizedWebsite ?? "");
       setProfileMsg({ type: "success", text: "Perfil actualizado correctamente." });
     } catch (err) {
       setProfileMsg({
@@ -202,8 +271,12 @@ export function SettingsPage() {
         <Card>
           <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient text-xl font-bold text-white">
-                {initial}
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand-gradient text-xl font-bold text-white">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  initial
+                )}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-lg font-semibold">
@@ -228,7 +301,16 @@ export function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleProfile} className="space-y-4">
+            <form onSubmit={handleProfile} className="space-y-5">
+              <div className="space-y-2">
+                <Label>Foto de perfil</Label>
+                <AvatarUploader
+                  avatarUrl={avatarUrl}
+                  fallbackLabel={initial}
+                  onChange={handleAvatarChange}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="displayName">Nombre visible</Label>
                 <Input
@@ -238,6 +320,72 @@ export function SettingsPage() {
                   placeholder="Tu nombre"
                 />
               </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="bio">Biografía</Label>
+                  <span
+                    className={`text-xs tabular-nums ${
+                      bio.length > BIO_MAX_LENGTH ? "text-destructive" : "text-muted-foreground"
+                    }`}
+                  >
+                    {bio.length}/{BIO_MAX_LENGTH}
+                  </span>
+                </div>
+                <Textarea
+                  id="bio"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Cuéntale a la comunidad a qué juegas y qué pintas..."
+                  rows={3}
+                  maxLength={BIO_MAX_LENGTH + 40}
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="location" className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                    Ubicación
+                  </Label>
+                  <Input
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="Madrid, España"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="favoriteFaction" className="flex items-center gap-1.5">
+                    <Swords className="h-3.5 w-3.5 text-muted-foreground" />
+                    Facción favorita
+                  </Label>
+                  <select
+                    id="favoriteFaction"
+                    value={favoriteFaction}
+                    onChange={(e) => setFavoriteFaction(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Sin especificar</option>
+                    {factions.map((f) => (
+                      <option key={f.factionSlug} value={f.factionName}>
+                        {f.factionName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="website">Web o red social</Label>
+                <Input
+                  id="website"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="instagram.com/tu_usuario"
+                />
+              </div>
+
               <Alert feedback={profileMsg} />
               <div className="flex justify-end">
                 <Button type="submit" disabled={savingProfile} className="gap-2">

@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useIsAdmin } from "@/lib/admin";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/stores";
+import { useAuthStore, useProfileStore } from "@/stores";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     BookOpen,
@@ -57,6 +57,7 @@ function isItemActive(pathname: string, to: string): boolean {
 
 export function Navbar() {
   const { user, signOut } = useAuthStore();
+  const avatarUrl = useProfileStore((s) => s.profile?.avatarUrl ?? null);
   const isAdmin = useIsAdmin();
   const location = useLocation();
   const navigate = useNavigate();
@@ -131,8 +132,12 @@ export function Navbar() {
                   profileActive && "bg-brand-soft"
                 )}
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-xs font-bold uppercase text-white">
-                  {(displayName || user?.email || "?").charAt(0)}
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-xs font-bold uppercase text-white">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    (displayName || user?.email || "?").charAt(0)
+                  )}
                 </span>
                 <span className="max-w-[10rem] truncate text-sm font-medium text-foreground">
                   {displayName || user?.email}
@@ -263,8 +268,12 @@ export function Navbar() {
                 }}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-[11px] font-bold uppercase text-white">
-                  {(displayName || user?.email || "?").charAt(0)}
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-[11px] font-bold uppercase text-white">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    (displayName || user?.email || "?").charAt(0)
+                  )}
                 </span>
                 <span className="min-w-0 flex-1 truncate">
                   {displayName || user?.email}

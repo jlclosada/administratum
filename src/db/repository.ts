@@ -45,6 +45,7 @@ import type {
   PaintingProcessMedia,
   PaintingProcessMediaType,
   PaintStatusType,
+  Profile,
   SharedPhoto,
   Tag,
   Tournament,
@@ -56,6 +57,7 @@ import type {
   UpdateGameDTO,
   UpdateGuideDTO,
   UpdateMiniatureDTO,
+  UpdateProfileDTO,
   UpdateTournamentDTO,
   UserPaint,
 } from '@/types';
@@ -132,6 +134,54 @@ async function hydrateProcessesWithMedia(
       } as PaintingProcess;
     }),
   );
+}
+
+// ======================== PROFILES ========================
+
+export async function getProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapRow<Profile>(data);
+}
+
+export async function getMyProfile(): Promise<Profile | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  return getProfile(user.id);
+}
+
+/**
+ * Upserts rather than updates: a profile row is normally created for a new
+ * user by the `on_auth_user_created` trigger, but accounts created before
+ * that trigger existed have no row yet, so their first save must create it.
+ */
+export async function updateMyProfile(dto: UpdateProfileDTO): Promise<Profile> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('No hay sesión activa.');
+
+  const payload: Record<string, unknown> = { id: user.id };
+  if (dto.displayName !== undefined) payload.display_name = dto.displayName;
+  if (dto.avatarUrl !== undefined) payload.avatar_url = dto.avatarUrl;
+  if (dto.bio !== undefined) payload.bio = dto.bio;
+  if (dto.location !== undefined) payload.location = dto.location;
+  if (dto.favoriteFaction !== undefined) payload.favorite_faction = dto.favoriteFaction;
+  if (dto.website !== undefined) payload.website = dto.website;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert(payload, { onConflict: 'id' })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<Profile>(data);
 }
 
 // ======================== GAMES ========================

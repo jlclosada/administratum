@@ -292,6 +292,65 @@ revoke all on function public.delete_user() from public, anon;
 grant execute on function public.delete_user() to authenticated;
 
 -- ============================================================
+-- User profiles (avatar, bio, and other personalization)
+-- ============================================================
+-- A separate public table rather than more auth.users metadata: metadata
+-- isn't queryable/joinable from the client, and this is the Supabase-
+-- idiomatic place for profile data other users may eventually need to see.
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  display_name text not null default '',
+  avatar_url text,
+  bio text not null default '',
+  location text not null default '',
+  favorite_faction text,
+  website text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists set_updated_at on public.profiles;
+create trigger set_updated_at before update on public.profiles
+  for each row execute function public.set_updated_at();
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles_read" on public.profiles;
+drop policy if exists "profiles_insert" on public.profiles;
+drop policy if exists "profiles_update" on public.profiles;
+
+create policy "profiles_read" on public.profiles
+  for select to anon, authenticated using (true);
+create policy "profiles_insert" on public.profiles
+  for insert to authenticated with check (id = auth.uid());
+create policy "profiles_update" on public.profiles
+  for update to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
+
+-- Auto-create a blank profile row for every new signup, so a profile
+-- always exists without the client needing to remember to create one.
+-- Existing users (signed up before this table existed) get theirs
+-- lazily via upsert the first time they save from Settings.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', ''))
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ============================================================
 -- Global app configuration (admin-managed)
 -- ============================================================
 -- A single global row that only the site owner (admin) can modify,

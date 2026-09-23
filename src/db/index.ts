@@ -65,6 +65,8 @@ export {
   getMiniatureSpotlightHistory,
   getMyGuideRating,
   getMyLikes,
+  getMyProfile,
+  getProfile,
   getRecentUpdates,
   getSharedPhotos,
   getTournaments,
@@ -93,6 +95,7 @@ export {
   updateGame,
   updateGuide,
   updateMiniature,
+  updateMyProfile,
   updatePaintingProcess,
   updateTournament,
 } from './repository';
