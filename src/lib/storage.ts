@@ -45,7 +45,7 @@ export async function removeAllUserFiles(): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const folders = ['covers', 'miniatures', 'process', 'lists', 'pdfs', 'misc'];
+  const folders = ['covers', 'miniatures', 'process', 'lists', 'pdfs', 'shared', 'misc'];
   const bucket = supabase.storage.from(STORAGE_BUCKET);
 
   for (const folder of folders) {

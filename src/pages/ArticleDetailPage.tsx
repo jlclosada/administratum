@@ -1,9 +1,12 @@
+import { CommentSection } from "@/components/shared/CommentSection";
+import { LikeButton } from "@/components/shared/LikeButton";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { RichTextRenderer } from "@/components/shared/RichText";
 import { Button } from "@/components/ui/button";
-import { deleteArticle, getArticleById } from "@/db";
+import { deleteArticle, getArticleById, getMyLikes, toggleLike } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
+import { useAuthStore } from "@/stores";
 import type { Article } from "@/types";
 import { ArrowLeft, Newspaper, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,16 +30,35 @@ export function ArticleDetailPage() {
   const { articleId } = useParams<{ articleId: string }>();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
+  const { user } = useAuthStore();
   const [article, setArticle] = useState<Article | null>(null);
+  const [liked, setLiked] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!articleId) return;
-    getArticleById(articleId)
-      .then(setArticle)
+    Promise.all([getArticleById(articleId), getMyLikes("article", [articleId])])
+      .then(([a, likes]) => {
+        setArticle(a);
+        setLiked(likes.has(articleId));
+      })
       .catch((err) => console.error("Failed to load article:", err))
       .finally(() => setLoading(false));
   }, [articleId]);
+
+  async function handleToggleLike() {
+    if (!article) return;
+    const was = liked;
+    setLiked(!was);
+    setArticle((a) => a && { ...a, likeCount: a.likeCount + (was ? -1 : 1) });
+    try {
+      await toggleLike("article", article.id);
+    } catch (err) {
+      console.error("Failed to toggle article like:", err);
+      setLiked(was);
+      setArticle((a) => a && { ...a, likeCount: a.likeCount + (was ? 1 : -1) });
+    }
+  }
 
   async function handleDelete() {
     if (!article) return;
@@ -144,10 +166,18 @@ export function ArticleDetailPage() {
               <h1 className="font-display text-3xl font-black leading-[0.95] tracking-tight sm:text-5xl">
                 {article.title}
               </h1>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-foreground/20 py-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-                <span>{formatDate(article.createdAt)}</span>
-                <span aria-hidden>·</span>
-                <span>Sector: {article.tags[0] ?? "General"}</span>
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-y border-foreground/20 py-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+                <span className="flex flex-wrap items-center gap-x-2">
+                  <span>{formatDate(article.createdAt)}</span>
+                  <span aria-hidden>·</span>
+                  <span>Sector: {article.tags[0] ?? "General"}</span>
+                </span>
+                <LikeButton
+                  liked={liked}
+                  count={article.likeCount}
+                  onToggle={handleToggleLike}
+                  disabled={!user}
+                />
               </div>
               {article.excerpt && (
                 <p className="text-lg font-medium leading-relaxed text-foreground/90">
@@ -163,6 +193,8 @@ export function ArticleDetailPage() {
             Fin de la transmisión
           </div>
         </div>
+
+        <CommentSection targetType="article" targetId={article.id} />
       </article>
     </PageTransition>
   );

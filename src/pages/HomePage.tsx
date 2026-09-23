@@ -3,11 +3,11 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { StarRating } from "@/components/shared/StarRating";
 import { Button } from "@/components/ui/button";
-import { getArticles, getCurrentMiniatureSpotlight, getGuides, getRecentUpdates, guideRating } from "@/db";
+import { getArticles, getCurrentMiniatureSpotlight, getGuides, getRecentUpdates, getSharedPhotos, guideRating } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
-import type { Article, CatalogUpdate, MiniatureSpotlight, PaintingGuide } from "@/types";
+import type { Article, CatalogUpdate, MiniatureSpotlight, PaintingGuide, SharedPhoto } from "@/types";
 import { motion } from "framer-motion";
-import { ArrowRight, BookOpen, Download, Newspaper, Palette, Plus, Star, Target } from "lucide-react";
+import { ArrowRight, BookOpen, Download, Newspaper, Palette, Plus, Star, Target, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -119,6 +119,7 @@ export function HomePage() {
   const [guides, setGuides] = useState<PaintingGuide[]>([]);
   const [updates, setUpdates] = useState<CatalogUpdate[]>([]);
   const [spotlight, setSpotlight] = useState<MiniatureSpotlight | null>(null);
+  const [photos, setPhotos] = useState<SharedPhoto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -127,12 +128,14 @@ export function HomePage() {
       getGuides({ sort: "top" }),
       getRecentUpdates("Warhammer 40,000"),
       getCurrentMiniatureSpotlight(),
+      getSharedPhotos(8),
     ])
-      .then(([a, g, u, s]) => {
+      .then(([a, g, u, s, p]) => {
         setArticles(a);
         setGuides(g.slice(0, 3));
         setUpdates(u);
         setSpotlight(s);
+        setPhotos(p);
       })
       .catch((err) => console.error("Failed to load home content:", err))
       .finally(() => setLoading(false));
@@ -340,6 +343,52 @@ export function HomePage() {
                       <StarRating value={guideRating(g)} size="sm" readOnly />
                     </div>
                   </div>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Community photos */}
+        {photos.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <h2 className="font-display text-xl font-bold tracking-tight">
+                  Comunidad
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/comunidad")}
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Ver todas
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {photos.slice(0, 8).map((p, i) => (
+                <motion.button
+                  key={p.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  type="button"
+                  onClick={() => navigate("/comunidad")}
+                  className="group relative aspect-square overflow-hidden rounded-xl border border-border/60"
+                >
+                  <img
+                    src={p.image}
+                    alt={p.caption}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                  <span className="absolute inset-x-0 bottom-0 truncate p-2 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    {p.authorName}
+                  </span>
                 </motion.button>
               ))}
             </div>
