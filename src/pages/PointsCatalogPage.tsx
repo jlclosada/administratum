@@ -163,7 +163,7 @@ export function PointsCatalogPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-8">
+      <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             Catálogo de puntos
@@ -484,7 +484,7 @@ export function PointsCatalogFactionPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Hero */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60">
           <div className="relative aspect-[21/9] w-full overflow-hidden bg-gradient-to-br from-muted to-background sm:aspect-[3/1]">

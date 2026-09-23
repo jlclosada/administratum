@@ -161,7 +161,7 @@ export function GamesPage() {
                   <button
                     type="button"
                     onClick={() => navigate(`/games/${game.id}`)}
-                    className="shimmer relative block w-full overflow-hidden rounded-2xl border border-border/60 text-left shadow-lg transition-all duration-300 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="shimmer relative block w-full overflow-hidden rounded-2xl border border-border/60 text-left shadow-lg transition-[border-color,box-shadow] duration-300 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-primary/20 via-primary/5 to-background">
                       {game.coverImage || game.icon ? (
@@ -188,7 +188,7 @@ export function GamesPage() {
                         <p className="mt-1 line-clamp-2 text-xs text-white/75">
                           {game.description || "Sin descripción"}
                         </p>
-                        <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/90 opacity-0 transition-all duration-300 group-hover:opacity-100">
+                        <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-white/90 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                           Ver colección
                           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                         </span>
@@ -202,7 +202,7 @@ export function GamesPage() {
                       e.stopPropagation();
                       setDeleteConfirm(game.id);
                     }}
-                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-destructive group-hover:opacity-100"
+                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur-sm transition-[background-color,opacity] hover:bg-destructive group-hover:opacity-100"
                     aria-label="Eliminar juego"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -244,7 +244,7 @@ export function GamesPage() {
                       whileHover={{ y: -4 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => handleSelectPreset(preset)}
-                      className="group relative overflow-hidden rounded-2xl border border-border/60 text-left shadow-md transition-all hover:border-primary/50 hover:shadow-xl hover:shadow-primary/20"
+                      className="group relative overflow-hidden rounded-2xl border border-border/60 text-left shadow-md transition-[border-color,box-shadow] hover:border-primary/50 hover:shadow-xl hover:shadow-primary/20"
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-primary/20 to-background">
                         <img
@@ -264,7 +264,7 @@ export function GamesPage() {
                             {preset.description}
                           </span>
                         </div>
-                        <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-all group-hover:opacity-100">
+                        <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                           <Plus className="h-4 w-4" />
                         </span>
                       </div>
@@ -326,7 +326,7 @@ export function GamesPage() {
                       <button
                         type="button"
                         onClick={handlePickImage}
-                        className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-foreground"
+                        className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-foreground"
                       >
                         <ImageIcon className="h-8 w-8" />
                         <span className="text-sm font-medium">Seleccionar imagen</span>

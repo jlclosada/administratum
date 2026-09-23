@@ -466,3 +466,15 @@
   font-weight: 500;
   color: hsl(var(--foreground));
 }
+
+/* Ambient loops (float, aurora, pulse-glow) are pure CSS, outside the
+   MotionConfig reducedMotion="user" guard that covers framer-motion
+   elements — stop them explicitly for users who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .aurora,
+  .animate-pulse-glow {
+    animation: none;
+  }
+}
