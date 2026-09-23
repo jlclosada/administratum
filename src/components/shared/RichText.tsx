@@ -1,3 +1,5 @@
+import { ArmyListDialog } from "@/components/shared/ArmyListDialog";
+import { ArmyListNode } from "@/components/shared/ArmyListNode";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import type { RichContent } from "@/types";
@@ -14,12 +16,14 @@ import {
     ListOrdered,
     Loader2,
     Quote,
+    Swords,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const editorExtensions = [
   StarterKit,
   Image.configure({ inline: false, HTMLAttributes: { class: "rounded-xl" } }),
+  ArmyListNode,
 ];
 
 function ToolbarButton({
@@ -75,6 +79,7 @@ export function RichTextEditor({
   className,
 }: RichTextEditorProps) {
   const [uploading, setUploading] = useState(false);
+  const [showArmyListDialog, setShowArmyListDialog] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -170,8 +175,24 @@ export function RichTextEditor({
             <ImageIcon className="h-4 w-4" />
           )}
         </ToolbarButton>
+        <ToolbarButton label="Añadir lista de ejército" onClick={() => setShowArmyListDialog(true)}>
+          <Swords className="h-4 w-4" />
+        </ToolbarButton>
       </div>
       <EditorContent editor={editor} />
+      {showArmyListDialog && (
+        <ArmyListDialog
+          onClose={() => setShowArmyListDialog(false)}
+          onInsert={(data, authorName, result) => {
+            editor
+              .chain()
+              .focus()
+              .insertContent({ type: "armyList", attrs: { data, authorName, result } })
+              .run();
+            setShowArmyListDialog(false);
+          }}
+        />
+      )}
     </div>
   );
 }
