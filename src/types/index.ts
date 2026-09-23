@@ -345,6 +345,46 @@ export interface FeaturedList extends BaseEntity {
   published: boolean;
 }
 
+export type LikeTargetType = 'article' | 'guide' | 'comment' | 'photo';
+export type CommentTargetType = 'article' | 'guide' | 'photo';
+
+export interface Comment extends BaseEntity {
+  userId: string;
+  authorName: string;
+  targetType: CommentTargetType;
+  targetId: string;
+  content: string;
+  likeCount: number;
+  /** Populated client-side from the current user's own likes — not a DB column. */
+  likedByMe?: boolean;
+}
+
+export interface CreateCommentDTO {
+  targetType: CommentTargetType;
+  targetId: string;
+  content: string;
+}
+
+/** A user-shared photo of their collection — always public, shown on the home feed. */
+export interface SharedPhoto extends BaseEntity {
+  userId: string;
+  authorName: string;
+  image: string;
+  caption: string;
+  gameName: string | null;
+  armyName: string | null;
+  likeCount: number;
+  /** Populated client-side from the current user's own likes — not a DB column. */
+  likedByMe?: boolean;
+}
+
+export interface CreateSharedPhotoDTO {
+  image: string;
+  caption?: string;
+  gameName?: string | null;
+  armyName?: string | null;
+}
+
 export interface CreateMiniatureDTO {
   armyId: string;
   name: string;
@@ -571,6 +611,7 @@ export interface Article extends BaseEntity {
   coverImage: string | null;
   tags: string[];
   published: boolean;
+  likeCount: number;
 }
 
 export interface CreateArticleDTO {
@@ -655,6 +696,7 @@ export interface PaintingGuide extends BaseEntity {
   paints: GuidePaint[];
   ratingSum: number;
   ratingCount: number;
+  likeCount: number;
   published: boolean;
 }
 

@@ -383,9 +383,13 @@ create table if not exists public.articles (
   cover_image text,
   tags text[] not null default '{}',
   published boolean not null default true,
+  like_count integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Retrofit for installs where the table already existed before like_count.
+alter table public.articles add column if not exists like_count integer not null default 0;
 
 create index if not exists idx_articles_created
   on public.articles (created_at desc);
@@ -430,10 +434,14 @@ create table if not exists public.painting_guides (
   paints jsonb not null default '[]',
   rating_sum integer not null default 0,
   rating_count integer not null default 0,
+  like_count integer not null default 0,
   published boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Retrofit for installs where the table already existed before like_count.
+alter table public.painting_guides add column if not exists like_count integer not null default 0;
 
 create index if not exists idx_guides_created
   on public.painting_guides (created_at desc);
@@ -811,5 +819,158 @@ create policy "featured_lists_admin_write" on public.featured_lists
   for all to authenticated
   using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
   with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+-- ============================================================
+-- Community: shared photos (users share pictures of their collection)
+-- ============================================================
+-- Freestanding, always-public posts — distinct from miniature_images /
+-- army_list_images, which stay private per-owner. Shown on the home page
+-- and in the community feed.
+create table if not exists public.shared_photos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  author_name text not null default '',
+  image text not null,
+  caption text not null default '',
+  game_name text,
+  army_name text,
+  like_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_shared_photos_created
+  on public.shared_photos (created_at desc);
+
+drop trigger if exists set_updated_at on public.shared_photos;
+create trigger set_updated_at before update on public.shared_photos
+  for each row execute function public.set_updated_at();
+
+alter table public.shared_photos enable row level security;
+
+drop policy if exists "shared_photos_read" on public.shared_photos;
+drop policy if exists "shared_photos_insert" on public.shared_photos;
+drop policy if exists "shared_photos_update" on public.shared_photos;
+drop policy if exists "shared_photos_delete" on public.shared_photos;
+
+create policy "shared_photos_read" on public.shared_photos
+  for select to anon, authenticated using (true);
+create policy "shared_photos_insert" on public.shared_photos
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "shared_photos_update" on public.shared_photos
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "shared_photos_delete" on public.shared_photos
+  for delete to authenticated using (user_id = auth.uid());
+
+-- ============================================================
+-- Community: comments (on articles, guides, and shared photos)
+-- ============================================================
+-- One flat table for every commentable content type instead of a
+-- comments-per-type table, since the shape (author, body, target) never
+-- actually varies by target_type.
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  author_name text not null default '',
+  target_type text not null check (target_type in ('article', 'guide', 'photo')),
+  target_id uuid not null,
+  content text not null,
+  like_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_comments_target
+  on public.comments (target_type, target_id, created_at);
+
+drop trigger if exists set_updated_at on public.comments;
+create trigger set_updated_at before update on public.comments
+  for each row execute function public.set_updated_at();
+
+alter table public.comments enable row level security;
+
+drop policy if exists "comments_read" on public.comments;
+drop policy if exists "comments_insert" on public.comments;
+drop policy if exists "comments_update" on public.comments;
+drop policy if exists "comments_delete" on public.comments;
+
+create policy "comments_read" on public.comments
+  for select to anon, authenticated using (true);
+create policy "comments_insert" on public.comments
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "comments_update" on public.comments
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- Authors delete their own comment; the admin can moderate any comment.
+create policy "comments_delete" on public.comments
+  for delete to authenticated
+  using (user_id = auth.uid() or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+-- ============================================================
+-- Community: likes (on articles, guides, comments, and shared photos)
+-- ============================================================
+-- One polymorphic table for every likeable content type, mirroring the
+-- comments table above. A denormalized like_count on each parent table
+-- is kept in sync by the trigger below, the same SECURITY DEFINER
+-- pattern as recalc_guide_rating() — the liker is never the row owner,
+-- so the trigger needs elevated rights to update someone else's row.
+create table if not exists public.likes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  target_type text not null check (target_type in ('article', 'guide', 'comment', 'photo')),
+  target_id uuid not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, target_type, target_id)
+);
+
+create index if not exists idx_likes_target
+  on public.likes (target_type, target_id);
+
+alter table public.likes enable row level security;
+
+drop policy if exists "likes_read" on public.likes;
+drop policy if exists "likes_insert" on public.likes;
+drop policy if exists "likes_delete" on public.likes;
+
+create policy "likes_read" on public.likes
+  for select to anon, authenticated using (true);
+create policy "likes_insert" on public.likes
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "likes_delete" on public.likes
+  for delete to authenticated using (user_id = auth.uid());
+
+create or replace function public.recalc_like_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t_type text;
+  t_id uuid;
+  cnt integer;
+begin
+  t_type := coalesce(new.target_type, old.target_type);
+  t_id := coalesce(new.target_id, old.target_id);
+  select count(*) into cnt from public.likes
+    where target_type = t_type and target_id = t_id;
+  if t_type = 'article' then
+    update public.articles set like_count = cnt where id = t_id;
+  elsif t_type = 'guide' then
+    update public.painting_guides set like_count = cnt where id = t_id;
+  elsif t_type = 'comment' then
+    update public.comments set like_count = cnt where id = t_id;
+  elsif t_type = 'photo' then
+    update public.shared_photos set like_count = cnt where id = t_id;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists likes_change on public.likes;
+create trigger likes_change
+  after insert or delete on public.likes
+  for each row execute function public.recalc_like_count();
 
 

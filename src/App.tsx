@@ -35,6 +35,7 @@ const MyPaintsPage = lazy(() => import("@/pages/MyPaintsPage").then((m) => ({ de
 const PointsCatalogPage = lazy(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogPage })));
 const PointsCatalogFactionPage = lazy(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogFactionPage })));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const SharedPhotosPage = lazy(() => import("@/pages/SharedPhotosPage").then((m) => ({ default: m.SharedPhotosPage })));
 
 function RouteFallback() {
   return (
@@ -72,6 +73,7 @@ function AnimatedRoutes() {
             <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
             <Route path="descargas" element={<DownloadsPage />} />
             <Route path="competitivo" element={<CompetitivoPage />} />
+            <Route path="comunidad" element={<SharedPhotosPage />} />
             <Route path="gallery" element={<GalleryPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />

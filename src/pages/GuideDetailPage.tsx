@@ -1,3 +1,5 @@
+import { CommentSection } from "@/components/shared/CommentSection";
+import { LikeButton } from "@/components/shared/LikeButton";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { RichTextRenderer } from "@/components/shared/RichText";
@@ -8,8 +10,10 @@ import {
     deleteGuide,
     getGuideById,
     getMyGuideRating,
+    getMyLikes,
     guideRating,
     rateGuide,
+    toggleLike,
 } from "@/db";
 import { useAuthStore } from "@/stores";
 import type { PaintingGuide } from "@/types";
@@ -39,18 +43,34 @@ export function GuideDetailPage() {
   const userId = useAuthStore((s) => s.user?.id);
   const [guide, setGuide] = useState<PaintingGuide | null>(null);
   const [myRating, setMyRating] = useState(0);
+  const [liked, setLiked] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!guideId) return;
-    Promise.all([getGuideById(guideId), getMyGuideRating(guideId)])
-      .then(([g, r]) => {
+    Promise.all([getGuideById(guideId), getMyGuideRating(guideId), getMyLikes("guide", [guideId])])
+      .then(([g, r, likes]) => {
         setGuide(g);
         setMyRating(r);
+        setLiked(likes.has(guideId));
       })
       .catch((err) => console.error("Failed to load guide:", err))
       .finally(() => setLoading(false));
   }, [guideId]);
+
+  async function handleToggleLike() {
+    if (!guide) return;
+    const was = liked;
+    setLiked(!was);
+    setGuide((g) => g && { ...g, likeCount: g.likeCount + (was ? -1 : 1) });
+    try {
+      await toggleLike("guide", guide.id);
+    } catch (err) {
+      console.error("Failed to toggle guide like:", err);
+      setLiked(was);
+      setGuide((g) => g && { ...g, likeCount: g.likeCount + (was ? 1 : -1) });
+    }
+  }
 
   async function handleRate(rating: number) {
     if (!guideId) return;
@@ -184,17 +204,25 @@ export function GuideDetailPage() {
             {guide.title}
           </h1>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            <span>por {guide.authorName}</span>
-            <span>·</span>
-            <span>{formatDate(guide.createdAt)}</span>
-            <span>·</span>
-            <span className="inline-flex items-center gap-1.5">
-              <StarRating value={avg} size="sm" readOnly />
-              {guide.ratingCount > 0
-                ? `${avg.toFixed(1)} (${guide.ratingCount})`
-                : "Sin valoraciones"}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              <span>por {guide.authorName}</span>
+              <span>·</span>
+              <span>{formatDate(guide.createdAt)}</span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <StarRating value={avg} size="sm" readOnly />
+                {guide.ratingCount > 0
+                  ? `${avg.toFixed(1)} (${guide.ratingCount})`
+                  : "Sin valoraciones"}
+              </span>
+            </div>
+            <LikeButton
+              liked={liked}
+              count={guide.likeCount}
+              onToggle={handleToggleLike}
+              disabled={!userId}
+            />
           </div>
 
           {guide.summary && (
@@ -266,6 +294,8 @@ export function GuideDetailPage() {
             </CardContent>
           </Card>
         )}
+
+        <CommentSection targetType="guide" targetId={guide.id} />
       </article>
     </PageTransition>
   );

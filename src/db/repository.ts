@@ -13,16 +13,20 @@ import type {
   Article,
   CatalogPricingTier,
   CatalogUpdate,
+  Comment,
+  CommentTargetType,
   CreateArmyDTO,
   CreateArmyListDTO,
   CreateArmyPresetDTO,
   CreateArticleDTO,
+  CreateCommentDTO,
   CreateFeaturedListDTO,
   CreateGameDTO,
   CreateGuideDTO,
   CreateMiniatureDTO,
   CreateMiniatureSpotlightDTO,
   CreatePaintingProcessDTO,
+  CreateSharedPhotoDTO,
   CreateTournamentDTO,
   DashboardStats,
   DownloadEntry,
@@ -30,6 +34,7 @@ import type {
   FeaturedList,
   Game,
   GuideQuery,
+  LikeTargetType,
   Miniature,
   MiniatureImage,
   MiniatureSpotlight,
@@ -40,6 +45,7 @@ import type {
   PaintingProcessMedia,
   PaintingProcessMediaType,
   PaintStatusType,
+  SharedPhoto,
   Tag,
   Tournament,
   UnitCatalogEntry,
@@ -1853,5 +1859,164 @@ export async function updateFeaturedList(dto: UpdateFeaturedListDTO): Promise<Fe
 
 export async function deleteFeaturedList(id: string): Promise<void> {
   const { error } = await supabase.from('featured_lists').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ======================== LIKES (articles, guides, comments, shared photos) ========================
+
+/** Which of the given target ids the current user has liked, as a Set for O(1) lookup. */
+export async function getMyLikes(
+  targetType: LikeTargetType,
+  targetIds: string[],
+): Promise<Set<string>> {
+  if (targetIds.length === 0) return new Set();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new Set();
+  const { data, error } = await supabase
+    .from('likes')
+    .select('target_id')
+    .eq('target_type', targetType)
+    .eq('user_id', user.id)
+    .in('target_id', targetIds);
+  if (error || !data) return new Set();
+  return new Set(data.map((r) => r.target_id as string));
+}
+
+/** Toggle the current user's like on a target; returns the resulting liked state. */
+export async function toggleLike(
+  targetType: LikeTargetType,
+  targetId: string,
+): Promise<boolean> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('No hay sesión activa.');
+
+  const { data: existing } = await supabase
+    .from('likes')
+    .select('id')
+    .eq('target_type', targetType)
+    .eq('target_id', targetId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase.from('likes').delete().eq('id', existing.id);
+    if (error) throw error;
+    return false;
+  }
+  const { error } = await supabase
+    .from('likes')
+    .insert({ target_type: targetType, target_id: targetId, user_id: user.id });
+  if (error) throw error;
+  return true;
+}
+
+// ======================== COMMENTS (articles, guides, shared photos) ========================
+
+export async function getComments(
+  targetType: CommentTargetType,
+  targetId: string,
+): Promise<Comment[]> {
+  try {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .order('created_at', { ascending: true });
+    if (error || !data) return [];
+    const comments = mapRows<Comment>(data);
+    const liked = await getMyLikes(
+      'comment',
+      comments.map((c) => c.id),
+    );
+    return comments.map((c) => ({ ...c, likedByMe: liked.has(c.id) }));
+  } catch {
+    return [];
+  }
+}
+
+export async function createComment(dto: CreateCommentDTO): Promise<Comment> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('No hay sesión activa.');
+  const authorName =
+    (user.user_metadata?.display_name as string | undefined) ??
+    (user.user_metadata?.full_name as string | undefined) ??
+    user.email?.split('@')[0] ??
+    'Anónimo';
+  const { data, error } = await supabase
+    .from('comments')
+    .insert({
+      user_id: user.id,
+      author_name: authorName,
+      target_type: dto.targetType,
+      target_id: dto.targetId,
+      content: dto.content,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return { ...mapRow<Comment>(data), likedByMe: false };
+}
+
+export async function deleteComment(id: string): Promise<void> {
+  const { error } = await supabase.from('comments').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ======================== SHARED PHOTOS (community collection showcase) ========================
+
+export async function getSharedPhotos(limit = 60): Promise<SharedPhoto[]> {
+  try {
+    const { data, error } = await supabase
+      .from('shared_photos')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    const photos = mapRows<SharedPhoto>(data);
+    const liked = await getMyLikes(
+      'photo',
+      photos.map((p) => p.id),
+    );
+    return photos.map((p) => ({ ...p, likedByMe: liked.has(p.id) }));
+  } catch {
+    return [];
+  }
+}
+
+export async function createSharedPhoto(dto: CreateSharedPhotoDTO): Promise<SharedPhoto> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('No hay sesión activa.');
+  const authorName =
+    (user.user_metadata?.display_name as string | undefined) ??
+    (user.user_metadata?.full_name as string | undefined) ??
+    user.email?.split('@')[0] ??
+    'Anónimo';
+  const { data, error } = await supabase
+    .from('shared_photos')
+    .insert({
+      user_id: user.id,
+      author_name: authorName,
+      image: dto.image,
+      caption: dto.caption ?? '',
+      game_name: dto.gameName ?? null,
+      army_name: dto.armyName ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return { ...mapRow<SharedPhoto>(data), likedByMe: false };
+}
+
+export async function deleteSharedPhoto(id: string): Promise<void> {
+  const { error } = await supabase.from('shared_photos').delete().eq('id', id);
   if (error) throw error;
 }
