@@ -17,17 +17,22 @@ import type {
   CreateArmyListDTO,
   CreateArmyPresetDTO,
   CreateArticleDTO,
+  CreateFeaturedListDTO,
   CreateGameDTO,
   CreateGuideDTO,
   CreateMiniatureDTO,
+  CreateMiniatureSpotlightDTO,
   CreatePaintingProcessDTO,
+  CreateTournamentDTO,
   DashboardStats,
   DownloadEntry,
   FactionCatalogEntry,
+  FeaturedList,
   Game,
   GuideQuery,
   Miniature,
   MiniatureImage,
+  MiniatureSpotlight,
   MiniatureWithDetails,
   Paint,
   PaintingGuide,
@@ -36,13 +41,16 @@ import type {
   PaintingProcessMediaType,
   PaintStatusType,
   Tag,
+  Tournament,
   UnitCatalogEntry,
   UpdateArmyDTO,
   UpdateArmyPresetDTO,
   UpdateArticleDTO,
+  UpdateFeaturedListDTO,
   UpdateGameDTO,
   UpdateGuideDTO,
   UpdateMiniatureDTO,
+  UpdateTournamentDTO,
   UserPaint,
 } from '@/types';
 
@@ -1662,5 +1670,188 @@ export async function rateGuide(
     },
     { onConflict: 'guide_id,user_id' },
   );
+  if (error) throw error;
+}
+
+// ======================== MINIATURE SPOTLIGHT ("Miniatura del mes") ========================
+
+/** Most recent spotlight entry, or null if the admin hasn't set one yet. */
+export async function getCurrentMiniatureSpotlight(): Promise<MiniatureSpotlight | null> {
+  try {
+    const { data, error } = await supabase
+      .from('miniature_spotlight')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapRow<MiniatureSpotlight>(data);
+  } catch {
+    return null;
+  }
+}
+
+export async function getMiniatureSpotlightHistory(): Promise<MiniatureSpotlight[]> {
+  try {
+    const { data, error } = await supabase
+      .from('miniature_spotlight')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return mapRows<MiniatureSpotlight>(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function createMiniatureSpotlight(
+  dto: CreateMiniatureSpotlightDTO,
+): Promise<MiniatureSpotlight> {
+  const { data, error } = await supabase
+    .from('miniature_spotlight')
+    .insert({
+      title: dto.title,
+      game_name: dto.gameName ?? null,
+      faction_name: dto.factionName ?? null,
+      painter_name: dto.painterName ?? null,
+      description: dto.description ?? '',
+      image: dto.image ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<MiniatureSpotlight>(data);
+}
+
+export async function deleteMiniatureSpotlight(id: string): Promise<void> {
+  const { error } = await supabase.from('miniature_spotlight').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ======================== COMPETITIVO: TOURNAMENTS ========================
+
+export async function getTournaments(publishedOnly = true): Promise<Tournament[]> {
+  try {
+    let query = supabase
+      .from('tournaments')
+      .select('*')
+      .order('start_date', { ascending: false });
+    if (publishedOnly) query = query.eq('published', true);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return mapRows<Tournament>(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function createTournament(dto: CreateTournamentDTO): Promise<Tournament> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .insert({
+      name: dto.name,
+      game_name: dto.gameName ?? null,
+      description: dto.description ?? '',
+      cover_image: dto.coverImage ?? null,
+      location: dto.location ?? null,
+      start_date: dto.startDate ?? null,
+      end_date: dto.endDate ?? null,
+      status: dto.status ?? 'upcoming',
+      external_link: dto.externalLink ?? null,
+      published: dto.published ?? true,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<Tournament>(data);
+}
+
+export async function updateTournament(dto: UpdateTournamentDTO): Promise<Tournament> {
+  const payload: Record<string, unknown> = {};
+  if (dto.name !== undefined) payload.name = dto.name;
+  if (dto.gameName !== undefined) payload.game_name = dto.gameName;
+  if (dto.description !== undefined) payload.description = dto.description;
+  if (dto.coverImage !== undefined) payload.cover_image = dto.coverImage;
+  if (dto.location !== undefined) payload.location = dto.location;
+  if (dto.startDate !== undefined) payload.start_date = dto.startDate;
+  if (dto.endDate !== undefined) payload.end_date = dto.endDate;
+  if (dto.status !== undefined) payload.status = dto.status;
+  if (dto.externalLink !== undefined) payload.external_link = dto.externalLink;
+  if (dto.published !== undefined) payload.published = dto.published;
+
+  const { data, error } = await supabase
+    .from('tournaments')
+    .update(payload)
+    .eq('id', dto.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<Tournament>(data);
+}
+
+export async function deleteTournament(id: string): Promise<void> {
+  const { error } = await supabase.from('tournaments').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ======================== COMPETITIVO: FEATURED LISTS ========================
+
+export async function getFeaturedLists(publishedOnly = true): Promise<FeaturedList[]> {
+  try {
+    let query = supabase
+      .from('featured_lists')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (publishedOnly) query = query.eq('published', true);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return mapRows<FeaturedList>(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function createFeaturedList(dto: CreateFeaturedListDTO): Promise<FeaturedList> {
+  const { data, error } = await supabase
+    .from('featured_lists')
+    .insert({
+      title: dto.title,
+      game_name: dto.gameName ?? null,
+      faction_name: dto.factionName ?? null,
+      total_points: dto.totalPoints ?? null,
+      author_name: dto.authorName ?? '',
+      description: dto.description ?? '',
+      cover_image: dto.coverImage ?? null,
+      published: dto.published ?? true,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<FeaturedList>(data);
+}
+
+export async function updateFeaturedList(dto: UpdateFeaturedListDTO): Promise<FeaturedList> {
+  const payload: Record<string, unknown> = {};
+  if (dto.title !== undefined) payload.title = dto.title;
+  if (dto.gameName !== undefined) payload.game_name = dto.gameName;
+  if (dto.factionName !== undefined) payload.faction_name = dto.factionName;
+  if (dto.totalPoints !== undefined) payload.total_points = dto.totalPoints;
+  if (dto.authorName !== undefined) payload.author_name = dto.authorName;
+  if (dto.description !== undefined) payload.description = dto.description;
+  if (dto.coverImage !== undefined) payload.cover_image = dto.coverImage;
+  if (dto.published !== undefined) payload.published = dto.published;
+
+  const { data, error } = await supabase
+    .from('featured_lists')
+    .update(payload)
+    .eq('id', dto.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapRow<FeaturedList>(data);
+}
+
+export async function deleteFeaturedList(id: string): Promise<void> {
+  const { error } = await supabase.from('featured_lists').delete().eq('id', id);
   if (error) throw error;
 }

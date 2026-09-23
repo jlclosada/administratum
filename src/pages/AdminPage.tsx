@@ -8,9 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
     createArmyPreset,
+    createMiniatureSpotlight,
     deleteArmyPreset,
     getAppConfig,
     getArmyPresets,
+    getCurrentMiniatureSpotlight,
     getDashboardStats,
     getUnitCatalogCount,
     upsertFactionCatalog,
@@ -20,7 +22,7 @@ import {
 import { useIsAdmin } from "@/lib/admin";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import type { AppConfig, ArmyPreset, DashboardStats, FactionCatalogEntry, UnitCatalogEntry } from "@/types";
+import type { AppConfig, ArmyPreset, DashboardStats, FactionCatalogEntry, MiniatureSpotlight, UnitCatalogEntry } from "@/types";
 import { PRESET_GAMES } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -34,8 +36,10 @@ import {
     Shield,
     ShieldAlert,
     ShieldCheck,
+    Star,
     Sword,
     Trash2,
+    Trophy,
     UserPlus,
     Users,
     X,
@@ -111,6 +115,16 @@ export function AdminPage() {
   const [catalogCount, setCatalogCount] = useState(0);
   const [syncingCatalog, setSyncingCatalog] = useState(false);
 
+  // Miniature spotlight ("Miniatura del mes")
+  const [spotlight, setSpotlight] = useState<MiniatureSpotlight | null>(null);
+  const [spotlightTitle, setSpotlightTitle] = useState("");
+  const [spotlightFaction, setSpotlightFaction] = useState("");
+  const [spotlightPainter, setSpotlightPainter] = useState("");
+  const [spotlightDesc, setSpotlightDesc] = useState("");
+  const [spotlightImage, setSpotlightImage] = useState<string | null>(null);
+  const [uploadingSpotlightImage, setUploadingSpotlightImage] = useState(false);
+  const [savingSpotlight, setSavingSpotlight] = useState(false);
+
   useEffect(() => {
     if (!isAdmin) {
       setLoading(false);
@@ -118,14 +132,16 @@ export function AdminPage() {
     }
     (async () => {
       try {
-        const [cfg, dashboard, units] = await Promise.all([
+        const [cfg, dashboard, units, currentSpotlight] = await Promise.all([
           getAppConfig(),
           getDashboardStats(),
           getUnitCatalogCount(),
+          getCurrentMiniatureSpotlight(),
         ]);
         setConfig(cfg);
         setStats(dashboard);
         setCatalogCount(units);
+        setSpotlight(currentSpotlight);
       } catch (err) {
         console.error("Failed to load admin data:", err);
       } finally {
@@ -235,6 +251,48 @@ export function AdminPage() {
     } catch (err) {
       console.error("Failed to delete faction:", err);
       toast.error("No se pudo eliminar la facción.");
+    }
+  }
+
+  // ---- Miniature spotlight ----
+  async function handlePickSpotlightImage() {
+    try {
+      const [file] = await pickFiles({ accept: "image/*" });
+      if (!file) return;
+      setUploadingSpotlightImage(true);
+      const url = await uploadFile(file, "spotlight");
+      setSpotlightImage(url);
+    } catch (err) {
+      console.error("Failed to upload spotlight image:", err);
+      toast.error("No se pudo subir la imagen.");
+    } finally {
+      setUploadingSpotlightImage(false);
+    }
+  }
+
+  async function handlePublishSpotlight() {
+    if (!spotlightTitle.trim()) return;
+    setSavingSpotlight(true);
+    try {
+      const created = await createMiniatureSpotlight({
+        title: spotlightTitle.trim(),
+        factionName: spotlightFaction.trim() || null,
+        painterName: spotlightPainter.trim() || null,
+        description: spotlightDesc.trim(),
+        image: spotlightImage,
+      });
+      setSpotlight(created);
+      setSpotlightTitle("");
+      setSpotlightFaction("");
+      setSpotlightPainter("");
+      setSpotlightDesc("");
+      setSpotlightImage(null);
+      toast.success("Miniatura del mes publicada");
+    } catch (err) {
+      console.error("Failed to publish spotlight:", err);
+      toast.error("No se pudo publicar. Revisa tus permisos.");
+    } finally {
+      setSavingSpotlight(false);
     }
   }
 
@@ -393,6 +451,105 @@ export function AdminPage() {
               label="Permitir nuevos registros"
               description="Si se desactiva, oculta el formulario de registro en la pantalla de acceso."
             />
+          </CardContent>
+        </Card>
+
+        {/* Miniature spotlight */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-primary" />
+              Miniatura del mes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Se muestra en el hueco destacado de la página de inicio. Publicar una
+              nueva sustituye la que se ve ahora mismo (el historial se conserva).
+            </p>
+            {spotlight && (
+              <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                  {spotlight.image && (
+                    <img src={spotlight.image} alt="" className="h-full w-full object-cover" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">Actual: {spotlight.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[spotlight.factionName, spotlight.painterName].filter(Boolean).join(" · ") || "Sin detalles"}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={handlePickSpotlightImage}
+                disabled={uploadingSpotlightImage}
+                className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:opacity-50"
+              >
+                {uploadingSpotlightImage ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : spotlightImage ? (
+                  <img src={spotlightImage} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <ImageIcon className="h-6 w-6" />
+                )}
+              </button>
+              <div className="grid flex-1 gap-2 sm:grid-cols-2">
+                <Input
+                  value={spotlightTitle}
+                  onChange={(e) => setSpotlightTitle(e.target.value)}
+                  placeholder="Nombre de la miniatura"
+                />
+                <Input
+                  value={spotlightFaction}
+                  onChange={(e) => setSpotlightFaction(e.target.value)}
+                  placeholder="Facción (opcional)"
+                />
+                <Input
+                  value={spotlightPainter}
+                  onChange={(e) => setSpotlightPainter(e.target.value)}
+                  placeholder="Pintada por (opcional)"
+                  className="sm:col-span-2"
+                />
+              </div>
+            </div>
+            <Textarea
+              value={spotlightDesc}
+              onChange={(e) => setSpotlightDesc(e.target.value)}
+              placeholder="Notas sobre la técnica, el esquema de color…"
+              rows={2}
+            />
+            <Button
+              onClick={handlePublishSpotlight}
+              disabled={savingSpotlight || !spotlightTitle.trim()}
+              className="gap-2"
+            >
+              <Star className="h-4 w-4" />
+              {savingSpotlight ? "Publicando..." : "Publicar como miniatura del mes"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Competitivo (tournaments + featured lists) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              Competitivo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Gestiona los torneos y las listas destacadas que se muestran en la
+              sección Competitivo.
+            </p>
+            <Button variant="outline" className="gap-2" onClick={() => navigate("/admin/competitivo")}>
+              <Trophy className="h-4 w-4" />
+              Abrir gestión de Competitivo
+            </Button>
           </CardContent>
         </Card>
 

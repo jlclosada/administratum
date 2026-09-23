@@ -25,6 +25,7 @@ import {
     Settings,
     ShieldCheck,
     Swords,
+    Trophy,
     X,
 } from "lucide-react";
 import { useState } from "react";
@@ -35,6 +36,7 @@ const primaryItems = [
   { to: "/", icon: Home, label: "Inicio" },
   { to: "/guias", icon: BookOpen, label: "Guías" },
   { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
+  { to: "/competitivo", icon: Trophy, label: "Competitivo" },
   { to: "/descargas", icon: Download, label: "Descargas" },
 ];
 

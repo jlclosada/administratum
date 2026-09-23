@@ -308,6 +308,43 @@ export interface CatalogUpdate extends BaseEntity {
   occurredAt: string;
 }
 
+/** "Miniatura del mes" — the admin publishes one, the home page shows the latest. */
+export interface MiniatureSpotlight extends BaseEntity {
+  title: string;
+  gameName: string | null;
+  factionName: string | null;
+  painterName: string | null;
+  description: string;
+  image: string | null;
+}
+
+export type TournamentStatus = 'upcoming' | 'ongoing' | 'finished';
+
+export interface Tournament extends BaseEntity {
+  name: string;
+  gameName: string | null;
+  description: string;
+  coverImage: string | null;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  status: TournamentStatus;
+  externalLink: string | null;
+  published: boolean;
+}
+
+/** Admin-authored public showcase list — not a real user's private army list. */
+export interface FeaturedList extends BaseEntity {
+  title: string;
+  gameName: string | null;
+  factionName: string | null;
+  totalPoints: number | null;
+  authorName: string;
+  description: string;
+  coverImage: string | null;
+  published: boolean;
+}
+
 export interface CreateMiniatureDTO {
   armyId: string;
   name: string;
@@ -553,6 +590,47 @@ export interface UpdateArticleDTO {
   coverImage?: string | null;
   tags?: string[];
   published?: boolean;
+}
+
+export interface CreateMiniatureSpotlightDTO {
+  title: string;
+  gameName?: string | null;
+  factionName?: string | null;
+  painterName?: string | null;
+  description?: string;
+  image?: string | null;
+}
+
+export interface CreateTournamentDTO {
+  name: string;
+  gameName?: string | null;
+  description?: string;
+  coverImage?: string | null;
+  location?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  status?: TournamentStatus;
+  externalLink?: string | null;
+  published?: boolean;
+}
+
+export interface UpdateTournamentDTO extends Partial<CreateTournamentDTO> {
+  id: string;
+}
+
+export interface CreateFeaturedListDTO {
+  title: string;
+  gameName?: string | null;
+  factionName?: string | null;
+  totalPoints?: number | null;
+  authorName?: string;
+  description?: string;
+  coverImage?: string | null;
+  published?: boolean;
+}
+
+export interface UpdateFeaturedListDTO extends Partial<CreateFeaturedListDTO> {
+  id: string;
 }
 
 // ---------- Community: Painting guides (user-authored) ----------

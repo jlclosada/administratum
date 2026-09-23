@@ -693,4 +693,123 @@ create policy "catalog_updates_admin_write" on public.catalog_updates
   using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
   with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
 
+-- ============================================================
+-- Miniature spotlight ("Miniatura del mes")
+-- ============================================================
+-- One row per entry the admin publishes; the home page shows the most
+-- recent one. Kept as a small history (not a singleton) so past spotlights
+-- aren't lost when the admin sets a new one.
+create table if not exists public.miniature_spotlight (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  game_name text,
+  faction_name text,
+  painter_name text,
+  description text not null default '',
+  image text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_miniature_spotlight_created
+  on public.miniature_spotlight (created_at desc);
+
+drop trigger if exists set_updated_at on public.miniature_spotlight;
+create trigger set_updated_at before update on public.miniature_spotlight
+  for each row execute function public.set_updated_at();
+
+alter table public.miniature_spotlight enable row level security;
+
+drop policy if exists "miniature_spotlight_read" on public.miniature_spotlight;
+drop policy if exists "miniature_spotlight_admin_write" on public.miniature_spotlight;
+
+create policy "miniature_spotlight_read" on public.miniature_spotlight
+  for select to anon, authenticated using (true);
+
+create policy "miniature_spotlight_admin_write" on public.miniature_spotlight
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+-- ============================================================
+-- Competitive: tournaments (admin-curated)
+-- ============================================================
+create table if not exists public.tournaments (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  game_name text,
+  description text not null default '',
+  cover_image text,
+  location text,
+  start_date date,
+  end_date date,
+  status text not null default 'upcoming' check (status in ('upcoming', 'ongoing', 'finished')),
+  external_link text,
+  published boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_tournaments_start_date
+  on public.tournaments (start_date desc);
+
+drop trigger if exists set_updated_at on public.tournaments;
+create trigger set_updated_at before update on public.tournaments
+  for each row execute function public.set_updated_at();
+
+alter table public.tournaments enable row level security;
+
+drop policy if exists "tournaments_read" on public.tournaments;
+drop policy if exists "tournaments_admin_write" on public.tournaments;
+
+create policy "tournaments_read" on public.tournaments
+  for select to anon, authenticated
+  using (published or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+create policy "tournaments_admin_write" on public.tournaments
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+-- ============================================================
+-- Competitive: featured lists (admin-curated showcase army lists)
+-- ============================================================
+-- Not linked to a real user's private army list (those stay owner-only,
+-- see armies/army_lists RLS) — these are separate, admin-authored public
+-- showcase entries, same pattern as articles/guides.
+create table if not exists public.featured_lists (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  game_name text,
+  faction_name text,
+  total_points integer,
+  author_name text not null default '',
+  description text not null default '',
+  cover_image text,
+  published boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_featured_lists_created
+  on public.featured_lists (created_at desc);
+
+drop trigger if exists set_updated_at on public.featured_lists;
+create trigger set_updated_at before update on public.featured_lists
+  for each row execute function public.set_updated_at();
+
+alter table public.featured_lists enable row level security;
+
+drop policy if exists "featured_lists_read" on public.featured_lists;
+drop policy if exists "featured_lists_admin_write" on public.featured_lists;
+
+create policy "featured_lists_read" on public.featured_lists
+  for select to anon, authenticated
+  using (published or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
+create policy "featured_lists_admin_write" on public.featured_lists
+  for all to authenticated
+  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+
 

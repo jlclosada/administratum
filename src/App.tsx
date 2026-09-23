@@ -14,6 +14,8 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
 const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
+const AdminCompetitivePage = lazy(() => import("@/pages/AdminCompetitivePage").then((m) => ({ default: m.AdminCompetitivePage })));
+const CompetitivoPage = lazy(() => import("@/pages/CompetitivoPage").then((m) => ({ default: m.CompetitivoPage })));
 const ArmyDetailPage = lazy(() => import("@/pages/ArmyDetailPage").then((m) => ({ default: m.ArmyDetailPage })));
 const ArmyListDetailPage = lazy(() => import("@/pages/ArmyListDetailPage").then((m) => ({ default: m.ArmyListDetailPage })));
 const ArmyListsPage = lazy(() => import("@/pages/ArmyListsPage").then((m) => ({ default: m.ArmyListsPage })));
@@ -69,9 +71,11 @@ function AnimatedRoutes() {
             <Route path="catalogo-puntos" element={<PointsCatalogPage />} />
             <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
             <Route path="descargas" element={<DownloadsPage />} />
+            <Route path="competitivo" element={<CompetitivoPage />} />
             <Route path="gallery" element={<GalleryPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />
+            <Route path="admin/competitivo" element={<AdminCompetitivePage />} />
           </Route>
         </Routes>
       </Suspense>
