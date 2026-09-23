@@ -10,7 +10,6 @@ import {
     EyeOff,
     Loader2,
     Lock,
-    Palette,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -66,13 +65,8 @@ export function ResetPasswordScreen() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="relative z-10 w-full max-w-md"
       >
-        <div className="mb-8 flex items-center justify-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient glow-sm">
-            <Palette className="h-6 w-6 text-white" />
-          </div>
-          <span className="font-display text-lg font-bold tracking-widest">
-            ADMINISTRATUM
-          </span>
+        <div className="mb-8 flex items-center justify-center">
+          <img src="/images/logo.png" alt="Administratum" className="h-12 w-auto" />
         </div>
 
         <div className="rounded-3xl border border-border/70 bg-card/60 p-7 shadow-2xl backdrop-blur-xl sm:p-9">

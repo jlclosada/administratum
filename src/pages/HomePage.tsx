@@ -60,9 +60,9 @@ function UpdatesFeed({ updates }: { updates: CatalogUpdate[] }) {
             >
               <span className="mt-0.5 text-emerald-500/60">&gt;</span>
               <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500/50" />
-              <span className="min-w-0 flex-1 truncate text-zinc-300">
-                {u.title}
-                <span className="text-zinc-500"> — {u.description}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-zinc-300">{u.title}</span>
+                <span className="block text-zinc-500">{u.description}</span>
               </span>
               <span className="shrink-0 tabular-nums text-zinc-600">{timeAgo(u.occurredAt)}</span>
             </button>

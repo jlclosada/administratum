@@ -224,13 +224,8 @@ export function AuthPage({
         <div className="pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-brand-gradient opacity-20 blur-3xl animate-float-slow" />
 
         {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient glow-sm">
-            <Palette className="h-6 w-6 text-white" />
-          </div>
-          <span className="font-display text-lg font-bold tracking-widest text-foreground">
-            ADMINISTRATUM
-          </span>
+        <div className="relative z-10 flex items-center">
+          <img src="/images/logo.png" alt="Administratum" className="h-12 w-auto" />
         </div>
 
         {/* Headline + features */}
@@ -284,13 +279,8 @@ export function AuthPage({
             </button>
           )}
           {/* Mobile logo */}
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient glow-sm">
-              <Palette className="h-6 w-6 text-white" />
-            </div>
-            <span className="font-display text-lg font-bold tracking-widest">
-              ADMINISTRATUM
-            </span>
+          <div className="mb-8 flex items-center lg:hidden">
+            <img src="/images/logo.png" alt="Administratum" className="h-11 w-auto" />
           </div>
 
           <div className="rounded-3xl border border-border/70 bg-card/60 p-7 shadow-2xl backdrop-blur-xl sm:p-9">

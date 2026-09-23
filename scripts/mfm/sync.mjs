@@ -139,14 +139,15 @@ await logCatalogUpdates(
   changedKeys.map((u) => {
     const before = basePoints(u.pricing_old);
     const after = basePoints(u.pricing);
+    const hasDelta = before !== null && after !== null && before !== after;
+    const delta = hasDelta ? after - before : null;
     return {
       game_name: u.game_name,
       type: 'points',
-      title: u.name,
-      description:
-        before !== null && after !== null && before !== after
-          ? `${u.faction_name} · ${before} → ${after} pts`
-          : `${u.faction_name} · puntos actualizados`,
+      title: `${u.name} - ${u.faction_name}`,
+      description: hasDelta
+        ? `Puntos actualizados · ${delta > 0 ? '+' : ''}${delta} pts (${before} → ${after})`
+        : 'Puntos actualizados',
       link: `/catalogo-puntos/${u.faction_slug}`,
     };
   }),
