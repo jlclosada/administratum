@@ -97,7 +97,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
           <img
             src="/images/landing-hero.jpg"
             alt=""
-            className="h-full w-full object-cover object-center opacity-40 blur-sm"
+            className="h-full w-full object-cover object-center opacity-70"
           />
         </picture>
         <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/55 to-background" />
