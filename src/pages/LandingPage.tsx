@@ -9,7 +9,6 @@ import {
     Newspaper,
     Palette,
     Shield,
-    Sparkles,
     Star,
     Swords,
     Users,
@@ -132,13 +131,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="mx-auto max-w-3xl text-center"
         >
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5 text-zinc-300" />
-            Tu taller de miniaturas, reinventado
-          </div>
           <h1 className="text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-5xl md:text-6xl">
-            Gestiona y comparte tu colección de{" "}
-            <span className="text-mono-gradient">wargaming</span>
+            Gestiona y comparte tu colección de wargaming
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             Organiza ejércitos, registra tus procesos de pintura, descubre guías

@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -75,6 +91,12 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    caret-color: hsl(var(--primary));
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.28);
+    color: hsl(var(--foreground));
   }
 
   [data-radix-scroll-area-viewport] > div {
@@ -171,21 +193,6 @@
     -webkit-backdrop-filter: blur(16px) saturate(140%);
   }
 
-  /* Headline text gradient — deliberately lighter than --brand (which is
-     tuned so bg-brand-gradient still works with the white text used on
-     buttons/badges); this one just needs to read well as text. */
-  .text-gradient {
-    background-image: linear-gradient(
-      120deg,
-      hsl(0 0% 96%) 0%,
-      hsl(220 10% 75%) 55%,
-      hsl(220 14% 55%) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
   /* Brand background gradient */
   .bg-brand-gradient {
     background-image: linear-gradient(
@@ -196,19 +203,8 @@
     );
   }
 
-  /* Monochrome variants — used on the landing page only, so the rest of the
-     app keeps the purple/pink brand accents untouched. */
-  .text-mono-gradient {
-    background-image: linear-gradient(
-      120deg,
-      hsl(0 0% 98%) 0%,
-      hsl(220 10% 75%) 55%,
-      hsl(220 14% 52%) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
+  /* Monochrome variant — used on the landing page only, so the rest of the
+     app keeps its own accent treatment untouched. */
   .bg-mono-gradient {
     background-image: linear-gradient(
       120deg,
@@ -268,11 +264,6 @@
   .animate-float-slow {
     animation: float 12s ease-in-out infinite;
   }
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient-pan 6s ease infinite;
-  }
-
   /* Premium glass card */
   .glass-card {
     position: relative;
@@ -404,18 +395,6 @@
   }
   50% {
     transform: translateY(-18px) translateX(8px);
-  }
-}
-
-@keyframes gradient-pan {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
   }
 }
 

@@ -120,7 +120,7 @@ export function DownloadsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            <span className="text-gradient animate-gradient">Descargas</span>
+            Descargas
           </h1>
           <p className="text-muted-foreground">
             Reglas, erratas y material oficial de Warhammer Community, siempre

@@ -166,9 +166,7 @@ export function PointsCatalogPage() {
       <div className="space-y-8">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            <span className="text-gradient animate-gradient">
-              Catálogo de puntos
-            </span>
+            Catálogo de puntos
           </h1>
           <p className="text-muted-foreground">
             Biblioteca Munitorum: busca una miniatura o entra en un ejército para
@@ -307,7 +305,7 @@ function DetachmentRow({ detachment }: { detachment: Detachment }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium text-foreground">{detachment.name}</h3>
             {detachment.dp !== null && (
-              <span className="text-xs font-semibold tabular-nums text-primary">
+              <span className="font-mono text-xs font-medium tabular-nums text-primary">
                 {detachment.dp} DP
               </span>
             )}
@@ -356,7 +354,7 @@ function DetachmentRow({ detachment }: { detachment: Detachment }) {
                       </p>
                     )}
                   </div>
-                  <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
+                  <span className="shrink-0 font-mono text-xs font-medium tabular-nums text-foreground">
                     +{e.points}
                   </span>
                 </div>

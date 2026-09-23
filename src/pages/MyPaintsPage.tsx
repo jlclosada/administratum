@@ -546,7 +546,7 @@ export function MyPaintsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              <span className="text-gradient animate-gradient">Mis Pinturas</span>
+              Mis Pinturas
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Gestiona tu colección de pinturas y tu lista de compras

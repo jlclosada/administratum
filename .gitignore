@@ -39,3 +39,7 @@ scripts/downloads/.cache/
 *.log
 npm-debug.log*
 *.tsbuildinfo
+
+# Impeccable's self-downloading platform binary (~12MB, darwin-arm64 etc.) —
+# re-downloaded on first run per-machine, not portable source.
+.claude/skills/impeccable/scripts/bin/

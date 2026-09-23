@@ -47,7 +47,7 @@ export function GalleryPage() {
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            <span className="text-gradient animate-gradient">Galería</span>
+            Galería
           </h1>
           <p className="text-muted-foreground">
             Todas las imágenes de tu colección
