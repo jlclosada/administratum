@@ -8,7 +8,7 @@ import { PrivacidadPage } from "@/pages/legal/PrivacidadPage";
 import { TerminosPage } from "@/pages/legal/TerminosPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { useAuthStore } from "@/stores";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, MotionConfig } from "framer-motion";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -144,15 +144,17 @@ function AppGate() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Reachable regardless of auth state — legal pages are never gated. */}
-        <Route path="/legal/aviso-legal" element={<AvisoLegalPage />} />
-        <Route path="/legal/privacidad" element={<PrivacidadPage />} />
-        <Route path="/legal/cookies" element={<CookiesPage />} />
-        <Route path="/legal/terminos" element={<TerminosPage />} />
-        <Route path="*" element={<AppGate />} />
-      </Routes>
-    </BrowserRouter>
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter>
+        <Routes>
+          {/* Reachable regardless of auth state — legal pages are never gated. */}
+          <Route path="/legal/aviso-legal" element={<AvisoLegalPage />} />
+          <Route path="/legal/privacidad" element={<PrivacidadPage />} />
+          <Route path="/legal/cookies" element={<CookiesPage />} />
+          <Route path="/legal/terminos" element={<TerminosPage />} />
+          <Route path="*" element={<AppGate />} />
+        </Routes>
+      </BrowserRouter>
+    </MotionConfig>
   );
 }

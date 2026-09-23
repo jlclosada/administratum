@@ -91,7 +91,7 @@ export function DashboardPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">

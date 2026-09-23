@@ -260,7 +260,7 @@ export function GameDetailPage() {
                   whileTap={{ scale: 0.97 }}
                 >
                   <Card
-                    className="group cursor-pointer overflow-hidden transition-all hover:shadow-xl hover:shadow-primary/10"
+                    className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-xl hover:shadow-primary/10"
                     onClick={() =>
                       navigate(`/games/${gameId}/armies/${army.id}`)
                     }
@@ -310,7 +310,7 @@ export function GameDetailPage() {
                         </div>
                         <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/20">
                           <div
-                            className="h-full rounded-full transition-all"
+                            className="h-full rounded-full transition-[width,background-color] duration-500 ease-out"
                             style={{
                               width: `${army.completionPercentage}%`,
                               backgroundColor: army.completionPercentage === 100 ? "#22c55e" : color,
@@ -389,7 +389,7 @@ export function GameDetailPage() {
                             whileHover={{ y: -3 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={() => handleSelectPresetArmy(preset)}
-                            className="group relative overflow-hidden rounded-xl border border-border/60 text-left transition-all hover:border-primary/50 hover:shadow-lg"
+                            className="group relative overflow-hidden rounded-xl border border-border/60 text-left transition-[border-color,box-shadow] hover:border-primary/50 hover:shadow-lg"
                           >
                             {preset.image ? (
                               <div className="relative aspect-[16/10] w-full overflow-hidden">
@@ -413,7 +413,7 @@ export function GameDetailPage() {
                                     </span>
                                   </div>
                                 </div>
-                                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow transition-all group-hover:opacity-100">
+                                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow transition-opacity group-hover:opacity-100">
                                   <Plus className="h-3.5 w-3.5" />
                                 </span>
                               </div>
@@ -436,7 +436,7 @@ export function GameDetailPage() {
                                 <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
                                   {preset.description}
                                 </p>
-                                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow transition-all group-hover:opacity-100">
+                                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow transition-opacity group-hover:opacity-100">
                                   <Plus className="h-3.5 w-3.5" />
                                 </span>
                               </div>
