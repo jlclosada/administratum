@@ -184,6 +184,18 @@
     color: hsl(var(--primary));
     text-decoration: underline;
   }
+
+  /* Newspaper-style drop cap for the article "report" template — scoped to
+     .article-report so painting guides (which reuse the same renderer)
+     keep their plain paragraph styling. */
+  .article-report .prose-editor > p:first-of-type::first-letter {
+    float: left;
+    padding-right: 0.5rem;
+    padding-top: 0.25rem;
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 0.85;
+  }
 }
 
 @layer utilities {

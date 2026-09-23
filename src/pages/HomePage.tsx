@@ -204,7 +204,7 @@ export function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 type="button"
                 onClick={() => navigate(`/articulos/${featured.id}`)}
-                className="group grid w-full overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-[border-color,box-shadow] hover:border-primary/40 hover:shadow-2xl md:grid-cols-2"
+                className="group grid w-full overflow-hidden border-2 border-foreground/90 text-left transition-shadow hover:shadow-2xl md:grid-cols-2"
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/20 to-background md:aspect-auto">
                   {featured.coverImage ? (
@@ -219,29 +219,20 @@ export function HomePage() {
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col justify-center gap-3 p-6 sm:p-8">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {!featured.published && (
-                      <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-500">
-                        Borrador
-                      </span>
-                    )}
+                <div className="flex flex-col justify-center gap-2.5 p-6 sm:p-8">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-emerald-600 dark:text-emerald-500">
+                    {!featured.published && <span className="text-amber-500">[BORRADOR]</span>}
                     {featured.tags.slice(0, 3).map((t) => (
-                      <span
-                        key={t}
-                        className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-primary"
-                      >
-                        {t}
-                      </span>
+                      <span key={t}>[{t.toUpperCase()}]</span>
                     ))}
                   </div>
-                  <h2 className="font-display text-2xl font-bold leading-tight tracking-tight">
+                  <h2 className="font-display text-2xl font-black leading-[0.95] tracking-tight">
                     {featured.title}
                   </h2>
                   <p className="line-clamp-3 text-muted-foreground">
                     {featured.excerpt}
                   </p>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
                     {formatDate(featured.createdAt)}
                   </span>
                 </div>
@@ -259,7 +250,7 @@ export function HomePage() {
                     transition={{ delay: i * 0.04 }}
                     type="button"
                     onClick={() => navigate(`/articulos/${a.id}`)}
-                    className="group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-[border-color,box-shadow] hover:border-primary/40 hover:shadow-xl"
+                    className="group flex flex-col overflow-hidden border-2 border-foreground/80 text-left transition-shadow hover:shadow-xl"
                   >
                     <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-primary/20 to-background">
                       {a.coverImage ? (
@@ -274,19 +265,17 @@ export function HomePage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-1 flex-col gap-2 p-4">
+                    <div className="flex flex-1 flex-col gap-1.5 p-4">
                       {!a.published && (
-                        <span className="w-fit rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-500">
-                          Borrador
-                        </span>
+                        <span className="w-fit font-mono text-[10px] text-amber-500">[BORRADOR]</span>
                       )}
-                      <h3 className="line-clamp-2 font-semibold text-foreground">
+                      <h3 className="line-clamp-2 font-display font-bold leading-tight text-foreground">
                         {a.title}
                       </h3>
                       <p className="line-clamp-2 flex-1 text-sm text-muted-foreground">
                         {a.excerpt}
                       </p>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
                         {formatDate(a.createdAt)}
                       </span>
                     </div>

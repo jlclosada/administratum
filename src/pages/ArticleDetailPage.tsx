@@ -18,6 +18,11 @@ function formatDate(iso: string): string {
   });
 }
 
+/** Short, stable reference code derived from the id — reads like a dispatch number. */
+function reportCode(id: string): string {
+  return id.replace(/-/g, "").slice(0, 6).toUpperCase();
+}
+
 export function ArticleDetailPage() {
   const { articleId } = useParams<{ articleId: string }>();
   const navigate = useNavigate();
@@ -107,39 +112,57 @@ export function ArticleDetailPage() {
           )}
         </div>
 
-        {article.coverImage && (
-          <div className="overflow-hidden rounded-2xl border border-border/60">
-            <img
-              src={article.coverImage}
-              alt={article.title}
-              className="aspect-[21/9] w-full object-cover"
-            />
+        {/* Report frame: sharp corners, a heavy top/bottom rule and a
+            monospace dispatch line — the "futuristic bulletin" genre
+            treatment, kept to structural chrome so the actual copy stays
+            plainly legible. */}
+        <div className="border-2 border-foreground/90">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b-2 border-foreground/90 bg-foreground px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.15em] text-background">
+            <span>Transmisión Munitorum · Acceso Público</span>
+            <span className="tabular-nums">Ref. {reportCode(article.id)}</span>
           </div>
-        )}
 
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {article.tags.map((t) => (
-              <span
-                key={t}
-                className="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-primary"
-              >
-                {t}
-              </span>
-            ))}
+          <div className="space-y-5 p-5 sm:p-8">
+            {article.coverImage && (
+              <figure className="border-2 border-foreground/90">
+                <img
+                  src={article.coverImage}
+                  alt={article.title}
+                  className="aspect-[21/9] w-full object-cover grayscale-[15%]"
+                />
+              </figure>
+            )}
+
+            <div className="space-y-3">
+              {article.tags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-emerald-600 dark:text-emerald-500">
+                  {article.tags.map((t) => (
+                    <span key={t}>[{t.toUpperCase()}]</span>
+                  ))}
+                </div>
+              )}
+              <h1 className="font-display text-3xl font-black leading-[0.95] tracking-tight sm:text-5xl">
+                {article.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-foreground/20 py-2 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+                <span>{formatDate(article.createdAt)}</span>
+                <span aria-hidden>·</span>
+                <span>Sector: {article.tags[0] ?? "General"}</span>
+              </div>
+              {article.excerpt && (
+                <p className="text-lg font-medium leading-relaxed text-foreground/90">
+                  {article.excerpt}
+                </p>
+              )}
+            </div>
+
+            <RichTextRenderer content={article.content} className="article-report pt-2" />
           </div>
-          <h1 className="font-display text-2xl font-bold leading-tight tracking-tight sm:text-4xl">
-            {article.title}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {formatDate(article.createdAt)}
-          </p>
-          {article.excerpt && (
-            <p className="text-lg text-muted-foreground">{article.excerpt}</p>
-          )}
+
+          <div className="border-t-2 border-foreground/90 px-4 py-1.5 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            Fin de la transmisión
+          </div>
         </div>
-
-        <RichTextRenderer content={article.content} className="pt-2" />
       </article>
     </PageTransition>
   );
