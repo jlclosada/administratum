@@ -486,7 +486,9 @@
   .animate-float,
   .animate-float-slow,
   .aurora,
-  .animate-pulse-glow {
+  .animate-pulse-glow,
+  .animate-shimmer,
+  .animate-marquee {
     animation: none;
   }
 }
