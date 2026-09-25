@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore } from "@/stores";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-    BookOpen,
+    Brush,
     ChevronDown,
     ClipboardList,
     Download,
@@ -35,10 +35,10 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 // Primary: content the user comes to browse or reference.
 const primaryItems = [
   { to: "/", icon: Home, label: "Inicio" },
-  { to: "/guias", icon: BookOpen, label: "Guías" },
-  { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
-  { to: "/competitivo", icon: Trophy, label: "Competitivo" },
   { to: "/comunidad", icon: Users, label: "Comunidad" },
+  { to: "/competitivo", icon: Trophy, label: "Competitivo" },
+  { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
+  { to: "/guias", icon: Brush, label: "Pintura" },
   { to: "/descargas", icon: Download, label: "Descargas" },
 ];
 

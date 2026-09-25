@@ -2,10 +2,12 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { getFeaturedLists, getTournaments } from "@/db";
+import { formatResult } from "@/lib/armyListParser";
 import { cn } from "@/lib/utils";
 import type { FeaturedList, Tournament, TournamentStatus } from "@/types";
-import { ExternalLink, ScrollText, Swords, Trophy } from "lucide-react";
+import { ChevronRight, ExternalLink, ScrollText, Swords, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const STATUS: Record<TournamentStatus, { label: string; dot: string }> = {
   ongoing: { label: "En curso", dot: "bg-emerald-500" },
@@ -68,8 +70,14 @@ function TournamentRow({ t }: { t: Tournament }) {
 }
 
 function FeaturedListRow({ l }: { l: FeaturedList }) {
+  const navigate = useNavigate();
+  const result = formatResult(l.result);
   return (
-    <div className="flex items-center gap-4 px-4 py-3.5">
+    <button
+      type="button"
+      onClick={() => navigate(`/competitivo/listas/${l.id}`)}
+      className="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-accent/40"
+    >
       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
         {l.coverImage ? (
           <img src={l.coverImage} alt="" className="h-full w-full object-cover" />
@@ -80,23 +88,31 @@ function FeaturedListRow({ l }: { l: FeaturedList }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-medium leading-tight">{l.title}</p>
+        <p className="font-medium leading-tight transition-colors group-hover:text-primary">{l.title}</p>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {[l.factionName, l.authorName ? `por ${l.authorName}` : null].filter(Boolean).join(" · ")}
+          {[l.factionName, l.authorName ? `por ${l.authorName}` : null, l.tournamentName]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
         {l.description && (
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{l.description}</p>
         )}
       </div>
-      {l.totalPoints != null && (
-        <div className="shrink-0 text-right">
-          <span className="font-mono text-base font-medium tabular-nums text-foreground">
-            {l.totalPoints}
+      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+        {l.totalPoints != null && (
+          <span>
+            <span className="font-mono text-base font-medium tabular-nums text-foreground">{l.totalPoints}</span>
+            <span className="ml-1 text-[10px] font-medium text-muted-foreground">pts</span>
           </span>
-          <span className="ml-1 text-[10px] font-medium text-muted-foreground">pts</span>
-        </div>
-      )}
-    </div>
+        )}
+        {result && (
+          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-500">
+            {result}
+          </span>
+        )}
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+    </button>
   );
 }
 

@@ -19,10 +19,15 @@ import type {
   PaintingGuide,
   SharedPhoto,
 } from "@/types";
+import { formatDelta, pointsDeltaOf } from "@/lib/catalogUpdates";
+import { RIGHT_RAIL_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
 import { cn } from "@/lib/utils";
+import { useRightRail } from "@/components/layout/rightRail";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   BookOpen,
   Download,
   type LucideIcon,
@@ -33,7 +38,7 @@ import {
   Target,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 function formatDate(iso: string): string {
@@ -89,6 +94,7 @@ function UpdatesFeed({ updates }: { updates: CatalogUpdate[] }) {
                 <span className="block truncate text-zinc-300">{u.title}</span>
                 <span className="block text-zinc-500">{u.description}</span>
               </span>
+              <DeltaBadge update={u} />
               <span className="shrink-0 tabular-nums text-zinc-600">
                 {timeAgo(u.occurredAt)}
               </span>
@@ -97,6 +103,79 @@ function UpdatesFeed({ updates }: { updates: CatalogUpdate[] }) {
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * Point increases make a unit more expensive (a nerf), decreases cheaper —
+ * hence rose for up and emerald for down, with an arrow so it never relies
+ * on colour alone.
+ */
+function DeltaBadge({ update }: { update: CatalogUpdate }) {
+  const delta = pointsDeltaOf(update);
+  if (delta === null) return null;
+  const up = delta > 0;
+  const Arrow = up ? ArrowUp : ArrowDown;
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center gap-0.5 rounded border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+        up
+          ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+      )}
+      title={
+        update.pointsBefore != null && update.pointsAfter != null
+          ? `${update.pointsBefore} → ${update.pointsAfter} pts`
+          : undefined
+      }
+    >
+      <Arrow className="h-3 w-3" />
+      {formatDelta(delta)}
+    </span>
+  );
+}
+
+/** Compact portrait card for the desktop right rail. */
+function MiniatureOfTheMonthRail({ spotlight }: { spotlight: MiniatureSpotlight }) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group overflow-hidden rounded-2xl border border-border/60 bg-card/40"
+    >
+      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-muted to-background">
+        {spotlight.image ? (
+          <img
+            src={spotlight.image}
+            alt={spotlight.title}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <Star className="h-12 w-12 text-primary/20" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+        <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-300 backdrop-blur">
+          <Star className="h-3 w-3 fill-current" />
+          Miniatura del mes
+        </span>
+        <div className="absolute inset-x-0 bottom-0 p-4">
+          <h2 className="font-display text-lg font-bold leading-tight text-white">{spotlight.title}</h2>
+          <p className="mt-0.5 text-xs text-white/70">
+            {[spotlight.factionName, spotlight.painterName ? `pintada por ${spotlight.painterName}` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      </div>
+      {spotlight.description && (
+        <p className="line-clamp-4 p-4 text-xs leading-relaxed text-muted-foreground">
+          {spotlight.description}
+        </p>
+      )}
+    </motion.article>
   );
 }
 
@@ -158,7 +237,7 @@ type HomeTab = "noticias" | "guias" | "comunidad";
 
 const HOME_TABS: { id: HomeTab; label: string; icon: LucideIcon }[] = [
   { id: "noticias", label: "Noticias", icon: Newspaper },
-  { id: "guias", label: "Guías", icon: BookOpen },
+  { id: "guias", label: "Pintura", icon: BookOpen },
   { id: "comunidad", label: "Comunidad", icon: Users },
 ];
 
@@ -255,6 +334,14 @@ export function HomePage() {
       .finally(() => setLoading(false));
   }, [isAdmin]);
 
+  // Wide screens: the spotlight sits in the right margin above the ads.
+  const railVisible = useMediaQuery(RIGHT_RAIL_QUERY);
+  const railNode = useMemo(
+    () => (spotlight ? <MiniatureOfTheMonthRail spotlight={spotlight} /> : null),
+    [spotlight],
+  );
+  useRightRail(railNode, railVisible && railNode !== null);
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -290,7 +377,7 @@ export function HomePage() {
           )}
         </div>
 
-        <MiniatureOfTheMonth spotlight={spotlight} />
+        {!railVisible && <MiniatureOfTheMonth spotlight={spotlight} />}
 
         <UpdatesFeed updates={updates} />
 

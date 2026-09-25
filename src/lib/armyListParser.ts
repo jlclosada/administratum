@@ -120,3 +120,18 @@ export function parseArmyListExport(raw: string): ParsedArmyList | null {
 
   return { listName, totalPoints, factionName, detachmentName, detachmentPoints, categories };
 }
+
+/** "3-1-0" → "3V · 1D · 0E"; null when the string isn't a valid V-D-E triple. */
+export function formatResult(result: string | null | undefined): string | null {
+  if (!result) return null;
+  const parts = result.split("-").map((n) => Number(n.trim()));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [v, d, e] = parts;
+  return `${v}V · ${d}D · ${e}E`;
+}
+
+/** Builds the stored "V-D-E" string from three optional inputs; null if all are empty. */
+export function buildResult(victories: string, defeats: string, draws: string): string | null {
+  if (!victories.trim() && !defeats.trim() && !draws.trim()) return null;
+  return `${victories || 0}-${defeats || 0}-${draws || 0}`;
+}

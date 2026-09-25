@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArmyListExport } from './armyListParser';
+import { buildResult, formatResult, parseArmyListExport } from './armyListParser';
 
 const SAMPLE = `Talavera (2270 puntos)
 
@@ -107,5 +107,22 @@ describe('parseArmyListExport', () => {
 
   it('returns null when the header parses but no units follow', () => {
     expect(parseArmyListExport('Empty List (0 puntos)\n\nSome Faction')).toBeNull();
+  });
+});
+
+describe('formatResult / buildResult', () => {
+  it('formats a V-D-E triple', () => {
+    expect(formatResult('3-1-0')).toBe('3V · 1D · 0E');
+  });
+
+  it('rejects malformed results', () => {
+    expect(formatResult('3-1')).toBeNull();
+    expect(formatResult('a-b-c')).toBeNull();
+    expect(formatResult(null)).toBeNull();
+  });
+
+  it('builds a result only when something was entered', () => {
+    expect(buildResult('', '', '')).toBeNull();
+    expect(buildResult('4', '', '1')).toBe('4-0-1');
   });
 });

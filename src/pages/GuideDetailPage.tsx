@@ -140,7 +140,7 @@ export function GuideDetailPage() {
             onClick={() => navigate("/guias")}
           >
             <ArrowLeft className="h-4 w-4" />
-            Guías
+            Pintura
           </Button>
           {isOwner && (
             <div className="flex items-center gap-2">
