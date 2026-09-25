@@ -8,7 +8,7 @@ import type {
   ProfileStats,
   SharedPhoto,
 } from '@/types';
-import { mapRow, mapRows, toProfile } from './repository';
+import { mapRow, mapRows, toProfile, withMyPhotoState } from './repository';
 
 async function requireUserId(): Promise<string> {
   const {
@@ -57,7 +57,7 @@ export async function getSharedPhotosByUser(userId: string): Promise<SharedPhoto
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error || !data) return [];
-  return mapRows<SharedPhoto>(data);
+  return withMyPhotoState(mapRows<SharedPhoto>(data));
 }
 
 // ======================== FRIENDSHIPS ========================

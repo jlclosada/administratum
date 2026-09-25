@@ -18,6 +18,7 @@ const AdminUsersPage = lazy(() => import("@/pages/AdminUsersPage").then((m) => (
 const AdminAdsPage = lazy(() => import("@/pages/AdminAdsPage").then((m) => ({ default: m.AdminAdsPage })));
 const AdminCompetitivePage = lazy(() => import("@/pages/AdminCompetitivePage").then((m) => ({ default: m.AdminCompetitivePage })));
 const CompetitivoPage = lazy(() => import("@/pages/CompetitivoPage").then((m) => ({ default: m.CompetitivoPage })));
+const TournamentDetailPage = lazy(() => import("@/pages/TournamentDetailPage").then((m) => ({ default: m.TournamentDetailPage })));
 const FeaturedListDetailPage = lazy(() => import("@/pages/FeaturedListDetailPage").then((m) => ({ default: m.FeaturedListDetailPage })));
 const ArmyDetailPage = lazy(() => import("@/pages/ArmyDetailPage").then((m) => ({ default: m.ArmyDetailPage })));
 const ArmyListDetailPage = lazy(() => import("@/pages/ArmyListDetailPage").then((m) => ({ default: m.ArmyListDetailPage })));
@@ -85,6 +86,7 @@ function AnimatedRoutes() {
             <Route path="descargas" element={<DownloadsPage />} />
             <Route path="competitivo" element={<CompetitivoPage />} />
             <Route path="competitivo/listas/:listId" element={<FeaturedListDetailPage />} />
+            <Route path="competitivo/torneos/:tournamentId" element={<TournamentDetailPage />} />
             <Route path="comunidad" element={<SharedPhotosPage />} />
             <Route path="perfil" element={<ProfilePage />} />
             <Route path="perfil/:userId" element={<ProfilePage />} />

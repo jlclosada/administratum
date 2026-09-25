@@ -27,7 +27,7 @@ const HEADLINE = ["Colecciones", "que", "merecen", "ser", "vistas"];
 function SkeletonGrid() {
   const heights = [220, 300, 260, 340, 240, 280, 320, 230];
   return (
-    <div className="columns-2 gap-4 sm:columns-3 lg:columns-4 [&>*]:mb-4">
+    <div className="columns-1 gap-5 sm:columns-2 2xl:columns-3 [&>*]:mb-5">
       {heights.map((h, i) => (
         <div
           key={i}
@@ -45,7 +45,7 @@ export function SharedPhotosPage() {
   const { user } = useAuthStore();
   const myProfile = useProfileStore((s) => s.profile);
   const load = useCallback(() => getSharedPhotos(), []);
-  const { photos, authors, loading, toggle, remove, prepend } = usePhotoFeed(load);
+  const { photos, authors, loading, toggle, toggleSave, setCommentCount, remove, prepend } = usePhotoFeed(load);
   const [showShare, setShowShare] = useState(false);
   const [sort, setSort] = useState<Sort>("recent");
   const [query, setQuery] = useState("");
@@ -55,7 +55,7 @@ export function SharedPhotosPage() {
     const q = query.trim().toLowerCase();
     const filtered = q
       ? photos.filter((p) =>
-          [p.caption, p.armyName, authors.get(p.userId)?.displayName ?? p.authorName]
+          [p.title, p.caption, p.armyName, authors.get(p.userId)?.displayName ?? p.authorName]
             .filter(Boolean)
             .some((t) => t!.toLowerCase().includes(q)),
         )
@@ -129,7 +129,7 @@ export function SharedPhotosPage() {
               className="mt-4 max-w-lg text-muted-foreground"
             >
               Ejércitos terminados, proyectos a medias y esquemas de color de otros coleccionistas.
-              Doble clic en una foto para darle me gusta.
+              Doble clic en una foto para darle me gusta y guarda las que quieras consultar después.
             </motion.p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -253,16 +253,17 @@ export function SharedPhotosPage() {
             </p>
           </div>
         ) : (
-          <div className="columns-2 gap-4 sm:columns-3 lg:columns-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
+          <div className="columns-1 gap-5 sm:columns-2 2xl:columns-3 [&>*]:mb-5 [&>*]:break-inside-avoid">
             {visible.map((p, i) => (
               <PhotoCard
                 key={p.id}
                 photo={p}
                 author={authors.get(p.userId)}
                 index={i}
-                canLike={!!user}
+                canInteract={!!user}
                 onOpen={() => setViewerId(p.id)}
                 onLike={() => toggle(p)}
+                onSave={() => toggleSave(p)}
               />
             ))}
           </div>
@@ -287,6 +288,8 @@ export function SharedPhotosPage() {
         onIndexChange={(i) => setViewerId(visible[i]?.id ?? null)}
         onClose={() => setViewerId(null)}
         onLike={toggle}
+        onSave={toggleSave}
+        onCommentCount={setCommentCount}
         onDelete={(photo) => {
           setViewerId(null);
           remove(photo);

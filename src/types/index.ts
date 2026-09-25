@@ -441,6 +441,11 @@ export interface Tournament extends BaseEntity {
   status: TournamentStatus;
   externalLink: string | null;
   published: boolean;
+  /** Tournament rules ("bases") as TipTap JSON. */
+  rules: RichContent;
+  pointsLimit: number | null;
+  maxPlayers: number | null;
+  entryFee: string | null;
 }
 
 /** Admin-authored public showcase list — not a real user's private army list. */
@@ -485,16 +490,22 @@ export interface SharedPhoto extends BaseEntity {
   userId: string;
   authorName: string;
   image: string;
+  /** Short title shown under the image; `caption` is the longer description. */
+  title: string;
   caption: string;
   gameName: string | null;
   armyName: string | null;
   likeCount: number;
+  commentCount: number;
   /** Populated client-side from the current user's own likes — not a DB column. */
   likedByMe?: boolean;
+  /** Populated client-side from the current user's saved posts. */
+  savedByMe?: boolean;
 }
 
 export interface CreateSharedPhotoDTO {
   image: string;
+  title?: string;
   caption?: string;
   gameName?: string | null;
   armyName?: string | null;
@@ -768,6 +779,10 @@ export interface CreateTournamentDTO {
   status?: TournamentStatus;
   externalLink?: string | null;
   published?: boolean;
+  rules?: RichContent;
+  pointsLimit?: number | null;
+  maxPlayers?: number | null;
+  entryFee?: string | null;
 }
 
 export interface UpdateTournamentDTO extends Partial<CreateTournamentDTO> {
