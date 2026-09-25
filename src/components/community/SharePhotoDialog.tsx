@@ -1,12 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { createSharedPhoto } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import type { SharedPhoto } from "@/types";
 import { ImageIcon, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
+const TITLE_MAX = 80;
 
 export function SharePhotoDialog({
   onClose,
@@ -17,6 +20,7 @@ export function SharePhotoDialog({
 }) {
   const [image, setImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [title, setTitle] = useState("");
   const [caption, setCaption] = useState("");
   const [armyName, setArmyName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,11 +40,12 @@ export function SharePhotoDialog({
   }
 
   async function handleShare() {
-    if (!image) return;
+    if (!image || !title.trim()) return;
     setSaving(true);
     try {
       const created = await createSharedPhoto({
         image,
+        title: title.trim(),
         caption: caption.trim(),
         armyName: armyName.trim() || null,
       });
@@ -77,9 +82,17 @@ export function SharePhotoDialog({
             )}
           </button>
           <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
+            placeholder="Título (p. ej. «Magnus terminado»)"
+            aria-label="Título"
+          />
+          <Textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
-            placeholder="Escribe una descripción…"
+            placeholder="Descripción: esquema de color, técnicas, pinturas… (opcional)"
+            aria-label="Descripción"
+            rows={3}
           />
           <Input
             value={armyName}
@@ -91,7 +104,7 @@ export function SharePhotoDialog({
               <X className="h-4 w-4" />
               Cancelar
             </Button>
-            <Button className="gap-2" disabled={!image || saving} onClick={handleShare}>
+            <Button className="gap-2" disabled={!image || !title.trim() || saving} onClick={handleShare}>
               {saving ? "Compartiendo..." : "Compartir"}
             </Button>
           </div>

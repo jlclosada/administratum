@@ -14,6 +14,7 @@ import {
   getGuides,
   getProfile,
   getProfileStats,
+  getSavedPhotos,
   getSharedPhotosByUser,
   guideRating,
 } from "@/db";
@@ -21,9 +22,10 @@ import { isAdminEmail } from "@/lib/admin";
 import { linkLabel, profileLinks } from "@/lib/profileLinks";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
-import type { Friendship, PaintingGuide, Profile, ProfileStats } from "@/types";
+import type { Friendship, PaintingGuide, Profile, ProfileStats, SharedPhoto } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Bookmark,
   Camera,
   Crown,
   Grid3x3,
@@ -38,10 +40,57 @@ import {
   Swords,
   UserRound,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
-type Tab = "photos" | "guides";
+type Tab = "photos" | "guides" | "saved";
+
+/** Square Instagram-style grid; hovering a tile shows its likes and comments. */
+function PhotoGrid({
+  photos,
+  onOpen,
+  leading,
+}: {
+  photos: SharedPhoto[];
+  onOpen: (index: number) => void;
+  leading?: ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-1 sm:gap-3">
+      {leading}
+      {photos.map((p, i) => (
+        <motion.button
+          key={p.id}
+          type="button"
+          initial={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: Math.min(i, 12) * 0.03 }}
+          onClick={() => onOpen(i)}
+          className="group relative aspect-square overflow-hidden rounded-lg bg-muted sm:rounded-xl"
+          aria-label={p.title || p.caption || "Publicación"}
+        >
+          <img
+            src={p.image}
+            alt={p.title || p.caption}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 p-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            {p.title && <span className="line-clamp-2 text-center text-xs font-semibold">{p.title}</span>}
+            <span className="flex items-center gap-3 text-sm font-semibold">
+              <span className="flex items-center gap-1">
+                <Heart className="h-4 w-4 fill-white" /> {p.likeCount}
+              </span>
+              <span className="flex items-center gap-1">
+                <MessageCircle className="h-4 w-4 fill-white" /> {p.commentCount}
+              </span>
+            </span>
+          </span>
+        </motion.button>
+      ))}
+    </div>
+  );
+}
 
 export function ProfilePage() {
   const { userId: routeId } = useParams<{ userId: string }>();
@@ -63,11 +112,14 @@ function ProfileView({ userId }: { userId: string }) {
   const [friendship, setFriendship] = useState<Friendship | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("photos");
-  const [viewer, setViewer] = useState<number | null>(null);
+  const [viewer, setViewer] = useState<{ source: "photos" | "saved"; index: number } | null>(null);
   const [showShare, setShowShare] = useState(false);
 
   const loadPhotos = useCallback(() => getSharedPhotosByUser(userId), [userId]);
   const feed = usePhotoFeed(loadPhotos);
+  // Saved posts are private: only ever loaded on your own profile.
+  const loadSaved = useCallback(() => (isMe ? getSavedPhotos() : Promise.resolve([])), [isMe]);
+  const saved = usePhotoFeed(loadSaved);
 
   useEffect(() => {
     Promise.all([
@@ -105,6 +157,7 @@ function ProfileView({ userId }: { userId: string }) {
   }
 
   const name = profile.displayName || "Sin nombre";
+  const viewerFeed = viewer?.source === "saved" ? saved : feed;
   const links = profileLinks(profile);
   const isSuperadmin = isMe && isAdminEmail(me?.email);
   const friends = friendship?.status === "accepted";
@@ -267,7 +320,8 @@ function ProfileView({ userId }: { userId: string }) {
             [
               { id: "photos", label: "Publicaciones", icon: Grid3x3 },
               { id: "guides", label: "Guías", icon: Palette },
-            ] as const
+              ...(isMe ? [{ id: "saved", label: "Guardados", icon: Bookmark }] : []),
+            ] as { id: Tab; label: string; icon: typeof Grid3x3 }[]
           ).map((t) => (
             <button
               key={t.id}
@@ -301,7 +355,22 @@ function ProfileView({ userId }: { userId: string }) {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            {tab === "photos" ? (
+            {tab === "saved" ? (
+              saved.loading ? (
+                <div className="flex justify-center py-12">
+                  <LoadingSpinner />
+                </div>
+              ) : saved.photos.length === 0 ? (
+                <EmptyState
+                  icon={<Bookmark className="h-8 w-8" />}
+                  title="Aún no has guardado nada"
+                  description="Pulsa el marcador de cualquier publicación de la Comunidad para tenerla aquí. Solo tú ves lo que guardas."
+                  action={{ label: "Ir a Comunidad", onClick: () => navigate("/comunidad") }}
+                />
+              ) : (
+                <PhotoGrid photos={saved.photos} onOpen={(index) => setViewer({ source: "saved", index })} />
+              )
+            ) : tab === "photos" ? (
               feed.loading ? (
                 <div className="flex justify-center py-12">
                   <LoadingSpinner />
@@ -313,39 +382,22 @@ function ProfileView({ userId }: { userId: string }) {
                   description={`${name} todavía no ha compartido fotos.`}
                 />
               ) : (
-                <div className="grid grid-cols-3 gap-1 sm:gap-3">
-                  {isMe && (
-                    <button
-                      type="button"
-                      onClick={() => setShowShare(true)}
-                      className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary sm:rounded-xl"
-                    >
-                      <Plus className="h-7 w-7 transition-transform duration-300 group-hover:rotate-90" />
-                      <span className="text-xs font-medium">Compartir</span>
-                    </button>
-                  )}
-                  {feed.photos.map((p, i) => (
-                    <motion.button
-                      key={p.id}
-                      type="button"
-                      initial={{ opacity: 0, scale: 0.94 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: Math.min(i, 12) * 0.03 }}
-                      onClick={() => setViewer(i)}
-                      className="group relative aspect-square overflow-hidden rounded-lg bg-muted sm:rounded-xl"
-                    >
-                      <img
-                        src={p.image}
-                        alt={p.caption}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      <span className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/50 text-sm font-semibold text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        <Heart className="h-4 w-4 fill-white" /> {p.likeCount}
-                      </span>
-                    </motion.button>
-                  ))}
-                </div>
+                <PhotoGrid
+                  photos={feed.photos}
+                  onOpen={(index) => setViewer({ source: "photos", index })}
+                  leading={
+                    isMe && (
+                      <button
+                        type="button"
+                        onClick={() => setShowShare(true)}
+                        className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary sm:rounded-xl"
+                      >
+                        <Plus className="h-7 w-7 transition-transform duration-300 group-hover:rotate-90" />
+                        <span className="text-xs font-medium">Compartir</span>
+                      </button>
+                    )
+                  }
+                />
               )
             ) : guides.length === 0 ? (
               <EmptyState
@@ -404,17 +456,21 @@ function ProfileView({ userId }: { userId: string }) {
       )}
 
       <PhotoViewer
-        photos={feed.photos}
-        index={viewer}
-        authors={new Map([[profile.id, profile]])}
+        photos={viewerFeed.photos}
+        index={viewer?.index ?? null}
+        authors={viewer?.source === "saved" ? saved.authors : new Map([[profile.id, profile]])}
         currentUserId={me?.id}
-        onIndexChange={setViewer}
+        onIndexChange={(index) => setViewer((v) => (v ? { ...v, index } : v))}
         onClose={() => setViewer(null)}
-        onLike={feed.toggle}
+        onLike={viewerFeed.toggle}
+        onSave={viewerFeed.toggleSave}
+        onCommentCount={viewerFeed.setCommentCount}
         onDelete={(photo) => {
           setViewer(null);
-          feed.remove(photo);
-          setStats((s) => ({ ...s, photos: Math.max(0, s.photos - 1) }));
+          viewerFeed.remove(photo);
+          if (photo.userId === profile.id) {
+            setStats((s) => ({ ...s, photos: Math.max(0, s.photos - 1) }));
+          }
         }}
       />
     </PageTransition>

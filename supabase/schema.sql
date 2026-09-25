@@ -1009,6 +1009,13 @@ create policy "tournaments_admin_write" on public.tournaments
   using (public.is_admin())
   with check (public.is_admin());
 
+-- Tournament rules ("bases") as TipTap JSON, plus key facts for the
+-- detail page.
+alter table public.tournaments add column if not exists rules jsonb;
+alter table public.tournaments add column if not exists points_limit integer;
+alter table public.tournaments add column if not exists max_players integer;
+alter table public.tournaments add column if not exists entry_fee text;
+
 -- ============================================================
 -- Competitive: featured lists (admin-curated showcase army lists)
 -- ============================================================
@@ -1133,6 +1140,11 @@ create policy "shared_photos_update" on public.shared_photos
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "shared_photos_delete" on public.shared_photos
   for delete to authenticated using (user_id = auth.uid());
+
+-- Instagram-style posts: a short title shown under the image (caption is
+-- the longer description) and a denormalized comment count for the feed.
+alter table public.shared_photos add column if not exists title text not null default '';
+alter table public.shared_photos add column if not exists comment_count integer not null default 0;
 
 -- ============================================================
 -- Community: comments (on articles, guides, and shared photos)
@@ -1389,3 +1401,71 @@ begin
     alter publication supabase_realtime add table public.messages;
   end if;
 end$$;
+
+-- ============================================================
+-- Community: comment counts on shared photos
+-- ============================================================
+-- Same SECURITY DEFINER pattern as recalc_like_count(): the commenter is
+-- usually not the photo's owner, so the trigger needs elevated rights.
+create or replace function public.recalc_photo_comment_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t_id uuid;
+begin
+  if coalesce(new.target_type, old.target_type) <> 'photo' then
+    return null;
+  end if;
+  t_id := coalesce(new.target_id, old.target_id);
+  update public.shared_photos
+    set comment_count = (
+      select count(*) from public.comments where target_type = 'photo' and target_id = t_id
+    )
+    where id = t_id;
+  return null;
+end;
+$$;
+
+drop trigger if exists comments_photo_count on public.comments;
+create trigger comments_photo_count
+  after insert or delete on public.comments
+  for each row execute function public.recalc_photo_comment_count();
+
+-- Backfill counts for photos commented before the trigger existed.
+update public.shared_photos p
+  set comment_count = c.n
+  from (
+    select target_id, count(*)::int as n from public.comments
+    where target_type = 'photo' group by target_id
+  ) c
+  where c.target_id = p.id and p.comment_count <> c.n;
+
+-- ============================================================
+-- Community: saved posts (private bookmarks)
+-- ============================================================
+create table if not exists public.saved_photos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  photo_id uuid not null references public.shared_photos (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (user_id, photo_id)
+);
+
+create index if not exists idx_saved_photos_user on public.saved_photos (user_id, created_at desc);
+
+alter table public.saved_photos enable row level security;
+
+drop policy if exists "saved_photos_read" on public.saved_photos;
+drop policy if exists "saved_photos_insert" on public.saved_photos;
+drop policy if exists "saved_photos_delete" on public.saved_photos;
+
+-- Only the owner ever sees their saved posts.
+create policy "saved_photos_read" on public.saved_photos
+  for select to authenticated using (user_id = auth.uid());
+create policy "saved_photos_insert" on public.saved_photos
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "saved_photos_delete" on public.saved_photos
+  for delete to authenticated using (user_id = auth.uid());

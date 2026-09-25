@@ -15,9 +15,14 @@ import { toast } from "sonner";
 export function CommentSection({
   targetType,
   targetId,
+  onCountChange,
+  hideHeading = false,
 }: {
   targetType: CommentTargetType;
   targetId: string;
+  /** Called with the number of comments whenever it changes. */
+  onCountChange?: (count: number) => void;
+  hideHeading?: boolean;
 }) {
   const { user } = useAuthStore();
   const isAdmin = useIsAdmin();
@@ -37,6 +42,10 @@ export function CommentSection({
       .catch((err) => console.error("Failed to load comments:", err))
       .finally(() => setLoading(false));
   }, [targetType, targetId]);
+
+  useEffect(() => {
+    if (!loading) onCountChange?.(comments.length);
+  }, [comments.length, loading, onCountChange]);
 
   async function handlePost() {
     const content = draft.trim();
@@ -91,11 +100,13 @@ export function CommentSection({
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold">Comentarios</h2>
-        {!loading && <span className="text-sm text-muted-foreground">({comments.length})</span>}
-      </div>
+      {!hideHeading && (
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-primary" />
+          <h2 className="font-semibold">Comentarios</h2>
+          {!loading && <span className="text-sm text-muted-foreground">({comments.length})</span>}
+        </div>
+      )}
 
       {user ? (
         <div className="flex items-start gap-2">

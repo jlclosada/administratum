@@ -1,3 +1,4 @@
+import { TournamentAdmin } from "@/components/competitive/TournamentAdmin";
 import { ResultInputs } from "@/components/shared/ArmyListDialog";
 import { ArmyListPasteField } from "@/components/shared/ArmyListPasteField";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -8,9 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
     createFeaturedList,
-    createTournament,
     deleteFeaturedList,
-    deleteTournament,
     getFeaturedLists,
     getTournaments,
 } from "@/db";
@@ -18,17 +17,11 @@ import { useIsAdmin } from "@/lib/admin";
 import { buildResult, formatResult, type ParsedArmyList } from "@/lib/armyListParser";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import type { FeaturedList, Tournament, TournamentStatus } from "@/types";
-import { ArrowLeft, ExternalLink, ImageIcon, Loader2, ScrollText, ShieldAlert, Trash2, Trophy } from "lucide-react";
+import type { FeaturedList, Tournament } from "@/types";
+import { ArrowLeft, ExternalLink, ImageIcon, Loader2, ScrollText, ShieldAlert, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-
-const STATUS_LABEL: Record<TournamentStatus, string> = {
-  upcoming: "Próximo",
-  ongoing: "En curso",
-  finished: "Finalizado",
-};
 
 export function AdminCompetitivePage() {
   const isAdmin = useIsAdmin();
@@ -36,16 +29,6 @@ export function AdminCompetitivePage() {
   const [loading, setLoading] = useState(true);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [tName, setTName] = useState("");
-  const [tLocation, setTLocation] = useState("");
-  const [tStartDate, setTStartDate] = useState("");
-  const [tEndDate, setTEndDate] = useState("");
-  const [tStatus, setTStatus] = useState<TournamentStatus>("upcoming");
-  const [tLink, setTLink] = useState("");
-  const [tDesc, setTDesc] = useState("");
-  const [tImage, setTImage] = useState<string | null>(null);
-  const [tUploading, setTUploading] = useState(false);
-  const [tSaving, setTSaving] = useState(false);
 
   const [lists, setLists] = useState<FeaturedList[]>([]);
   const [lTitle, setLTitle] = useState("");
@@ -84,63 +67,6 @@ export function AdminCompetitivePage() {
       .catch((err) => console.error("Failed to load competitive data:", err))
       .finally(() => setLoading(false));
   }, [isAdmin]);
-
-  async function handlePickTournamentImage() {
-    try {
-      const [file] = await pickFiles({ accept: "image/*" });
-      if (!file) return;
-      setTUploading(true);
-      setTImage(await uploadFile(file, "tournaments"));
-    } catch (err) {
-      console.error("Failed to upload tournament image:", err);
-      toast.error("No se pudo subir la imagen.");
-    } finally {
-      setTUploading(false);
-    }
-  }
-
-  async function handleCreateTournament() {
-    if (!tName.trim()) return;
-    setTSaving(true);
-    try {
-      const created = await createTournament({
-        name: tName.trim(),
-        location: tLocation.trim() || null,
-        startDate: tStartDate || null,
-        endDate: tEndDate || null,
-        status: tStatus,
-        externalLink: tLink.trim() || null,
-        description: tDesc.trim(),
-        coverImage: tImage,
-      });
-      setTournaments((prev) => [created, ...prev]);
-      setTName("");
-      setTLocation("");
-      setTStartDate("");
-      setTEndDate("");
-      setTStatus("upcoming");
-      setTLink("");
-      setTDesc("");
-      setTImage(null);
-      toast.success("Torneo creado");
-    } catch (err) {
-      console.error("Failed to create tournament:", err);
-      toast.error("No se pudo crear el torneo.");
-    } finally {
-      setTSaving(false);
-    }
-  }
-
-  async function handleDeleteTournament(id: string) {
-    try {
-      await deleteTournament(id);
-      setTournaments((prev) => prev.filter((t) => t.id !== id));
-      toast.success("Torneo eliminado");
-    } catch (err) {
-      console.error("Failed to delete tournament:", err);
-      toast.error("No se pudo eliminar el torneo.");
-    }
-  }
 
   async function handlePickListImage() {
     try {
@@ -246,88 +172,7 @@ export function AdminCompetitivePage() {
           </div>
         </div>
 
-        {/* Tournaments */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-primary" />
-              Torneos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {tournaments.length > 0 && (
-              <div className="overflow-hidden rounded-xl border border-border/60">
-                {tournaments.map((t, i) => (
-                  <div
-                    key={t.id}
-                    className={cn(
-                      "flex items-center justify-between gap-3 px-4 py-3",
-                      i !== 0 && "border-t border-t-border/50",
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium">{t.name}</p>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">
-                          {STATUS_LABEL[t.status]}
-                        </span>
-                      </div>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[t.location, t.startDate].filter(Boolean).join(" · ") || "Sin detalles"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteTournament(t.id)}
-                      className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Eliminar torneo"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                onClick={handlePickTournamentImage}
-                disabled={tUploading}
-                className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:opacity-50"
-              >
-                {tUploading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : tImage ? (
-                  <img src={tImage} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <ImageIcon className="h-6 w-6" />
-                )}
-              </button>
-              <div className="grid flex-1 gap-2 sm:grid-cols-2">
-                <Input value={tName} onChange={(e) => setTName(e.target.value)} placeholder="Nombre del torneo" />
-                <Input value={tLocation} onChange={(e) => setTLocation(e.target.value)} placeholder="Lugar (opcional)" />
-                <Input type="date" value={tStartDate} onChange={(e) => setTStartDate(e.target.value)} placeholder="Fecha inicio" />
-                <Input type="date" value={tEndDate} onChange={(e) => setTEndDate(e.target.value)} placeholder="Fecha fin (opcional)" />
-                <select
-                  value={tStatus}
-                  onChange={(e) => setTStatus(e.target.value as TournamentStatus)}
-                  className="h-9 rounded-lg border border-border bg-background/40 px-3 text-sm backdrop-blur-sm"
-                >
-                  {(Object.keys(STATUS_LABEL) as TournamentStatus[]).map((s) => (
-                    <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-                  ))}
-                </select>
-                <Input value={tLink} onChange={(e) => setTLink(e.target.value)} placeholder="Enlace externo (opcional)" />
-              </div>
-            </div>
-            <Textarea value={tDesc} onChange={(e) => setTDesc(e.target.value)} placeholder="Formato, premios, reglas especiales…" rows={2} />
-            <Button onClick={handleCreateTournament} disabled={tSaving || !tName.trim()} className="gap-2">
-              <Trophy className="h-4 w-4" />
-              {tSaving ? "Creando..." : "Crear torneo"}
-            </Button>
-          </CardContent>
-        </Card>
+        <TournamentAdmin tournaments={tournaments} onChange={setTournaments} />
 
         {/* Featured lists */}
         <Card>

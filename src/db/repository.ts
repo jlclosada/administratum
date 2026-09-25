@@ -1829,10 +1829,20 @@ export async function createTournament(dto: CreateTournamentDTO): Promise<Tourna
       status: dto.status ?? 'upcoming',
       external_link: dto.externalLink ?? null,
       published: dto.published ?? true,
+      rules: dto.rules ?? null,
+      points_limit: dto.pointsLimit ?? null,
+      max_players: dto.maxPlayers ?? null,
+      entry_fee: dto.entryFee ?? null,
     })
     .select()
     .single();
   if (error) throw error;
+  return mapRow<Tournament>(data);
+}
+
+export async function getTournamentById(id: string): Promise<Tournament | null> {
+  const { data, error } = await supabase.from('tournaments').select('*').eq('id', id).maybeSingle();
+  if (error || !data) return null;
   return mapRow<Tournament>(data);
 }
 
@@ -1848,6 +1858,10 @@ export async function updateTournament(dto: UpdateTournamentDTO): Promise<Tourna
   if (dto.status !== undefined) payload.status = dto.status;
   if (dto.externalLink !== undefined) payload.external_link = dto.externalLink;
   if (dto.published !== undefined) payload.published = dto.published;
+  if (dto.rules !== undefined) payload.rules = dto.rules;
+  if (dto.pointsLimit !== undefined) payload.points_limit = dto.pointsLimit;
+  if (dto.maxPlayers !== undefined) payload.max_players = dto.maxPlayers;
+  if (dto.entryFee !== undefined) payload.entry_fee = dto.entryFee;
 
   const { data, error } = await supabase
     .from('tournaments')
@@ -2059,12 +2073,7 @@ export async function getSharedPhotos(limit = 60): Promise<SharedPhoto[]> {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error || !data) return [];
-    const photos = mapRows<SharedPhoto>(data);
-    const liked = await getMyLikes(
-      'photo',
-      photos.map((p) => p.id),
-    );
-    return photos.map((p) => ({ ...p, likedByMe: liked.has(p.id) }));
+    return withMyPhotoState(mapRows<SharedPhoto>(data));
   } catch {
     return [];
   }
@@ -2086,6 +2095,7 @@ export async function createSharedPhoto(dto: CreateSharedPhotoDTO): Promise<Shar
       user_id: user.id,
       author_name: authorName,
       image: dto.image,
+      title: dto.title ?? '',
       caption: dto.caption ?? '',
       game_name: dto.gameName ?? null,
       army_name: dto.armyName ?? null,
@@ -2093,7 +2103,59 @@ export async function createSharedPhoto(dto: CreateSharedPhotoDTO): Promise<Shar
     .select()
     .single();
   if (error) throw error;
-  return { ...mapRow<SharedPhoto>(data), likedByMe: false };
+  return { ...mapRow<SharedPhoto>(data), likedByMe: false, savedByMe: false };
+}
+
+/** Photo ids the current user has saved, among `ids`. */
+async function getMySavedPhotoIds(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new Set();
+  const { data } = await supabase.from('saved_photos').select('photo_id').in('photo_id', ids);
+  return new Set((data ?? []).map((r) => r.photo_id as string));
+}
+
+/** Adds the current user's liked/saved flags to a list of photos. */
+export async function withMyPhotoState(photos: SharedPhoto[]): Promise<SharedPhoto[]> {
+  const ids = photos.map((p) => p.id);
+  const [liked, saved] = await Promise.all([getMyLikes('photo', ids), getMySavedPhotoIds(ids)]);
+  return photos.map((p) => ({
+    ...p,
+    title: p.title ?? '',
+    commentCount: p.commentCount ?? 0,
+    likedByMe: liked.has(p.id),
+    savedByMe: saved.has(p.id),
+  }));
+}
+
+export async function setPhotoSaved(photoId: string, saved: boolean): Promise<void> {
+  if (saved) {
+    const { error } = await supabase.from('saved_photos').insert({ photo_id: photoId });
+    // A duplicate means it was already saved — the desired end state.
+    if (error && error.code !== '23505') throw error;
+  } else {
+    const { error } = await supabase.from('saved_photos').delete().eq('photo_id', photoId);
+    if (error) throw error;
+  }
+}
+
+/** The current user's saved posts, most recently saved first. */
+export async function getSavedPhotos(): Promise<SharedPhoto[]> {
+  const { data, error } = await supabase
+    .from('saved_photos')
+    .select('created_at, shared_photos(*)')
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  // Many-to-one embed: an object at runtime, typed as an array by the
+  // untyped client — accept either.
+  const photos = data.flatMap((row) => {
+    const embed: unknown = row.shared_photos;
+    const photo = Array.isArray(embed) ? embed[0] : embed;
+    return photo ? [mapRow<SharedPhoto>(photo as Record<string, unknown>)] : [];
+  });
+  return withMyPhotoState(photos);
 }
 
 export async function deleteSharedPhoto(id: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { deleteSharedPhoto, getProfilesByIds, toggleLike } from "@/db";
+import { deleteSharedPhoto, getProfilesByIds, setPhotoSaved, toggleLike } from "@/db";
 import type { Profile, SharedPhoto } from "@/types";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -48,6 +48,27 @@ export function usePhotoFeed(load: () => Promise<SharedPhoto[]>) {
     }
   }, []);
 
+  const toggleSave = useCallback(async (photo: SharedPhoto) => {
+    const next = !photo.savedByMe;
+    const apply = (saved: boolean) =>
+      setPhotos((prev) => prev.map((p) => (p.id === photo.id ? { ...p, savedByMe: saved } : p)));
+    apply(next);
+    try {
+      await setPhotoSaved(photo.id, next);
+      toast.success(next ? "Guardado en tu perfil" : "Eliminado de guardados");
+    } catch {
+      apply(!next);
+      toast.error("No se pudo guardar la publicación.");
+    }
+  }, []);
+
+  /** Keeps a post's comment count in sync with what the viewer loaded/posted. */
+  const setCommentCount = useCallback((photoId: string, count: number) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === photoId && p.commentCount !== count ? { ...p, commentCount: count } : p)),
+    );
+  }, []);
+
   const remove = useCallback(async (photo: SharedPhoto) => {
     setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
     try {
@@ -66,5 +87,5 @@ export function usePhotoFeed(load: () => Promise<SharedPhoto[]>) {
     if (author) setAuthors((prev) => new Map(prev).set(author.id, author));
   }, []);
 
-  return { photos, authors, loading, toggle, remove, prepend };
+  return { photos, authors, loading, toggle, toggleSave, setCommentCount, remove, prepend };
 }

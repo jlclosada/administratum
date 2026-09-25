@@ -1,118 +1,91 @@
-import { EmptyState } from "@/components/shared/EmptyState";
+import { DateBlock, FeaturedListCard, StatusPill, TournamentCard } from "@/components/competitive/cards";
+import { countdownLabel, formatDateRange } from "@/components/competitive/status";
+import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
+import { Button } from "@/components/ui/button";
 import { getFeaturedLists, getTournaments } from "@/db";
-import { formatResult } from "@/lib/armyListParser";
-import { cn } from "@/lib/utils";
-import type { FeaturedList, Tournament, TournamentStatus } from "@/types";
-import { ChevronRight, ExternalLink, ScrollText, Swords, Trophy } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import type { FeaturedList, Tournament } from "@/types";
+import { motion } from "framer-motion";
+import { ArrowRight, History, MapPin, ScrollText, Swords, Trophy, Users } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 
-const STATUS: Record<TournamentStatus, { label: string; dot: string }> = {
-  ongoing: { label: "En curso", dot: "bg-emerald-500" },
-  upcoming: { label: "Próximo", dot: "bg-sky-500" },
-  finished: { label: "Finalizado", dot: "bg-muted-foreground" },
-};
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "";
-  return new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function TournamentRow({ t }: { t: Tournament }) {
-  const status = STATUS[t.status];
+function SectionHeading({ icon, title, kicker }: { icon: ReactNode; title: string; kicker: string }) {
   return (
-    <div className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", status.dot)} />
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {status.label}
-          </span>
-          {t.externalLink && (
-            <a
-              href={t.externalLink}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-auto inline-flex items-center gap-1 text-xs text-primary hover:underline sm:hidden"
-            >
-              Detalles <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-        </div>
-        <p className="mt-1 font-medium leading-tight">{t.name}</p>
-        {t.description && (
-          <p className="mt-0.5 text-sm text-muted-foreground">{t.description}</p>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-4 text-right">
-        <div>
-          <p className="font-mono text-sm tabular-nums text-foreground">
-            {formatDate(t.startDate)}
-            {t.endDate && t.endDate !== t.startDate ? ` – ${formatDate(t.endDate)}` : ""}
-          </p>
-          {t.location && <p className="text-xs text-muted-foreground">{t.location}</p>}
-        </div>
-        {t.externalLink && (
-          <a
-            href={t.externalLink}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden shrink-0 items-center gap-1 text-xs text-primary hover:underline sm:inline-flex"
-          >
-            Detalles <ExternalLink className="h-3 w-3" />
-          </a>
-        )}
-      </div>
+    <div className="mb-5 border-b border-border/60 pb-3">
+      <p className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+        {icon} {kicker}
+      </p>
+      <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl">{title}</h2>
     </div>
   );
 }
 
-function FeaturedListRow({ l }: { l: FeaturedList }) {
-  const navigate = useNavigate();
-  const result = formatResult(l.result);
+/** The tournament everyone should see first: live now, else the next one. */
+function Spotlight({ t }: { t: Tournament }) {
+  const countdown = countdownLabel(t);
   return (
-    <button
-      type="button"
-      onClick={() => navigate(`/competitivo/listas/${l.id}`)}
-      className="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-accent/40"
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
     >
-      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-        {l.coverImage ? (
-          <img src={l.coverImage} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Swords className="h-5 w-5 text-muted-foreground/40" />
-          </div>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-medium leading-tight transition-colors group-hover:text-primary">{l.title}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {[l.factionName, l.authorName ? `por ${l.authorName}` : null, l.tournamentName]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {l.description && (
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{l.description}</p>
-        )}
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-        {l.totalPoints != null && (
-          <span>
-            <span className="font-mono text-base font-medium tabular-nums text-foreground">{l.totalPoints}</span>
-            <span className="ml-1 text-[10px] font-medium text-muted-foreground">pts</span>
-          </span>
-        )}
-        {result && (
-          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-500">
-            {result}
-          </span>
-        )}
-      </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-    </button>
+      <Link
+        to={`/competitivo/torneos/${t.id}`}
+        className="group relative isolate flex min-h-[340px] flex-col justify-end overflow-hidden rounded-3xl border border-border/60 p-6 sm:p-8"
+      >
+        <img
+          src={t.coverImage || "/images/landing-hero.jpg"}
+          alt=""
+          className="absolute inset-0 -z-10 h-full w-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-105"
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black via-black/60 to-black/10" />
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusPill status={t.status} />
+          {countdown && (
+            <span className="rounded-full bg-white px-3 py-0.5 font-mono text-xs font-bold uppercase tracking-wider text-zinc-950">
+              {countdown}
+            </span>
+          )}
+        </div>
+        <h3 className="mt-3 max-w-3xl font-display text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-5xl">
+          {t.name}
+        </h3>
+        {t.description && <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">{t.description}</p>}
+        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/80">
+          <span className="font-mono">{formatDateRange(t)}</span>
+          {t.location && (
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4" /> {t.location}
+            </span>
+          )}
+          {t.pointsLimit && (
+            <span className="flex items-center gap-1.5">
+              <Swords className="h-4 w-4" /> {t.pointsLimit} pts
+            </span>
+          )}
+          {t.maxPlayers && (
+            <span className="flex items-center gap-1.5">
+              <Users className="h-4 w-4" /> {t.maxPlayers} plazas
+            </span>
+          )}
+        </div>
+        <span className="mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-transform duration-300 group-hover:translate-x-1">
+          Ver bases y detalles <ArrowRight className="h-4 w-4" />
+        </span>
+      </Link>
+    </motion.div>
+  );
+}
+
+function EmptyBlock({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/60 py-16 text-center">
+      {icon}
+      <p className="font-medium">{title}</p>
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
   );
 }
 
@@ -131,6 +104,18 @@ export function CompetitivoPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const { spotlight, active, finished } = useMemo(() => {
+    const byStart = (a: Tournament, b: Tournament) =>
+      (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999");
+    const ongoing = tournaments.filter((t) => t.status === "ongoing").sort(byStart);
+    const upcoming = tournaments.filter((t) => t.status === "upcoming").sort(byStart);
+    const done = tournaments
+      .filter((t) => t.status === "finished")
+      .sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""));
+    const lead = ongoing[0] ?? upcoming[0] ?? null;
+    return { spotlight: lead, active: [...ongoing, ...upcoming].filter((t) => t !== lead), finished: done };
+  }, [tournaments]);
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -139,62 +124,111 @@ export function CompetitivoPage() {
     );
   }
 
-  const ongoing = tournaments.filter((t) => t.status === "ongoing");
-  const upcoming = tournaments.filter((t) => t.status === "upcoming");
-  const finished = tournaments.filter((t) => t.status === "finished");
-  const orderedTournaments = [...ongoing, ...upcoming, ...finished];
+  const stats = [
+    { label: "torneos activos", value: tournaments.length - finished.length },
+    { label: "listas destacadas", value: lists.length },
+    { label: "disputados", value: finished.length },
+  ];
 
   return (
     <PageTransition>
-      <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            Competitivo
-          </h1>
-          <p className="text-muted-foreground">
-            Torneos de la comunidad y listas destacadas por su rendimiento o construcción.
+      <div className="space-y-14">
+        <header className="relative isolate overflow-hidden rounded-3xl border border-border/50 bg-card/30 px-6 py-10 sm:px-10 sm:py-12">
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+            <img src="/images/landing-hero.jpg" alt="" className="h-full w-full object-cover opacity-20 grayscale" />
+            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/20" />
+          </div>
+          <p className="mb-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
+            <Trophy className="h-3.5 w-3.5" /> Escena competitiva
           </p>
-        </div>
+          <h1 className="font-display text-4xl font-black leading-[0.95] tracking-tight sm:text-6xl">Competitivo</h1>
+          <p className="mt-3 max-w-xl text-muted-foreground">
+            Torneos de la comunidad con sus bases completas, y las listas que están marcando el meta.
+          </p>
+          <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4">
+            {stats.map((s) => (
+              <div key={s.label}>
+                <dd className="font-display text-3xl font-bold tabular-nums">
+                  <AnimatedNumber value={s.value} />
+                </dd>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</dt>
+              </div>
+            ))}
+          </dl>
+        </header>
 
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">Torneos</h2>
-          </div>
-          {orderedTournaments.length === 0 ? (
-            <EmptyState
-              icon={<Trophy className="h-8 w-8" />}
+        <section>
+          <SectionHeading icon={<Trophy className="h-3 w-3" />} kicker="Calendario" title="Torneos" />
+          {!spotlight && finished.length === 0 ? (
+            <EmptyBlock
+              icon={<Trophy className="h-8 w-8 text-muted-foreground/40" />}
               title="Sin torneos anunciados"
-              description="Vuelve pronto — aquí aparecerán los próximos torneos de la comunidad."
+              text="Vuelve pronto: aquí aparecerán los próximos torneos."
             />
           ) : (
-            <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60">
-              {orderedTournaments.map((t) => (
-                <TournamentRow key={t.id} t={t} />
+            <div className="space-y-6">
+              {spotlight && <Spotlight t={spotlight} />}
+              {active.length > 0 && (
+                <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+                  {active.map((t, i) => (
+                    <TournamentCard key={t.id} t={t} index={i} />
+                  ))}
+                </div>
+              )}
+              {finished.length > 0 && (
+                <div className="pt-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <History className="h-4 w-4" /> Historial
+                  </h3>
+                  <div className="divide-y divide-border/50 overflow-hidden rounded-2xl border border-border/60">
+                    {finished.map((t) => (
+                      <Link
+                        key={t.id}
+                        to={`/competitivo/torneos/${t.id}`}
+                        className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/40"
+                      >
+                        <DateBlock iso={t.startDate} className="w-12 opacity-80" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium group-hover:underline">{t.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {[t.location, t.pointsLimit ? `${t.pointsLimit} pts` : null].filter(Boolean).join(" · ") ||
+                              formatDateRange(t)}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <SectionHeading icon={<ScrollText className="h-3 w-3" />} kicker="Meta" title="Listas destacadas" />
+          {lists.length === 0 ? (
+            <EmptyBlock
+              icon={<ScrollText className="h-8 w-8 text-muted-foreground/40" />}
+              title="Sin listas destacadas todavía"
+              text="Las listas más interesantes de la comunidad aparecerán aquí."
+            />
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+              {lists.map((l, i) => (
+                <FeaturedListCard key={l.id} l={l} index={i} />
               ))}
             </div>
           )}
         </section>
 
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <ScrollText className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">Listas destacadas</h2>
-          </div>
-          {lists.length === 0 ? (
-            <EmptyState
-              icon={<ScrollText className="h-8 w-8" />}
-              title="Sin listas destacadas todavía"
-              description="Las listas más interesantes de la comunidad aparecerán aquí."
-            />
-          ) : (
-            <div className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60">
-              {lists.map((l) => (
-                <FeaturedListRow key={l.id} l={l} />
-              ))}
-            </div>
-          )}
-        </section>
+        <div className="flex justify-center">
+          <Button variant="outline" className="gap-2" asChild>
+            <Link to="/catalogo-puntos">
+              <Swords className="h-4 w-4" /> Consultar puntos del Munitorum
+            </Link>
+          </Button>
+        </div>
       </div>
     </PageTransition>
   );
