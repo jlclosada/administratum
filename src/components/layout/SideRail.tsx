@@ -9,7 +9,16 @@ function AdLabel() {
   );
 }
 
-export function AdSlot({ ad, className }: { ad: Ad; className?: string }) {
+export function AdSlot({
+  ad,
+  className,
+  compact = false,
+}: {
+  ad: Ad;
+  className?: string;
+  /** Fixed height, natural width — keeps tall skyscrapers sane in the mobile strip. */
+  compact?: boolean;
+}) {
   return (
     <a
       href={ad.url}
@@ -24,7 +33,10 @@ export function AdSlot({ ad, className }: { ad: Ad; className?: string }) {
           src={ad.image}
           alt={ad.title || "Anuncio"}
           loading="lazy"
-          className="block h-auto w-full transition-transform duration-500 group-hover:scale-[1.02]"
+          className={cn(
+            "block transition-transform duration-500 group-hover:scale-[1.02]",
+            compact ? "h-[200px] w-auto max-w-[85vw] object-contain" : "h-auto w-full",
+          )}
         />
       </div>
     </a>
@@ -54,7 +66,7 @@ export function MobileAdStrip({ ads }: { ads: Ad[] }) {
     <div className="mt-10 border-t border-border/40 pt-4">
       <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6">
         {ads.map((ad) => (
-          <AdSlot key={ad.id} ad={ad} className="w-[min(18rem,80vw)] shrink-0 snap-start" />
+          <AdSlot key={ad.id} ad={ad} compact className="shrink-0 snap-start" />
         ))}
       </div>
     </div>

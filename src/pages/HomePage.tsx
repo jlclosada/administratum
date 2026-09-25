@@ -261,7 +261,7 @@ function HomeTabs({
     <div
       role="tablist"
       aria-label="Secciones de inicio"
-      className="flex items-center gap-6 overflow-x-auto border-b-2 border-border/60 sm:gap-8"
+      className="flex items-center gap-6 overflow-x-auto border-b-2 border-border/60 [scrollbar-width:none] sm:gap-8"
     >
       {HOME_TABS.map((t) => {
         const Icon = t.icon;

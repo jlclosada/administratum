@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { Profile, SharedPhoto } from "@/types";
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { Heart } from "lucide-react";
-import { useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "react-router-dom";
 
 /**
@@ -30,11 +30,16 @@ export function PhotoCard({
   showAuthor?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [burst, setBurst] = useState(0);
   const px = useMotionValue(0.5);
   const py = useMotionValue(0.5);
   const rotateX = useSpring(useTransform(py, [0, 1], [5, -5]), { stiffness: 200, damping: 20 });
   const rotateY = useSpring(useTransform(px, [0, 1], [-5, 5]), { stiffness: 200, damping: 20 });
+
+  useEffect(() => () => {
+    if (clickTimer.current) clearTimeout(clickTimer.current);
+  }, []);
 
   function handleMove(e: PointerEvent<HTMLDivElement>) {
     if (e.pointerType !== "mouse" || !ref.current) return;
@@ -52,7 +57,21 @@ export function PhotoCard({
     py.set(0.5);
   }
 
+  // A double-click also fires two clicks: wait briefly before opening so a
+  // double-click only likes, like double-tap on Instagram.
+  function handleClick() {
+    if (clickTimer.current) return;
+    clickTimer.current = setTimeout(() => {
+      clickTimer.current = null;
+      onOpen();
+    }, 220);
+  }
+
   function handleDoubleClick() {
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+    }
     if (!canLike) return;
     setBurst((n) => n + 1);
     if (!photo.likedByMe) onLike();
@@ -77,7 +96,7 @@ export function PhotoCard({
       >
         <button
           type="button"
-          onClick={onOpen}
+          onClick={handleClick}
           onDoubleClick={handleDoubleClick}
           className="block w-full text-left"
           aria-label={photo.caption || `Foto de ${name}`}

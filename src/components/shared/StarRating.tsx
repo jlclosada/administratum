@@ -26,37 +26,51 @@ export function StarRating({
   const interactive = !!onRate && !readOnly;
   const display = hover || value;
 
+  const star = (i: number) => {
+    const filled = display >= i || display >= i - 0.5;
+    return (
+      <Star
+        className={cn(
+          sizeMap[size],
+          filled ? "fill-amber-400 text-amber-400" : "fill-transparent text-muted-foreground/40",
+        )}
+      />
+    );
+  };
+
+  // Display-only ratings render plain elements: they often sit inside
+  // clickable cards, where nested <button>s are invalid HTML.
+  if (!interactive) {
+    return (
+      <div
+        className={cn("inline-flex items-center gap-0.5", className)}
+        role="img"
+        aria-label={`${Math.round(value * 10) / 10} de 5 estrellas`}
+      >
+        {[1, 2, 3, 4, 5].map((i) => (
+          <span key={i} className="relative">
+            {star(i)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className={cn("inline-flex items-center gap-0.5", className)}>
-      {[1, 2, 3, 4, 5].map((i) => {
-        const filled = display >= i;
-        const half = !filled && display >= i - 0.5;
-        return (
-          <button
-            key={i}
-            type="button"
-            disabled={!interactive}
-            onMouseEnter={() => interactive && setHover(i)}
-            onMouseLeave={() => interactive && setHover(0)}
-            onClick={() => onRate?.(i)}
-            className={cn(
-              "relative",
-              interactive && "cursor-pointer transition-transform hover:scale-110",
-              !interactive && "cursor-default"
-            )}
-            aria-label={`${i} estrellas`}
-          >
-            <Star
-              className={cn(
-                sizeMap[size],
-                filled || half
-                  ? "fill-amber-400 text-amber-400"
-                  : "fill-transparent text-muted-foreground/40"
-              )}
-            />
-          </button>
-        );
-      })}
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover(0)}
+          onClick={() => onRate?.(i)}
+          className="relative cursor-pointer transition-transform hover:scale-110"
+          aria-label={`${i} estrellas`}
+        >
+          {star(i)}
+        </button>
+      ))}
     </div>
   );
 }
