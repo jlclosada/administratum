@@ -64,7 +64,7 @@ import type {
 
 // ======================== HELPERS ========================
 
-function mapRow<T>(row: Record<string, unknown>): T {
+export function mapRow<T>(row: Record<string, unknown>): T {
   const mapped: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {
     const camelKey = key.replace(/_([a-z])/g, (_, c: string) =>
@@ -75,7 +75,7 @@ function mapRow<T>(row: Record<string, unknown>): T {
   return mapped as T;
 }
 
-function mapRows<T>(rows: Record<string, unknown>[]): T[] {
+export function mapRows<T>(rows: Record<string, unknown>[]): T[] {
   return rows.map((r) => mapRow<T>(r));
 }
 
@@ -138,6 +138,19 @@ async function hydrateProcessesWithMedia(
 
 // ======================== PROFILES ========================
 
+/** Row → Profile, defaulting columns that older installs may not have yet. */
+export function toProfile(row: Record<string, unknown>): Profile {
+  const p = mapRow<Profile>(row);
+  return {
+    ...p,
+    displayName: p.displayName ?? '',
+    bio: p.bio ?? '',
+    location: p.location ?? '',
+    links: Array.isArray(p.links) ? p.links : [],
+    role: p.role === 'admin' ? 'admin' : 'user',
+  };
+}
+
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
@@ -145,7 +158,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     .eq('id', userId)
     .maybeSingle();
   if (error || !data) return null;
-  return mapRow<Profile>(data);
+  return toProfile(data);
 }
 
 export async function getMyProfile(): Promise<Profile | null> {
@@ -174,6 +187,7 @@ export async function updateMyProfile(dto: UpdateProfileDTO): Promise<Profile> {
   if (dto.location !== undefined) payload.location = dto.location;
   if (dto.favoriteFaction !== undefined) payload.favorite_faction = dto.favoriteFaction;
   if (dto.website !== undefined) payload.website = dto.website;
+  if (dto.links !== undefined) payload.links = dto.links;
 
   const { data, error } = await supabase
     .from('profiles')
@@ -181,7 +195,7 @@ export async function updateMyProfile(dto: UpdateProfileDTO): Promise<Profile> {
     .select()
     .single();
   if (error) throw error;
-  return mapRow<Profile>(data);
+  return toProfile(data);
 }
 
 // ======================== GAMES ========================
@@ -1879,10 +1893,23 @@ export async function createFeaturedList(dto: CreateFeaturedListDTO): Promise<Fe
       description: dto.description ?? '',
       cover_image: dto.coverImage ?? null,
       published: dto.published ?? true,
+      list_data: dto.listData ?? null,
+      result: dto.result ?? null,
+      tournament_name: dto.tournamentName ?? null,
     })
     .select()
     .single();
   if (error) throw error;
+  return mapRow<FeaturedList>(data);
+}
+
+export async function getFeaturedListById(id: string): Promise<FeaturedList | null> {
+  const { data, error } = await supabase
+    .from('featured_lists')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
   return mapRow<FeaturedList>(data);
 }
 
@@ -1896,6 +1923,9 @@ export async function updateFeaturedList(dto: UpdateFeaturedListDTO): Promise<Fe
   if (dto.description !== undefined) payload.description = dto.description;
   if (dto.coverImage !== undefined) payload.cover_image = dto.coverImage;
   if (dto.published !== undefined) payload.published = dto.published;
+  if (dto.listData !== undefined) payload.list_data = dto.listData;
+  if (dto.result !== undefined) payload.result = dto.result;
+  if (dto.tournamentName !== undefined) payload.tournament_name = dto.tournamentName;
 
   const { data, error } = await supabase
     .from('featured_lists')

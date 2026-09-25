@@ -55,6 +55,7 @@ export {
   getDownloads,
   getFactionCatalog,
   upsertFactionCatalog,
+  getFeaturedListById,
   getFeaturedLists,
   getGameById,
   getGuideById,
@@ -99,3 +100,5 @@ export {
   updatePaintingProcess,
   updateTournament,
 } from './repository';
+export * from './social';
+export * from './admin';

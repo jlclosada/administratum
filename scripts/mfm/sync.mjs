@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { flattenCatalog, dedupeCatalog, catalogKey, flattenFactions } from './catalog.mjs';
+import { flattenCatalog, dedupeCatalog, catalogKey, flattenFactions, pricingDelta } from './catalog.mjs';
 import { scrapeAll } from './scrape.js';
 
 const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -50,14 +50,6 @@ function toRow(unit) {
 
 function pricingChanged(a, b) {
   return JSON.stringify(a ?? null) !== JSON.stringify(b ?? null);
-}
-
-/** First non-addon cost's points, as a cheap "headline" number for a change description. */
-function basePoints(pricing) {
-  const cost = (pricing || [])
-    .flatMap((tier) => tier.costs || [])
-    .find((c) => !c.addon);
-  return cost ? cost.points : null;
 }
 
 async function logCatalogUpdates(rows) {
@@ -137,18 +129,19 @@ console.log(
 
 await logCatalogUpdates(
   changedKeys.map((u) => {
-    const before = basePoints(u.pricing_old);
-    const after = basePoints(u.pricing);
-    const hasDelta = before !== null && after !== null && before !== after;
-    const delta = hasDelta ? after - before : null;
+    const change = pricingDelta(u.pricing_old, u.pricing);
+    const sign = change && change.delta > 0 ? '+' : '';
     return {
       game_name: u.game_name,
       type: 'points',
       title: `${u.name} - ${u.faction_name}`,
-      description: hasDelta
-        ? `Puntos actualizados · ${delta > 0 ? '+' : ''}${delta} pts (${before} → ${after})`
-        : 'Puntos actualizados',
+      description: change
+        ? `${sign}${change.delta} pts (${change.before} → ${change.after}${change.models ? `, ${change.models} miniaturas` : ''})`
+        : 'Cambio en las opciones de puntos',
       link: `/catalogo-puntos/${u.faction_slug}`,
+      points_before: change?.before ?? null,
+      points_after: change?.after ?? null,
+      points_delta: change?.delta ?? null,
     };
   }),
 );

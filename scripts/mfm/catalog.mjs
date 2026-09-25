@@ -67,3 +67,28 @@ export function dedupeCatalog(units) {
   }
   return [...map.values()];
 }
+
+/**
+ * The headline points change between two pricing snapshots: the first
+ * non-addon cost option whose points differ, matched by position. Checks
+ * every tier (not only the first) so a change to, say, the 10-model price
+ * still yields a delta. Returns null when no matched option changed.
+ */
+export function pricingDelta(oldPricing, newPricing) {
+  const flat = (pricing) =>
+    (pricing || []).flatMap((tier) => tier.costs || []).filter((c) => !c.addon);
+  const before = flat(oldPricing);
+  const after = flat(newPricing);
+  const n = Math.min(before.length, after.length);
+  for (let i = 0; i < n; i++) {
+    if (before[i].points !== after[i].points) {
+      return {
+        before: before[i].points,
+        after: after[i].points,
+        delta: after[i].points - before[i].points,
+        models: after[i].models ?? null,
+      };
+    }
+  }
+  return null;
+}

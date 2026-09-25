@@ -284,6 +284,10 @@ security definer
 set search_path = public, auth
 as $$
 begin
+  -- The superadmin account can never be deleted, not even by itself.
+  if public.is_superadmin() then
+    raise exception 'La cuenta del superadministrador no se puede eliminar';
+  end if;
   delete from auth.users where id = auth.uid();
 end;
 $$;
@@ -350,15 +354,179 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Backfill: accounts created before the trigger existed get a profile row
+-- now, so every user has a public profile page and appears in admin.
+insert into public.profiles (id, display_name)
+select u.id, coalesce(u.raw_user_meta_data ->> 'display_name', '')
+from auth.users u
+on conflict (id) do nothing;
+
+-- Instagram-style extra links: [{ "label": "...", "url": "https://..." }].
+alter table public.profiles add column if not exists links jsonb not null default '[]'::jsonb;
+
+-- ============================================================
+-- Roles: superadmin (fixed by email, untouchable) + promotable admins
+-- ============================================================
+-- The superadmin is the site owner, identified by email so the account can
+-- never lose its powers through a data change. Everyone else is 'user' or
+-- 'admin' via profiles.role, which only admins can change (see trigger).
+-- IMPORTANT: keep this email in sync with VITE_ADMIN_EMAIL in the frontend.
+alter table public.profiles add column if not exists role text not null default 'user';
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check check (role in ('user', 'admin'));
+
+create or replace function public.superadmin_email()
+returns text language sql immutable as $$ select 'jlcaclosada@gmail.com'::text $$;
+
+create or replace function public.is_superadmin()
+returns boolean
+language sql
+stable
+as $$ select coalesce(lower(auth.jwt() ->> 'email') = public.superadmin_email(), false) $$;
+
+create or replace function public.is_superadmin_user(uid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$ select exists (select 1 from auth.users where id = uid and lower(email) = public.superadmin_email()) $$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_superadmin()
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+$$;
+
+-- Nobody can grant themselves a role; only admins change roles, and the
+-- superadmin's row can never be altered this way.
+create or replace function public.protect_profile_role()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.role <> 'user' and not public.is_admin() then
+      new.role := 'user';
+    end if;
+  elsif new.role is distinct from old.role then
+    if not public.is_admin() then
+      raise exception 'No autorizado para cambiar roles';
+    end if;
+    if public.is_superadmin_user(new.id) then
+      raise exception 'El superadministrador no se puede modificar';
+    end if;
+    -- Only the superadmin can demote another admin.
+    if old.role = 'admin' and not public.is_superadmin() then
+      raise exception 'Solo el superadministrador puede retirar permisos de administrador';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_profile_role on public.profiles;
+create trigger protect_profile_role
+  before insert or update on public.profiles
+  for each row execute function public.protect_profile_role();
+
+-- Admin user directory. Joins auth.users (email, last sign-in) which the
+-- client can't read directly — hence SECURITY DEFINER + explicit admin check.
+create or replace function public.admin_list_users()
+returns table (
+  id uuid,
+  email text,
+  display_name text,
+  avatar_url text,
+  role text,
+  is_superadmin boolean,
+  created_at timestamptz,
+  last_sign_in_at timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = public, auth
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'No autorizado';
+  end if;
+  return query
+    select u.id, u.email::text, coalesce(p.display_name, ''), p.avatar_url,
+           coalesce(p.role, 'user'), lower(u.email) = public.superadmin_email(),
+           u.created_at, u.last_sign_in_at
+    from auth.users u
+    left join public.profiles p on p.id = u.id
+    order by u.created_at desc;
+end;
+$$;
+
+create or replace function public.admin_set_role(target uuid, new_role text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'No autorizado';
+  end if;
+  if new_role not in ('user', 'admin') then
+    raise exception 'Rol no válido';
+  end if;
+  insert into public.profiles (id, role) values (target, new_role)
+  on conflict (id) do update set role = excluded.role;
+end;
+$$;
+
+-- Regular admins may delete regular users; deleting an admin requires the
+-- superadmin; nobody can delete the superadmin.
+create or replace function public.admin_delete_user(target uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  target_role text;
+begin
+  if not public.is_admin() then
+    raise exception 'No autorizado';
+  end if;
+  if target = auth.uid() then
+    raise exception 'Usa Ajustes para eliminar tu propia cuenta';
+  end if;
+  if public.is_superadmin_user(target) then
+    raise exception 'El superadministrador no se puede eliminar';
+  end if;
+  select role into target_role from public.profiles where id = target;
+  if target_role = 'admin' and not public.is_superadmin() then
+    raise exception 'Solo el superadministrador puede eliminar a otro administrador';
+  end if;
+  delete from auth.users where id = target;
+end;
+$$;
+
+revoke all on function public.admin_list_users() from public, anon;
+revoke all on function public.admin_set_role(uuid, text) from public, anon;
+revoke all on function public.admin_delete_user(uuid) from public, anon;
+grant execute on function public.admin_list_users() to authenticated;
+grant execute on function public.admin_set_role(uuid, text) to authenticated;
+grant execute on function public.admin_delete_user(uuid) to authenticated;
+
 -- ============================================================
 -- Global app configuration (admin-managed)
 -- ============================================================
 -- A single global row that only the site owner (admin) can modify,
 -- but every authenticated user can read (e.g. to show an announcement).
---
--- IMPORTANT: replace 'TU-EMAIL@ejemplo.com' below with the email of the
--- account that should have admin rights, then run this block. It must match
--- the VITE_ADMIN_EMAIL value used by the frontend.
 create table if not exists public.app_config (
   id text primary key default 'global',
   announcement text not null default '',
@@ -381,8 +549,8 @@ create policy "app_config_read" on public.app_config
 -- Only the admin email can modify it.
 create policy "app_config_admin_write" on public.app_config
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Army presets / factions (admin-managed catalog)
@@ -390,8 +558,6 @@ create policy "app_config_admin_write" on public.app_config
 -- Global catalog of selectable factions per game, each with its own image.
 -- Managed only by the admin, readable by every authenticated user so they can
 -- pick a faction when creating an army.
---
--- IMPORTANT: replace 'TU-EMAIL@ejemplo.com' below with the same admin email.
 create table if not exists public.army_presets (
   id uuid primary key default gen_random_uuid(),
   game_name text not null,
@@ -423,16 +589,15 @@ create policy "army_presets_read" on public.army_presets
 -- Only the admin can create / edit / delete factions.
 create policy "army_presets_admin_write" on public.army_presets
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Community: Articles (admin-authored news)
 -- ============================================================
 -- News/articles written by the admin. Readable by everyone (even logged-out),
--- but only the admin can create/edit/delete. Content is stored as TipTap JSON.
---
--- IMPORTANT: replace 'jlcaclosada@gmail.com' with the admin email if needed.
+-- but only admins (see public.is_admin()) can create/edit/delete. Content is
+-- stored as TipTap JSON.
 create table if not exists public.articles (
   id uuid primary key default gen_random_uuid(),
   author_id uuid references auth.users (id) on delete set null,
@@ -465,13 +630,13 @@ drop policy if exists "articles_admin_write" on public.articles;
 -- Everyone can read published articles; the admin can also read drafts.
 create policy "articles_read" on public.articles
   for select to anon, authenticated
-  using (published or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (published or public.is_admin());
 
 -- Only the admin can create / edit / delete articles.
 create policy "articles_admin_write" on public.articles
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Community: Painting guides (user-authored)
@@ -632,8 +797,8 @@ create policy "unit_catalog_read" on public.unit_catalog
 
 create policy "unit_catalog_admin_write" on public.unit_catalog
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 alter table public.miniatures
   add column if not exists catalog_unit_id uuid references public.unit_catalog (id) on delete set null;
@@ -679,8 +844,8 @@ create policy "faction_catalog_read" on public.faction_catalog
 
 create policy "faction_catalog_admin_write" on public.faction_catalog
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Downloads catalog (Warhammer Community — official PDFs)
@@ -724,8 +889,8 @@ create policy "downloads_catalog_read" on public.downloads_catalog
 
 create policy "downloads_catalog_admin_write" on public.downloads_catalog
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Catalog updates (activity feed for the two crons above)
@@ -747,6 +912,12 @@ create table if not exists public.catalog_updates (
 create index if not exists idx_catalog_updates_game
   on public.catalog_updates (game_name, occurred_at desc);
 
+-- Structured point change for 'points' updates, so the UI can show a
+-- signed ±N pts badge instead of parsing it out of the description.
+alter table public.catalog_updates add column if not exists points_before integer;
+alter table public.catalog_updates add column if not exists points_after integer;
+alter table public.catalog_updates add column if not exists points_delta integer;
+
 alter table public.catalog_updates enable row level security;
 
 drop policy if exists "catalog_updates_read" on public.catalog_updates;
@@ -757,8 +928,8 @@ create policy "catalog_updates_read" on public.catalog_updates
 
 create policy "catalog_updates_admin_write" on public.catalog_updates
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Miniature spotlight ("Miniatura del mes")
@@ -795,8 +966,8 @@ create policy "miniature_spotlight_read" on public.miniature_spotlight
 
 create policy "miniature_spotlight_admin_write" on public.miniature_spotlight
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Competitive: tournaments (admin-curated)
@@ -831,12 +1002,12 @@ drop policy if exists "tournaments_admin_write" on public.tournaments;
 
 create policy "tournaments_read" on public.tournaments
   for select to anon, authenticated
-  using (published or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (published or public.is_admin());
 
 create policy "tournaments_admin_write" on public.tournaments
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- ============================================================
 -- Competitive: featured lists (admin-curated showcase army lists)
@@ -872,12 +1043,53 @@ drop policy if exists "featured_lists_admin_write" on public.featured_lists;
 
 create policy "featured_lists_read" on public.featured_lists
   for select to anon, authenticated
-  using (published or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (published or public.is_admin());
 
 create policy "featured_lists_admin_write" on public.featured_lists
   for all to authenticated
-  using ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- The actual list: parsed army-list export (see src/lib/armyListParser.ts)
+-- plus the optional tournament result in "V-D-E" form.
+alter table public.featured_lists add column if not exists list_data jsonb;
+alter table public.featured_lists add column if not exists result text;
+alter table public.featured_lists add column if not exists tournament_name text;
+
+-- ============================================================
+-- Advertising (admin-managed, shown in the app's side margins)
+-- ============================================================
+create table if not exists public.ads (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  image text not null,
+  url text not null,
+  position text not null default 'right' check (position in ('left', 'right')),
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_ads_position on public.ads (position, sort_order);
+
+drop trigger if exists set_updated_at on public.ads;
+create trigger set_updated_at before update on public.ads
+  for each row execute function public.set_updated_at();
+
+alter table public.ads enable row level security;
+
+drop policy if exists "ads_read" on public.ads;
+drop policy if exists "ads_admin_write" on public.ads;
+
+create policy "ads_read" on public.ads
+  for select to anon, authenticated
+  using (active or public.is_admin());
+create policy "ads_admin_write" on public.ads
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 
 -- ============================================================
 -- Community: shared photos (users share pictures of their collection)
@@ -964,7 +1176,7 @@ create policy "comments_update" on public.comments
 -- Authors delete their own comment; the admin can moderate any comment.
 create policy "comments_delete" on public.comments
   for delete to authenticated
-  using (user_id = auth.uid() or (auth.jwt() ->> 'email') = 'jlcaclosada@gmail.com');
+  using (user_id = auth.uid() or public.is_admin());
 
 -- ============================================================
 -- Community: likes (on articles, guides, comments, and shared photos)
@@ -1032,4 +1244,148 @@ create trigger likes_change
   after insert or delete on public.likes
   for each row execute function public.recalc_like_count();
 
+-- ============================================================
+-- Social: friendships
+-- ============================================================
+-- One row per pair. A request is 'pending' until the addressee accepts it
+-- through accept_friend_request() — there is deliberately no UPDATE policy,
+-- so nobody can rewrite who a friendship is between.
+create table if not exists public.friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  addressee_id uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (requester_id <> addressee_id)
+);
 
+create unique index if not exists idx_friendships_pair
+  on public.friendships (least(requester_id, addressee_id), greatest(requester_id, addressee_id));
+create index if not exists idx_friendships_addressee on public.friendships (addressee_id, status);
+
+drop trigger if exists set_updated_at on public.friendships;
+create trigger set_updated_at before update on public.friendships
+  for each row execute function public.set_updated_at();
+
+alter table public.friendships enable row level security;
+
+drop policy if exists "friendships_read" on public.friendships;
+drop policy if exists "friendships_insert" on public.friendships;
+drop policy if exists "friendships_delete" on public.friendships;
+
+create policy "friendships_read" on public.friendships
+  for select to authenticated
+  using (auth.uid() in (requester_id, addressee_id));
+create policy "friendships_insert" on public.friendships
+  for insert to authenticated
+  with check (requester_id = auth.uid() and status = 'pending');
+create policy "friendships_delete" on public.friendships
+  for delete to authenticated
+  using (auth.uid() in (requester_id, addressee_id));
+
+create or replace function public.accept_friend_request(request_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.friendships set status = 'accepted'
+  where id = request_id and addressee_id = auth.uid() and status = 'pending';
+  if not found then
+    raise exception 'Solicitud no encontrada';
+  end if;
+end;
+$$;
+
+create or replace function public.are_friends(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.friendships
+    where status = 'accepted'
+      and least(requester_id, addressee_id) = least(a, b)
+      and greatest(requester_id, addressee_id) = greatest(a, b)
+  )
+$$;
+
+-- Public counters for a profile page. Friendships themselves are private
+-- to the two people involved, so the count is exposed through this RPC.
+create or replace function public.profile_stats(uid uuid)
+returns table (friends integer, photos integer, guides integer)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    (select count(*)::int from public.friendships
+       where status = 'accepted' and uid in (requester_id, addressee_id)),
+    (select count(*)::int from public.shared_photos where user_id = uid),
+    (select count(*)::int from public.painting_guides where user_id = uid and published)
+$$;
+
+revoke all on function public.accept_friend_request(uuid) from public, anon;
+grant execute on function public.accept_friend_request(uuid) to authenticated;
+grant execute on function public.profile_stats(uuid) to anon, authenticated;
+
+-- ============================================================
+-- Social: private chat between friends
+-- ============================================================
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  recipient_id uuid not null references auth.users (id) on delete cascade,
+  content text not null check (char_length(content) between 1 and 2000),
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_messages_pair
+  on public.messages (least(sender_id, recipient_id), greatest(sender_id, recipient_id), created_at);
+create index if not exists idx_messages_unread
+  on public.messages (recipient_id) where read_at is null;
+
+alter table public.messages enable row level security;
+
+drop policy if exists "messages_read" on public.messages;
+drop policy if exists "messages_insert" on public.messages;
+
+create policy "messages_read" on public.messages
+  for select to authenticated
+  using (auth.uid() in (sender_id, recipient_id));
+-- Only friends can message each other.
+create policy "messages_insert" on public.messages
+  for insert to authenticated
+  with check (sender_id = auth.uid() and public.are_friends(sender_id, recipient_id));
+
+-- Marking as read goes through this RPC instead of an UPDATE policy, which
+-- would otherwise also let the recipient rewrite message content.
+create or replace function public.mark_conversation_read(other uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.messages set read_at = now()
+  where recipient_id = auth.uid() and sender_id = other and read_at is null
+$$;
+
+revoke all on function public.mark_conversation_read(uuid) from public, anon;
+grant execute on function public.mark_conversation_read(uuid) to authenticated;
+
+-- Live chat: stream new messages to both participants (RLS still applies).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end$$;
