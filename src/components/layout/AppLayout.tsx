@@ -1,14 +1,24 @@
-import { getAppConfig } from "@/db";
+import { getAds, getAppConfig } from "@/db";
+import { cn } from "@/lib/utils";
+import type { Ad } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { Megaphone, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
+import { AdRail, MobileAdStrip } from "./SideRail";
+import { RightRailContext } from "./rightRail";
 
 export function AppLayout() {
   const [announcement, setAnnouncement] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [rightRailContent, setRightRailContent] = useState<ReactNode>(null);
+
+  useEffect(() => {
+    getAds().then(setAds);
+  }, []);
 
   useEffect(() => {
     getAppConfig()
@@ -19,6 +29,11 @@ export function AppLayout() {
       })
       .catch(() => {});
   }, []);
+
+  const leftAds = ads.filter((a) => a.position === "left");
+  const rightAds = ads.filter((a) => a.position === "right");
+  const hasLeft = leftAds.length > 0;
+  const hasRight = rightAds.length > 0 || rightRailContent != null;
 
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-background">
@@ -54,9 +69,49 @@ export function AppLayout() {
         )}
       </AnimatePresence>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:px-8">
-        <Outlet />
-      </main>
+      <RightRailContext.Provider value={setRightRailContent}>
+        {/* Side margins hold ads (left from 2xl, right from xl); the right
+            rail can also carry page content above its ads. Columns only
+            exist when they have something to show. */}
+        <div
+          className={cn(
+            "mx-auto grid w-full flex-1 gap-8 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:px-8",
+            hasLeft || hasRight ? "max-w-[1760px]" : "max-w-7xl",
+            hasLeft && hasRight && "2xl:grid-cols-[160px_minmax(0,1fr)_300px]",
+            hasRight && "xl:grid-cols-[minmax(0,1fr)_300px]",
+            hasLeft && !hasRight && "2xl:grid-cols-[160px_minmax(0,1fr)]",
+          )}
+        >
+          {hasLeft && (
+            <aside className="hidden 2xl:block" aria-label="Publicidad">
+              <div className="sticky top-24">
+                <AdRail ads={leftAds} />
+              </div>
+            </aside>
+          )}
+
+          <main className="min-w-0">
+            <Outlet />
+            <div className="xl:hidden">
+              <MobileAdStrip ads={ads} />
+            </div>
+            {hasLeft && (
+              <div className="hidden xl:block 2xl:hidden">
+                <MobileAdStrip ads={leftAds} />
+              </div>
+            )}
+          </main>
+
+          {hasRight && (
+            <aside className="hidden xl:block">
+              <div className="sticky top-24 space-y-6">
+                {rightRailContent}
+                <AdRail ads={rightAds} />
+              </div>
+            </aside>
+          )}
+        </div>
+      </RightRailContext.Provider>
 
       <Footer />
     </div>

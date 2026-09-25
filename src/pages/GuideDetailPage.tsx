@@ -26,7 +26,7 @@ import {
     Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 function formatDate(iso: string): string {
@@ -140,7 +140,7 @@ export function GuideDetailPage() {
             onClick={() => navigate("/guias")}
           >
             <ArrowLeft className="h-4 w-4" />
-            Guías
+            Pintura
           </Button>
           {isOwner && (
             <div className="flex items-center gap-2">
@@ -206,7 +206,12 @@ export function GuideDetailPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span>por {guide.authorName}</span>
+              <span>
+                por{" "}
+                <Link to={`/perfil/${guide.userId}`} className="font-medium text-foreground hover:text-primary hover:underline">
+                  {guide.authorName}
+                </Link>
+              </span>
               <span>·</span>
               <span>{formatDate(guide.createdAt)}</span>
               <span>·</span>

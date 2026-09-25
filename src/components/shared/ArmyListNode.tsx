@@ -1,4 +1,4 @@
-import type { ParsedArmyList } from "@/lib/armyListParser";
+import { formatResult, type ParsedArmyList } from "@/lib/armyListParser";
 import { cn } from "@/lib/utils";
 import { mergeAttributes, Node } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
@@ -9,13 +9,6 @@ export interface ArmyListNodeAttrs {
   authorName: string;
   /** "victorias-derrotas-empates", e.g. "3-1-0". Null when not recorded. */
   result: string | null;
-}
-
-function resultLabel(result: string): string | null {
-  const parts = result.split("-").map((n) => Number(n.trim()));
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
-  const [v, d, e] = parts;
-  return `${v}V · ${d}D · ${e}E`;
 }
 
 /** Read-only card — used both while editing (via the TipTap NodeView) and when reading the published article. */
@@ -30,7 +23,7 @@ export function ArmyListCard({
   result: string | null;
   onRemove?: () => void;
 }) {
-  const label = result ? resultLabel(result) : null;
+  const label = formatResult(result);
   return (
     // Plain <div>/<span> throughout, not <p>/<ul>/<li> — this renders inside
     // .prose-editor (see globals.css), whose descendant selectors would

@@ -57,10 +57,10 @@ export function GuidesPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              Guías de pintura
+              Pintura
             </h1>
             <p className="text-muted-foreground">
-              Tutoriales publicados por la comunidad. Aprende y comparte.
+              Guías y tutoriales de pintura publicados por la comunidad. Aprende y comparte.
             </p>
           </div>
           <Button

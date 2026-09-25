@@ -29,6 +29,7 @@ import {
     ImageIcon,
     Loader2,
     Megaphone,
+    MonitorPlay,
     Palette,
     Plus,
     RefreshCw,
@@ -532,6 +533,44 @@ export function AdminPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Users + ads live on their own pages, like Competitivo */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Usuarios
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Consulta los usuarios, nombra administradores o elimina cuentas.
+              </p>
+              <Button variant="outline" className="gap-2" onClick={() => navigate("/admin/usuarios")}>
+                <Users className="h-4 w-4" />
+                Gestionar usuarios
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MonitorPlay className="h-5 w-5 text-primary" />
+                Publicidad
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Anuncios de imagen con enlace en los márgenes laterales de la web.
+              </p>
+              <Button variant="outline" className="gap-2" onClick={() => navigate("/admin/publicidad")}>
+                <MonitorPlay className="h-4 w-4" />
+                Gestionar anuncios
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Competitivo (tournaments + featured lists) */}
         <Card>

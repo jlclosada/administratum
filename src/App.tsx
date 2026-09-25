@@ -7,15 +7,18 @@ import { CookiesPage } from "@/pages/legal/CookiesPage";
 import { PrivacidadPage } from "@/pages/legal/PrivacidadPage";
 import { TerminosPage } from "@/pages/legal/TerminosPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
-import { useAuthStore, useProfileStore } from "@/stores";
+import { useAuthStore, useProfileStore, useSocialStore } from "@/stores";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
 const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
+const AdminUsersPage = lazy(() => import("@/pages/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
+const AdminAdsPage = lazy(() => import("@/pages/AdminAdsPage").then((m) => ({ default: m.AdminAdsPage })));
 const AdminCompetitivePage = lazy(() => import("@/pages/AdminCompetitivePage").then((m) => ({ default: m.AdminCompetitivePage })));
 const CompetitivoPage = lazy(() => import("@/pages/CompetitivoPage").then((m) => ({ default: m.CompetitivoPage })));
+const FeaturedListDetailPage = lazy(() => import("@/pages/FeaturedListDetailPage").then((m) => ({ default: m.FeaturedListDetailPage })));
 const ArmyDetailPage = lazy(() => import("@/pages/ArmyDetailPage").then((m) => ({ default: m.ArmyDetailPage })));
 const ArmyListDetailPage = lazy(() => import("@/pages/ArmyListDetailPage").then((m) => ({ default: m.ArmyListDetailPage })));
 const ArmyListsPage = lazy(() => import("@/pages/ArmyListsPage").then((m) => ({ default: m.ArmyListsPage })));
@@ -35,6 +38,9 @@ const MyPaintsPage = lazy(() => import("@/pages/MyPaintsPage").then((m) => ({ de
 const PointsCatalogPage = lazy(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogPage })));
 const PointsCatalogFactionPage = lazy(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogFactionPage })));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const FriendsPage = lazy(() => import("@/pages/FriendsPage").then((m) => ({ default: m.FriendsPage })));
+const MessagesPage = lazy(() => import("@/pages/MessagesPage").then((m) => ({ default: m.MessagesPage })));
 const SharedPhotosPage = lazy(() => import("@/pages/SharedPhotosPage").then((m) => ({ default: m.SharedPhotosPage })));
 
 function RouteFallback() {
@@ -51,7 +57,12 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Suspense fallback={<RouteFallback />}>
-        <Routes location={location} key={location.pathname}>
+        {/* Switching chats swaps the thread in place instead of remounting
+            (and re-animating) the whole messages layout. */}
+        <Routes
+          location={location}
+          key={location.pathname.startsWith("/mensajes") ? "/mensajes" : location.pathname}
+        >
           <Route path="/" element={<AppLayout />}>
             <Route index element={<HomePage />} />
             <Route path="articulos/nuevo" element={<ArticleEditorPage />} />
@@ -73,11 +84,19 @@ function AnimatedRoutes() {
             <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
             <Route path="descargas" element={<DownloadsPage />} />
             <Route path="competitivo" element={<CompetitivoPage />} />
+            <Route path="competitivo/listas/:listId" element={<FeaturedListDetailPage />} />
             <Route path="comunidad" element={<SharedPhotosPage />} />
+            <Route path="perfil" element={<ProfilePage />} />
+            <Route path="perfil/:userId" element={<ProfilePage />} />
+            <Route path="amigos" element={<FriendsPage />} />
+            <Route path="mensajes" element={<MessagesPage />} />
+            <Route path="mensajes/:userId" element={<MessagesPage />} />
             <Route path="gallery" element={<GalleryPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="admin" element={<AdminPage />} />
             <Route path="admin/competitivo" element={<AdminCompetitivePage />} />
+            <Route path="admin/usuarios" element={<AdminUsersPage />} />
+            <Route path="admin/publicidad" element={<AdminAdsPage />} />
           </Route>
         </Routes>
       </Suspense>
@@ -89,6 +108,7 @@ function AnimatedRoutes() {
 function AppGate() {
   const { user, initialized, init, recoveryMode } = useAuthStore();
   const { fetchProfile, clear: clearProfile } = useProfileStore();
+  const { start: startSocial, stop: stopSocial } = useSocialStore();
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
 
   useEffect(() => {
@@ -98,8 +118,10 @@ function AppGate() {
   useEffect(() => {
     if (user) {
       fetchProfile();
+      startSocial(user.id);
     } else {
       clearProfile();
+      stopSocial();
     }
     // Re-fetch only when the signed-in user actually changes, not on every
     // token refresh (which produces a new `user` object with the same id).

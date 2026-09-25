@@ -1,23 +1,16 @@
 import { LikeButton } from "@/components/shared/LikeButton";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 import { Button } from "@/components/ui/button";
-import { createComment, deleteComment, getComments, toggleLike } from "@/db";
+import { createComment, deleteComment, getComments, getProfilesByIds, toggleLike } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
-import { useAuthStore } from "@/stores";
-import type { Comment, CommentTargetType } from "@/types";
+import { timeAgo } from "@/lib/time";
+import { useAuthStore, useProfileStore } from "@/stores";
+import type { Comment, CommentTargetType, Profile } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, Send, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
-
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const hours = Math.floor(diffMs / 3_600_000);
-  if (hours < 1) return "hace un momento";
-  if (hours < 24) return `hace ${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `hace ${days}d`;
-  return new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
-}
 
 export function CommentSection({
   targetType,
@@ -28,14 +21,19 @@ export function CommentSection({
 }) {
   const { user } = useAuthStore();
   const isAdmin = useIsAdmin();
+  const myProfile = useProfileStore((s) => s.profile);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [authors, setAuthors] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
 
   useEffect(() => {
     getComments(targetType, targetId)
-      .then(setComments)
+      .then(async (list) => {
+        setComments(list);
+        setAuthors(await getProfilesByIds(list.map((c) => c.userId)));
+      })
       .catch((err) => console.error("Failed to load comments:", err))
       .finally(() => setLoading(false));
   }, [targetType, targetId]);
@@ -138,12 +136,18 @@ export function CommentSection({
               exit={{ opacity: 0 }}
               className="flex items-start gap-3 py-3"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-xs font-bold uppercase text-white">
-                {c.authorName.charAt(0)}
-              </div>
+              <Link to={`/perfil/${c.userId}`} className="shrink-0 transition-opacity hover:opacity-80">
+                <UserAvatar
+                  src={(c.userId === user?.id ? myProfile : authors.get(c.userId))?.avatarUrl}
+                  name={c.authorName}
+                  size="sm"
+                />
+              </Link>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{c.authorName}</span>
+                  <Link to={`/perfil/${c.userId}`} className="text-sm font-medium hover:text-primary hover:underline">
+                    {authors.get(c.userId)?.displayName || c.authorName}
+                  </Link>
                   <span className="text-xs text-muted-foreground">{timeAgo(c.createdAt)}</span>
                 </div>
                 <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground/90">{c.content}</p>

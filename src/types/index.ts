@@ -2,6 +2,8 @@
 // Warhammer Vault - Core Data Types
 // ============================================================
 
+import type { ParsedArmyList } from '@/lib/armyListParser';
+
 // ---------- Base ----------
 export interface BaseEntity {
   id: string;
@@ -19,8 +21,17 @@ export interface Profile {
   location: string;
   favoriteFaction: string | null;
   website: string | null;
+  links: ProfileLink[];
+  role: UserRole;
   createdAt: string;
   updatedAt: string;
+}
+
+export type UserRole = 'user' | 'admin';
+
+export interface ProfileLink {
+  label: string;
+  url: string;
 }
 
 export interface UpdateProfileDTO {
@@ -30,6 +41,78 @@ export interface UpdateProfileDTO {
   location?: string;
   favoriteFaction?: string | null;
   website?: string | null;
+  links?: ProfileLink[];
+}
+
+export interface ProfileStats {
+  friends: number;
+  photos: number;
+  guides: number;
+}
+
+/** Row of the admin user directory (admin_list_users RPC). */
+export interface AdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: UserRole;
+  isSuperadmin: boolean;
+  createdAt: string;
+  lastSignInAt: string | null;
+}
+
+// ---------- Social ----------
+export type FriendshipStatus = 'pending' | 'accepted';
+
+export interface Friendship extends BaseEntity {
+  requesterId: string;
+  addresseeId: string;
+  status: FriendshipStatus;
+}
+
+/** Friendship from the current user's point of view, with the other person's profile. */
+export interface FriendEntry {
+  friendship: Friendship;
+  other: Profile;
+  /** True when the current user sent the (pending) request. */
+  outgoing: boolean;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  content: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface Conversation {
+  other: Profile;
+  lastMessage: Message | null;
+  unread: number;
+}
+
+// ---------- Advertising ----------
+export type AdPosition = 'left' | 'right';
+
+export interface Ad extends BaseEntity {
+  title: string;
+  image: string;
+  url: string;
+  position: AdPosition;
+  sortOrder: number;
+  active: boolean;
+}
+
+export interface CreateAdDTO {
+  title?: string;
+  image: string;
+  url: string;
+  position: AdPosition;
+  sortOrder?: number;
+  active?: boolean;
 }
 
 // ---------- Game System ----------
@@ -329,6 +412,10 @@ export interface CatalogUpdate extends BaseEntity {
   description: string;
   link: string | null;
   occurredAt: string;
+  /** Structured point change for 'points' updates; null on older rows. */
+  pointsBefore?: number | null;
+  pointsAfter?: number | null;
+  pointsDelta?: number | null;
 }
 
 /** "Miniatura del mes" — the admin publishes one, the home page shows the latest. */
@@ -366,6 +453,11 @@ export interface FeaturedList extends BaseEntity {
   description: string;
   coverImage: string | null;
   published: boolean;
+  /** Parsed army-list export; null for lists created before this existed. */
+  listData: ParsedArmyList | null;
+  /** Tournament result as "V-D-E". */
+  result: string | null;
+  tournamentName: string | null;
 }
 
 export type LikeTargetType = 'article' | 'guide' | 'comment' | 'photo';
@@ -691,6 +783,9 @@ export interface CreateFeaturedListDTO {
   description?: string;
   coverImage?: string | null;
   published?: boolean;
+  listData?: ParsedArmyList | null;
+  result?: string | null;
+  tournamentName?: string | null;
 }
 
 export interface UpdateFeaturedListDTO extends Partial<CreateFeaturedListDTO> {

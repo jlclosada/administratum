@@ -1,3 +1,5 @@
+import { ResultInputs } from "@/components/shared/ArmyListDialog";
+import { ArmyListPasteField } from "@/components/shared/ArmyListPasteField";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Button } from "@/components/ui/button";
@@ -13,11 +15,12 @@ import {
     getTournaments,
 } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
+import { buildResult, formatResult, type ParsedArmyList } from "@/lib/armyListParser";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import type { FeaturedList, Tournament, TournamentStatus } from "@/types";
-import { ArrowLeft, ImageIcon, Loader2, ScrollText, ShieldAlert, Trash2, Trophy } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, ExternalLink, ImageIcon, Loader2, ScrollText, ShieldAlert, Trash2, Trophy } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -53,6 +56,20 @@ export function AdminCompetitivePage() {
   const [lImage, setLImage] = useState<string | null>(null);
   const [lUploading, setLUploading] = useState(false);
   const [lSaving, setLSaving] = useState(false);
+  const [lRaw, setLRaw] = useState("");
+  const [lParsed, setLParsed] = useState<ParsedArmyList | null>(null);
+  const [lTournament, setLTournament] = useState("");
+  const [lResult, setLResult] = useState({ victories: "", defeats: "", draws: "" });
+
+  // Pre-fill the metadata fields from a freshly parsed list, without
+  // overwriting anything the admin already typed.
+  const handleListParsed = useCallback((list: ParsedArmyList | null) => {
+    setLParsed(list);
+    if (!list) return;
+    setLTitle((v) => v || list.listName);
+    setLFaction((v) => v || list.factionName);
+    setLPoints((v) => v || String(list.totalPoints));
+  }, []);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -150,6 +167,9 @@ export function AdminCompetitivePage() {
         authorName: lAuthor.trim(),
         description: lDesc.trim(),
         coverImage: lImage,
+        listData: lParsed,
+        tournamentName: lTournament.trim() || null,
+        result: buildResult(lResult.victories, lResult.defeats, lResult.draws),
       });
       setLists((prev) => [created, ...prev]);
       setLTitle("");
@@ -158,6 +178,10 @@ export function AdminCompetitivePage() {
       setLAuthor("");
       setLDesc("");
       setLImage(null);
+      setLRaw("");
+      setLParsed(null);
+      setLTournament("");
+      setLResult({ victories: "", defeats: "", draws: "" });
       toast.success("Lista destacada añadida");
     } catch (err) {
       console.error("Failed to create featured list:", err);
@@ -324,12 +348,25 @@ export function AdminCompetitivePage() {
                       i !== 0 && "border-t border-t-border/50",
                     )}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{l.title}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[l.factionName, l.totalPoints ? `${l.totalPoints} pts` : null, l.authorName].filter(Boolean).join(" · ") || "Sin detalles"}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/competitivo/listas/${l.id}`)}
+                      className="group min-w-0 flex-1 text-left"
+                    >
+                      <p className="flex items-center gap-1.5 truncate text-sm font-medium group-hover:text-primary">
+                        {l.title}
+                        <ExternalLink className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
                       </p>
-                    </div>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[
+                          l.factionName,
+                          l.totalPoints ? `${l.totalPoints} pts` : null,
+                          l.authorName,
+                          formatResult(l.result),
+                          l.listData ? null : "sin lista pegada",
+                        ].filter(Boolean).join(" · ") || "Sin detalles"}
+                      </p>
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteList(l.id)}
@@ -342,6 +379,13 @@ export function AdminCompetitivePage() {
                 ))}
               </div>
             )}
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Pega la lista exportada (NewRecruit / app oficial) — rellena título, facción y puntos
+              </label>
+              <ArmyListPasteField value={lRaw} onChange={setLRaw} onParsed={handleListParsed} rows={6} />
+            </div>
 
             <div className="flex items-start gap-3">
               <button
@@ -363,7 +407,22 @@ export function AdminCompetitivePage() {
                 <Input value={lFaction} onChange={(e) => setLFaction(e.target.value)} placeholder="Facción (opcional)" />
                 <Input type="number" value={lPoints} onChange={(e) => setLPoints(e.target.value)} placeholder="Puntos totales" />
                 <Input value={lAuthor} onChange={(e) => setLAuthor(e.target.value)} placeholder="Autor" />
+                <Input
+                  value={lTournament}
+                  onChange={(e) => setLTournament(e.target.value)}
+                  placeholder="Torneo (opcional)"
+                  className="sm:col-span-2"
+                />
               </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Resultado en torneo — V-D-E (opcional)
+              </label>
+              <ResultInputs
+                {...lResult}
+                onChange={(field, value) => setLResult((r) => ({ ...r, [field]: value }))}
+              />
             </div>
             <Textarea value={lDesc} onChange={(e) => setLDesc(e.target.value)} placeholder="Estrategia, resultados, por qué destaca…" rows={2} />
             <Button onClick={handleCreateList} disabled={lSaving || !lTitle.trim()} className="gap-2">

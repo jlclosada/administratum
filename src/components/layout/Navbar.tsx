@@ -8,10 +8,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useIsAdmin } from "@/lib/admin";
 import { cn } from "@/lib/utils";
-import { useAuthStore, useProfileStore } from "@/stores";
+import { useAuthStore, useProfileStore, useSocialStore } from "@/stores";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-    BookOpen,
+    Brush,
     ChevronDown,
     ClipboardList,
     Download,
@@ -21,11 +21,14 @@ import {
     Library,
     LogOut,
     Menu,
+    MessageCircle,
     Palette,
     Settings,
     ShieldCheck,
     Swords,
     Trophy,
+    UserPlus,
+    UserRound,
     Users,
     X,
 } from "lucide-react";
@@ -35,21 +38,42 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 // Primary: content the user comes to browse or reference.
 const primaryItems = [
   { to: "/", icon: Home, label: "Inicio" },
-  { to: "/guias", icon: BookOpen, label: "Guías" },
-  { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
-  { to: "/competitivo", icon: Trophy, label: "Competitivo" },
   { to: "/comunidad", icon: Users, label: "Comunidad" },
+  { to: "/competitivo", icon: Trophy, label: "Competitivo" },
+  { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
+  { to: "/guias", icon: Brush, label: "Pintura" },
   { to: "/descargas", icon: Download, label: "Descargas" },
 ];
 
 // Profile: the user's own collection and progress.
 const profileItems = [
+  { to: "/perfil", icon: UserRound, label: "Mi perfil" },
+  { to: "/amigos", icon: UserPlus, label: "Amigos" },
+  { to: "/mensajes", icon: MessageCircle, label: "Mensajes" },
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/games", icon: Swords, label: "Mi Colección" },
   { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
   { to: "/paints", icon: Palette, label: "Mis Pinturas" },
   { to: "/gallery", icon: ImageIcon, label: "Galería" },
 ];
+
+function CountBadge({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null;
+  return (
+    <motion.span
+      key={count}
+      initial={{ scale: 0.4 }}
+      animate={{ scale: 1 }}
+      transition={{ type: "spring", bounce: 0.6, duration: 0.4 }}
+      className={cn(
+        "flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white",
+        className,
+      )}
+    >
+      {count > 99 ? "99+" : count}
+    </motion.span>
+  );
+}
 
 function isItemActive(pathname: string, to: string): boolean {
   return to === "/" ? pathname === "/" : pathname.startsWith(to);
@@ -58,6 +82,9 @@ function isItemActive(pathname: string, to: string): boolean {
 export function Navbar() {
   const { user, signOut } = useAuthStore();
   const avatarUrl = useProfileStore((s) => s.profile?.avatarUrl ?? null);
+  const unread = useSocialStore((s) => s.unread);
+  const requests = useSocialStore((s) => s.incomingRequests);
+  const badgeFor = (to: string) => (to === "/mensajes" ? unread : to === "/amigos" ? requests : 0);
   const isAdmin = useIsAdmin();
   const location = useLocation();
   const navigate = useNavigate();
@@ -121,6 +148,20 @@ export function Navbar() {
 
         <div className="flex-1 lg:hidden" />
 
+        <NavLink
+          to="/mensajes"
+          aria-label={unread > 0 ? `Mensajes (${unread} sin leer)` : "Mensajes"}
+          className={({ isActive }) =>
+            cn(
+              "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+              isActive && "bg-brand-soft text-foreground",
+            )
+          }
+        >
+          <MessageCircle className="h-5 w-5" />
+          <CountBadge count={unread} className="absolute -right-0.5 -top-0.5" />
+        </NavLink>
+
         {/* Profile dropdown (desktop) — groups everything related to the user's own collection */}
         <div className="hidden items-center lg:flex">
           <DropdownMenu>
@@ -165,6 +206,7 @@ export function Navbar() {
                   >
                     <item.icon className={cn("h-4 w-4 text-muted-foreground", active && "text-primary")} />
                     {item.label}
+                    <CountBadge count={badgeFor(item.to)} className="ml-auto" />
                   </DropdownMenuItem>
                 );
               })}
@@ -254,6 +296,7 @@ export function Navbar() {
                   >
                     <item.icon className={cn("h-4.5 w-4.5", active && "text-primary")} />
                     {item.label}
+                    <CountBadge count={badgeFor(item.to)} className="ml-auto" />
                   </NavLink>
                 );
               })}

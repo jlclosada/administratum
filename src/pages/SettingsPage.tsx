@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getFactionCatalog } from "@/db";
 import { useAuthStore, useProfileStore } from "@/stores";
-import type { FactionCatalogEntry } from "@/types";
+import { normalizeUrl, profileLinks } from "@/lib/profileLinks";
+import type { FactionCatalogEntry, ProfileLink } from "@/types";
 import {
     AlertCircle,
     AlertTriangle,
@@ -26,14 +27,18 @@ import {
     LogOut,
     Mail,
     MapPin,
+    Plus,
     ShieldCheck,
     Swords,
     Trash2,
     UserRound,
+    X,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 const BIO_MAX_LENGTH = 280;
+const MAX_LINKS = 5;
 
 const APP_VERSION = "1.1.0";
 
@@ -81,7 +86,7 @@ export function SettingsPage() {
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [favoriteFaction, setFavoriteFaction] = useState("");
-  const [website, setWebsite] = useState("");
+  const [links, setLinks] = useState<ProfileLink[]>([]);
   const [factions, setFactions] = useState<FactionCatalogEntry[]>([]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<Feedback>(null);
@@ -92,7 +97,7 @@ export function SettingsPage() {
     setBio(profile.bio ?? "");
     setLocation(profile.location ?? "");
     setFavoriteFaction(profile.favoriteFaction ?? "");
-    setWebsite(profile.website ?? "");
+    setLinks(profileLinks(profile));
   }, [profile]);
 
   useEffect(() => {
@@ -146,17 +151,15 @@ export function SettingsPage() {
       });
       return;
     }
-    let normalizedWebsite: string | null = null;
-    if (website.trim()) {
-      const withProtocol = /^https?:\/\//i.test(website.trim())
-        ? website.trim()
-        : `https://${website.trim()}`;
-      try {
-        normalizedWebsite = new URL(withProtocol).toString();
-      } catch {
-        setProfileMsg({ type: "error", text: "El enlace no es válido." });
+    const cleanLinks: ProfileLink[] = [];
+    for (const link of links) {
+      if (!link.url.trim()) continue;
+      const url = normalizeUrl(link.url);
+      if (!url) {
+        setProfileMsg({ type: "error", text: `El enlace "${link.url}" no es válido.` });
         return;
       }
+      cleanLinks.push({ label: link.label.trim(), url });
     }
     setSavingProfile(true);
     try {
@@ -166,9 +169,10 @@ export function SettingsPage() {
         bio: bio.trim(),
         location: location.trim(),
         favoriteFaction: favoriteFaction || null,
-        website: normalizedWebsite,
+        links: cleanLinks,
+        website: cleanLinks[0]?.url ?? null,
       });
-      setWebsite(normalizedWebsite ?? "");
+      setLinks(cleanLinks);
       setProfileMsg({ type: "success", text: "Perfil actualizado correctamente." });
     } catch (err) {
       setProfileMsg({
@@ -285,10 +289,20 @@ export function SettingsPage() {
                 <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => signOut()} className="gap-2">
-              <LogOut className="h-4 w-4" />
-              Cerrar sesión
-            </Button>
+            <div className="flex gap-2">
+              {user && (
+                <Button variant="outline" className="gap-2" asChild>
+                  <Link to={`/perfil/${user.id}`}>
+                    <UserRound className="h-4 w-4" />
+                    Ver mi perfil
+                  </Link>
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => signOut()} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Cerrar sesión
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -377,13 +391,54 @@ export function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="website">Web o red social</Label>
-                <Input
-                  id="website"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="instagram.com/tu_usuario"
-                />
+                <div className="flex items-center justify-between">
+                  <Label>Enlaces</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {links.length}/{MAX_LINKS}
+                  </span>
+                </div>
+                {links.map((link, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input
+                      value={link.label}
+                      onChange={(e) =>
+                        setLinks((prev) => prev.map((l, j) => (j === i ? { ...l, label: e.target.value } : l)))
+                      }
+                      placeholder="Instagram"
+                      className="w-32 shrink-0"
+                      aria-label={`Nombre del enlace ${i + 1}`}
+                    />
+                    <Input
+                      value={link.url}
+                      onChange={(e) =>
+                        setLinks((prev) => prev.map((l, j) => (j === i ? { ...l, url: e.target.value } : l)))
+                      }
+                      placeholder="instagram.com/tu_usuario"
+                      aria-label={`URL del enlace ${i + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => setLinks((prev) => prev.filter((_, j) => j !== i))}
+                      aria-label={`Quitar enlace ${i + 1}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {links.length < MAX_LINKS && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setLinks((prev) => [...prev, { label: "", url: "" }])}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Añadir enlace
+                  </Button>
+                )}
               </div>
 
               <Alert feedback={profileMsg} />
