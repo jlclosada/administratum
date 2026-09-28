@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import EN from './__fixtures__/thousandSonsEnglish.txt?raw';
-import { buildResult, formatResult, parseArmyListExport, sumUnitPoints } from './armyListParser';
+import { buildResult, formatResult, listLanguage, parseArmyListExport, serializeArmyList, sumUnitPoints } from './armyListParser';
 
 const SAMPLE = `Talavera (2270 puntos)
 
@@ -187,5 +187,33 @@ describe('parseArmyListExport — number formats', () => {
     const list = parseArmyListExport('Lista (2.270 puntos)\n\nNecrones\n\nPERSONAJE\n\nOverlord (1.085 Points)');
     expect(list?.totalPoints).toBe(2270);
     expect(list?.categories[0]?.units[0]?.points).toBe(1085);
+  });
+});
+
+describe('serializeArmyList (Copiar lista)', () => {
+  it('round-trips the English export', () => {
+    const list = parseArmyListExport(EN)!;
+    const text = serializeArmyList(list);
+    expect(text.startsWith('Magic terms + mag (Copy) (1,995 Points)\n\nThousand Sons\n')).toBe(true);
+    expect(text).toContain('Hexwarp Thrallband and Sekhetar Cohort (3 Detachment Points)');
+    expect(text).toContain('Strike Force (2,000 Points)');
+    expect(text).toContain('\nAttached unit 1\n\nSorcerer in Terminator Armour (95 Points)\n• Attached as: Leader (Character)');
+    expect(parseArmyListExport(text)).toEqual(list);
+  });
+
+  it('round-trips the Spanish export with its own formatting', () => {
+    const list = parseArmyListExport(SAMPLE)!;
+    expect(list.language).toBe('es');
+    const text = serializeArmyList(list);
+    expect(text.startsWith('Talavera (2270 puntos)\n\nMil Hijos\nGrand Coven (3 puntos de destacamento)\n')).toBe(true);
+    expect(text).toContain('  • 1x Aspiring Sorcerer\n     ◦ 1x Force weapon');
+    expect(parseArmyListExport(text)).toEqual(list);
+  });
+
+  it('guesses the language of lists stored before it was recorded', () => {
+    const { language: _es, ...legacyEs } = parseArmyListExport(SAMPLE)!;
+    const { language: _en, ...legacyEn } = parseArmyListExport(EN)!;
+    expect(listLanguage(legacyEs)).toBe('es');
+    expect(listLanguage(legacyEn)).toBe('en');
   });
 });

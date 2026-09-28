@@ -10,13 +10,19 @@ import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { useAuthStore, useProfileStore, useSocialStore } from "@/stores";
 import { AnimatePresence, MotionConfig } from "framer-motion";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 
-const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
+const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
+const AdminOverviewPage = lazy(() => import("@/pages/admin/AdminOverviewPage").then((m) => ({ default: m.AdminOverviewPage })));
 const AdminUsersPage = lazy(() => import("@/pages/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
 const AdminAdsPage = lazy(() => import("@/pages/AdminAdsPage").then((m) => ({ default: m.AdminAdsPage })));
-const AdminCompetitivePage = lazy(() => import("@/pages/AdminCompetitivePage").then((m) => ({ default: m.AdminCompetitivePage })));
+const AdminArticlesPage = lazy(() => import("@/pages/admin/AdminArticlesPage").then((m) => ({ default: m.AdminArticlesPage })));
+const AdminSpotlightPage = lazy(() => import("@/pages/admin/AdminSpotlightPage").then((m) => ({ default: m.AdminSpotlightPage })));
+const AdminTournamentsPage = lazy(() => import("@/pages/admin/AdminTournamentsPage").then((m) => ({ default: m.AdminTournamentsPage })));
+const AdminListsPage = lazy(() => import("@/pages/admin/AdminListsPage").then((m) => ({ default: m.AdminListsPage })));
+const AdminCatalogPage = lazy(() => import("@/pages/admin/AdminCatalogPage").then((m) => ({ default: m.AdminCatalogPage })));
+const AdminSettingsPage = lazy(() => import("@/pages/admin/AdminSettingsPage").then((m) => ({ default: m.AdminSettingsPage })));
 const CompetitivoPage = lazy(() => import("@/pages/CompetitivoPage").then((m) => ({ default: m.CompetitivoPage })));
 const TournamentDetailPage = lazy(() => import("@/pages/TournamentDetailPage").then((m) => ({ default: m.TournamentDetailPage })));
 const FeaturedListDetailPage = lazy(() => import("@/pages/FeaturedListDetailPage").then((m) => ({ default: m.FeaturedListDetailPage })));
@@ -53,17 +59,26 @@ function RouteFallback() {
   );
 }
 
+/**
+ * Routes remount (and re-animate) per pathname, except inside sections that
+ * keep a persistent layout: switching chats or admin sections swaps only
+ * the inner content.
+ */
+function routeKey(pathname: string): string {
+  if (pathname.startsWith("/mensajes")) return "/mensajes";
+  if (pathname.startsWith("/admin")) return "/admin";
+  return pathname;
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
       <Suspense fallback={<RouteFallback />}>
-        {/* Switching chats swaps the thread in place instead of remounting
-            (and re-animating) the whole messages layout. */}
         <Routes
           location={location}
-          key={location.pathname.startsWith("/mensajes") ? "/mensajes" : location.pathname}
+          key={routeKey(location.pathname)}
         >
           <Route path="/" element={<AppLayout />}>
             <Route index element={<HomePage />} />
@@ -97,10 +112,18 @@ function AnimatedRoutes() {
             <Route path="mensajes/:userId" element={<MessagesPage />} />
             <Route path="gallery" element={<GalleryPage />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="admin" element={<AdminPage />} />
-            <Route path="admin/competitivo" element={<AdminCompetitivePage />} />
-            <Route path="admin/usuarios" element={<AdminUsersPage />} />
-            <Route path="admin/publicidad" element={<AdminAdsPage />} />
+            <Route path="admin" element={<AdminLayout />}>
+              <Route index element={<AdminOverviewPage />} />
+              <Route path="usuarios" element={<AdminUsersPage />} />
+              <Route path="articulos" element={<AdminArticlesPage />} />
+              <Route path="miniatura" element={<AdminSpotlightPage />} />
+              <Route path="torneos" element={<AdminTournamentsPage />} />
+              <Route path="listas" element={<AdminListsPage />} />
+              <Route path="publicidad" element={<AdminAdsPage />} />
+              <Route path="catalogo" element={<AdminCatalogPage />} />
+              <Route path="ajustes" element={<AdminSettingsPage />} />
+              <Route path="competitivo" element={<Navigate to="/admin/torneos" replace />} />
+            </Route>
           </Route>
         </Routes>
       </Suspense>

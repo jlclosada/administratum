@@ -47,9 +47,9 @@ export function FeaturedListDetailPage() {
   return (
     <PageTransition>
       <div className="mx-auto max-w-3xl space-y-6">
-        <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/competitivo")}>
+        <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/competitivo#listas")}>
           <ArrowLeft className="h-4 w-4" />
-          Competitivo
+          Listas
         </Button>
 
         <header className="overflow-hidden rounded-2xl border border-border/60">
@@ -81,11 +81,6 @@ export function FeaturedListDetailPage() {
                 </span>
               )}
             </div>
-            {list.description && (
-              <p className="whitespace-pre-line pt-1 text-sm leading-relaxed text-muted-foreground">
-                {list.description}
-              </p>
-            )}
           </div>
         </header>
 
@@ -95,6 +90,13 @@ export function FeaturedListDetailPage() {
           <p className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
             Esta lista se publicó sin el listado de unidades.
           </p>
+        )}
+
+        {list.description && (
+          <section className="rounded-2xl border border-border/60 bg-card/40 p-5 sm:p-6">
+            <h2 className="mb-3 font-semibold">Por qué destaca</h2>
+            <p className="whitespace-pre-line leading-relaxed text-foreground/90">{list.description}</p>
+          </section>
         )}
       </div>
     </PageTransition>

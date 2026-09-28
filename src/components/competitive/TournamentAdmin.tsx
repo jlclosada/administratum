@@ -185,7 +185,14 @@ export function TournamentAdmin({
                     <span className="shrink-0 text-[11px] text-muted-foreground">{STATUS_LABEL[t.status]}</span>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[t.location, t.startDate, t.rules ? "con bases" : "sin bases"].filter(Boolean).join(" · ")}
+                    {[
+                      t.location,
+                      t.startDate,
+                      `${t.attendeeCount}${t.maxPlayers ? `/${t.maxPlayers}` : ""} asistentes`,
+                      t.rules ? "con bases" : "sin bases",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 </Link>
                 <button

@@ -64,6 +64,10 @@ export interface CommunityList extends BaseEntity {
   listData: ParsedArmyList;
   /** Tournament result as "V-D-E", when the author played it in one. */
   result: string | null;
+  /** Tournament it was played at, when it's one listed on the site. */
+  tournamentId: string | null;
+  /** Tournament name (listed or free text), for display and search. */
+  tournamentName: string | null;
   likeCount: number;
   commentCount: number;
   likedByMe?: boolean;
@@ -77,6 +81,31 @@ export interface CreateCommunityListDTO {
   detachmentName?: string | null;
   listData: ParsedArmyList;
   result?: string | null;
+  tournamentId?: string | null;
+  tournamentName?: string | null;
+}
+
+export type UpdateCommunityListDTO = Partial<CreateCommunityListDTO> & { id: string };
+
+/** Platform-wide counters for the admin dashboard (admin_overview RPC). */
+export interface AdminOverview {
+  users: number;
+  users_7d: number;
+  admins: number;
+  photos: number;
+  photos_7d: number;
+  lists: number;
+  lists_7d: number;
+  featured_lists: number;
+  comments_7d: number;
+  likes_7d: number;
+  tournaments_active: number;
+  attendees: number;
+  tournaments_without_rules: number;
+  articles: number;
+  drafts: number;
+  guides: number;
+  ads_active: number;
 }
 
 /** Row of the admin user directory (admin_list_users RPC). */
@@ -475,6 +504,8 @@ export interface Tournament extends BaseEntity {
   pointsLimit: number | null;
   maxPlayers: number | null;
   entryFee: string | null;
+  /** Users who pressed "Asistiré" (kept in sync by a trigger). */
+  attendeeCount: number;
 }
 
 /** Admin-authored public showcase list — not a real user's private army list. */

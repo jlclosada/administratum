@@ -1,8 +1,11 @@
-import { formatResult, type ArmyListUnit, type ParsedArmyList } from "@/lib/armyListParser";
+import { formatResult, serializeArmyList, type ArmyListUnit, type ParsedArmyList } from "@/lib/armyListParser";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { mergeAttributes, Node } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { Crown, Link2, Swords, Trophy, X } from "lucide-react";
+import { Check, Copy, Crown, Link2, Swords, Trophy, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export interface ArmyListNodeAttrs {
   data: ParsedArmyList;
@@ -61,6 +64,38 @@ function UnitRow({ unit }: { unit: ArmyListUnit }) {
   );
 }
 
+/** Copies the list back in its export text format ("Copiar lista"). */
+function CopyListButton({ data }: { data: ParsedArmyList }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
+
+  async function handleCopy() {
+    try {
+      await copyText(serializeArmyList(data));
+      setCopied(true);
+      toast.success("Lista copiada al portapapeles");
+    } catch {
+      toast.error("No se pudo copiar la lista.");
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="flex items-center gap-1 rounded-full border border-emerald-500/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-emerald-400 transition-colors hover:bg-emerald-500/10"
+      aria-label="Copiar lista en formato texto"
+    >
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+      {copied ? "Copiada" : "Copiar"}
+    </button>
+  );
+}
+
 /** Read-only card — used both while editing (via the TipTap NodeView) and when reading the published article. */
 export function ArmyListCard({
   data,
@@ -85,6 +120,7 @@ export function ArmyListCard({
           Lista de ejército{authorName ? ` · ${authorName}` : ""}
         </span>
         <div className="flex items-center gap-2">
+          <CopyListButton data={data} />
           {label && (
             <span className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-500">
               <Trophy className="h-3 w-3" />

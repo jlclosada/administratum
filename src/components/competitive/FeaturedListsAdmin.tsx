@@ -1,8 +1,6 @@
-import { TournamentAdmin } from "@/components/competitive/TournamentAdmin";
 import { ResultInputs } from "@/components/shared/ArmyListDialog";
 import { ArmyListPasteField } from "@/components/shared/ArmyListPasteField";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { PageTransition } from "@/components/shared/PageTransition";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,24 +9,20 @@ import {
     createFeaturedList,
     deleteFeaturedList,
     getFeaturedLists,
-    getTournaments,
 } from "@/db";
-import { useIsAdmin } from "@/lib/admin";
 import { buildResult, formatResult, type ParsedArmyList } from "@/lib/armyListParser";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import type { FeaturedList, Tournament } from "@/types";
-import { ArrowLeft, ExternalLink, ImageIcon, Loader2, ScrollText, ShieldAlert, Trash2 } from "lucide-react";
+import type { FeaturedList } from "@/types";
+import { ExternalLink, ImageIcon, Loader2, ScrollText, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-export function AdminCompetitivePage() {
-  const isAdmin = useIsAdmin();
+/** Admin-curated "Destacadas" lists shown at the top of Competitivo → Listas. */
+export function FeaturedListsAdmin() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
 
   const [lists, setLists] = useState<FeaturedList[]>([]);
   const [lTitle, setLTitle] = useState("");
@@ -55,18 +49,10 @@ export function AdminCompetitivePage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) {
-      setLoading(false);
-      return;
-    }
-    Promise.all([getTournaments(false), getFeaturedLists(false)])
-      .then(([t, l]) => {
-        setTournaments(t);
-        setLists(l);
-      })
-      .catch((err) => console.error("Failed to load competitive data:", err))
+    getFeaturedLists(false)
+      .then(setLists)
       .finally(() => setLoading(false));
-  }, [isAdmin]);
+  }, []);
 
   async function handlePickListImage() {
     try {
@@ -128,52 +114,10 @@ export function AdminCompetitivePage() {
     }
   }
 
-  if (!isAdmin) {
-    return (
-      <PageTransition>
-        <div className="mx-auto flex max-w-md flex-col items-center justify-center gap-4 py-24 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
-            <ShieldAlert className="h-8 w-8" />
-          </div>
-          <h1 className="font-display text-2xl font-bold">Acceso restringido</h1>
-          <Button variant="outline" onClick={() => navigate("/")}>
-            Volver al inicio
-          </Button>
-        </div>
-      </PageTransition>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <LoadingSpinner size="lg" text="Cargando..." />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
 
   return (
-    <PageTransition>
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/admin")}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label="Volver a Administración"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-              Competitivo
-            </h1>
-            <p className="text-muted-foreground">Torneos y listas destacadas</p>
-          </div>
-        </div>
-
-        <TournamentAdmin tournaments={tournaments} onChange={setTournaments} />
-
+    <>
         {/* Featured lists */}
         <Card>
           <CardHeader>
@@ -276,7 +220,6 @@ export function AdminCompetitivePage() {
             </Button>
           </CardContent>
         </Card>
-      </div>
-    </PageTransition>
+    </>
   );
 }

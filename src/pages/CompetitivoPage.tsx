@@ -1,15 +1,18 @@
 import { DateBlock, FeaturedListCard, StatusPill, TournamentCard } from "@/components/competitive/cards";
+import { ListBrowser } from "@/components/competitive/ListBrowser";
+import { ShareListDialog } from "@/components/community/ShareListDialog";
 import { countdownLabel, formatDateRange } from "@/components/competitive/status";
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Button } from "@/components/ui/button";
-import { getFeaturedLists, getTournaments } from "@/db";
-import type { FeaturedList, Tournament } from "@/types";
+import { getCommunityLists, getFeaturedLists, getProfilesByIds, getTournaments } from "@/db";
+import { useAuthStore } from "@/stores";
+import type { CommunityList, FeaturedList, Profile, Tournament } from "@/types";
 import { motion } from "framer-motion";
-import { ArrowRight, History, MapPin, ScrollText, Swords, Trophy, Users } from "lucide-react";
+import { ArrowRight, History, MapPin, Plus, ScrollText, Star, Swords, Trophy, Users } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 function SectionHeading({ icon, title, kicker }: { icon: ReactNode; title: string; kicker: string }) {
   return (
@@ -65,11 +68,10 @@ function Spotlight({ t }: { t: Tournament }) {
               <Swords className="h-4 w-4" /> {t.pointsLimit} pts
             </span>
           )}
-          {t.maxPlayers && (
-            <span className="flex items-center gap-1.5">
-              <Users className="h-4 w-4" /> {t.maxPlayers} plazas
-            </span>
-          )}
+          <span className="flex items-center gap-1.5">
+            <Users className="h-4 w-4" /> {t.attendeeCount}
+            {t.maxPlayers ? ` / ${t.maxPlayers}` : ""} asistentes
+          </span>
         </div>
         <span className="mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-transform duration-300 group-hover:translate-x-1">
           Ver bases y detalles <ArrowRight className="h-4 w-4" />
@@ -92,7 +94,14 @@ function EmptyBlock({ icon, title, text }: { icon: ReactNode; title: string; tex
 export function CompetitivoPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [lists, setLists] = useState<FeaturedList[]>([]);
+  const [communityLists, setCommunityLists] = useState<CommunityList[]>([]);
+  const [authors, setAuthors] = useState<Map<string, Profile>>(new Map());
+  const [listsLoading, setListsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     Promise.all([getTournaments(), getFeaturedLists()])
@@ -102,7 +111,19 @@ export function CompetitivoPage() {
       })
       .catch((err) => console.error("Failed to load competitive data:", err))
       .finally(() => setLoading(false));
+    getCommunityLists(200)
+      .then(async (l) => {
+        setCommunityLists(l);
+        setAuthors(await getProfilesByIds(l.map((x) => x.userId)));
+      })
+      .finally(() => setListsLoading(false));
   }, []);
+
+  // "/competitivo#listas" (back links from list pages) lands on the lists.
+  useEffect(() => {
+    if (loading || location.hash !== "#listas") return;
+    document.getElementById("listas")?.scrollIntoView({ block: "start" });
+  }, [loading, location.hash]);
 
   const { spotlight, active, finished } = useMemo(() => {
     const byStart = (a: Tournament, b: Tournament) =>
@@ -126,7 +147,7 @@ export function CompetitivoPage() {
 
   const stats = [
     { label: "torneos activos", value: tournaments.length - finished.length },
-    { label: "listas destacadas", value: lists.length },
+    { label: "listas publicadas", value: communityLists.length },
     { label: "disputados", value: finished.length },
   ];
 
@@ -145,6 +166,11 @@ export function CompetitivoPage() {
           <p className="mt-3 max-w-xl text-muted-foreground">
             Torneos de la comunidad con sus bases completas, y las listas que están marcando el meta.
           </p>
+          {user && (
+            <Button variant="gradient" className="mt-6 gap-2" onClick={() => setPublishing(true)}>
+              <Plus className="h-4 w-4" /> Publicar lista
+            </Button>
+          )}
           <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4">
             {stats.map((s) => (
               <div key={s.label}>
@@ -205,21 +231,37 @@ export function CompetitivoPage() {
           )}
         </section>
 
-        <section>
-          <SectionHeading icon={<ScrollText className="h-3 w-3" />} kicker="Meta" title="Listas destacadas" />
-          {lists.length === 0 ? (
-            <EmptyBlock
-              icon={<ScrollText className="h-8 w-8 text-muted-foreground/40" />}
-              title="Sin listas destacadas todavía"
-              text="Las listas más interesantes de la comunidad aparecerán aquí."
-            />
-          ) : (
-            <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
-              {lists.map((l, i) => (
-                <FeaturedListCard key={l.id} l={l} index={i} />
-              ))}
+        <section id="listas" className="scroll-mt-24">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-border/60 pb-3">
+            <div>
+              <p className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                <ScrollText className="h-3 w-3" /> Meta
+              </p>
+              <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl">Listas</h2>
+            </div>
+            {user && (
+              <Button className="gap-2" onClick={() => setPublishing(true)}>
+                <Plus className="h-4 w-4" /> Publicar lista
+              </Button>
+            )}
+          </div>
+
+          {lists.length > 0 && (
+            <div className="mb-8 space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> Destacadas por la organización
+              </h3>
+              <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
+                {lists.map((l, i) => (
+                  <div key={l.id} className="w-[min(20rem,85vw)] shrink-0 snap-start">
+                    <FeaturedListCard l={l} index={i} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
+
+          <ListBrowser lists={communityLists} authors={authors} loading={listsLoading} />
         </section>
 
         <div className="flex justify-center">
@@ -230,6 +272,15 @@ export function CompetitivoPage() {
           </Button>
         </div>
       </div>
+      {publishing && (
+        <ShareListDialog
+          onClose={() => setPublishing(false)}
+          onShared={(list) => {
+            setPublishing(false);
+            navigate(`/comunidad/listas/${list.id}`);
+          }}
+        />
+      )}
     </PageTransition>
   );
 }

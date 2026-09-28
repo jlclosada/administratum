@@ -1,13 +1,17 @@
+import { Attendance } from "@/components/competitive/Attendance";
 import { FeaturedListCard, StatusPill } from "@/components/competitive/cards";
+import { CommunityListCard } from "@/components/community/CommunityListCard";
+import { ShareListDialog } from "@/components/community/ShareListDialog";
 import { countdownLabel, formatDateRange } from "@/components/competitive/status";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { RichTextRenderer } from "@/components/shared/RichText";
 import { Button } from "@/components/ui/button";
-import { getFeaturedLists, getTournamentById } from "@/db";
+import { getCommunityLists, getFeaturedLists, getProfilesByIds, getTournamentById } from "@/db";
+import { useAuthStore } from "@/stores";
 import { useIsAdmin } from "@/lib/admin";
-import type { FeaturedList, Tournament } from "@/types";
+import type { CommunityList, FeaturedList, Profile, Tournament } from "@/types";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -16,6 +20,7 @@ import {
   FileText,
   MapPin,
   Pencil,
+  Plus,
   ScrollText,
   Swords,
   Ticket,
@@ -48,16 +53,26 @@ export function TournamentDetailPage() {
   const isAdmin = useIsAdmin();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [lists, setLists] = useState<FeaturedList[]>([]);
+  const [playerLists, setPlayerLists] = useState<CommunityList[]>([]);
+  const [listAuthors, setListAuthors] = useState<Map<string, Profile>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
+  const me = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (!tournamentId) return;
-    Promise.all([getTournamentById(tournamentId), getFeaturedLists()])
-      .then(([t, all]) => {
+    Promise.all([getTournamentById(tournamentId), getFeaturedLists(), getCommunityLists(200)])
+      .then(async ([t, all, community]) => {
         setTournament(t);
-        // Featured lists reference tournaments by name (free text).
+        // Featured lists reference tournaments by name (free text); player
+        // lists by id, or by name when typed in as "Otro torneo".
         const name = t?.name.trim().toLowerCase();
         setLists(name ? all.filter((l) => l.tournamentName?.trim().toLowerCase() === name) : []);
+        const mine = community.filter(
+          (l) => l.tournamentId === tournamentId || (!!name && l.tournamentName?.trim().toLowerCase() === name),
+        );
+        setPlayerLists(mine);
+        setListAuthors(await getProfilesByIds(mine.map((l) => l.userId)));
       })
       .finally(() => setLoading(false));
   }, [tournamentId]);
@@ -87,7 +102,11 @@ export function TournamentDetailPage() {
     { icon: <CalendarDays className="h-4 w-4" />, label: "Fecha", value: formatDateRange(t) },
     t.location && { icon: <MapPin className="h-4 w-4" />, label: "Lugar", value: t.location },
     t.pointsLimit && { icon: <Swords className="h-4 w-4" />, label: "Formato", value: `${t.pointsLimit} puntos` },
-    t.maxPlayers && { icon: <Users className="h-4 w-4" />, label: "Plazas", value: t.maxPlayers },
+    {
+      icon: <Users className="h-4 w-4" />,
+      label: t.maxPlayers ? "Plazas" : "Asistentes",
+      value: t.maxPlayers ? `${t.attendeeCount} / ${t.maxPlayers}` : t.attendeeCount,
+    },
     t.entryFee && { icon: <Ticket className="h-4 w-4" />, label: "Inscripción", value: t.entryFee },
   ].filter(Boolean) as { icon: ReactNode; label: string; value: ReactNode }[];
 
@@ -99,7 +118,7 @@ export function TournamentDetailPage() {
             <ArrowLeft className="h-4 w-4" /> Competitivo
           </Button>
           {isAdmin && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/admin/competitivo")}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/admin/torneos")}>
               <Pencil className="h-3.5 w-3.5" /> Editar
             </Button>
           )}
@@ -155,6 +174,11 @@ export function TournamentDetailPage() {
           ))}
         </dl>
 
+        <Attendance
+          tournament={t}
+          onCountChange={(count) => setTournament((x) => (x ? { ...x, attendeeCount: count } : x))}
+        />
+
         {/* Rules */}
         <section>
           <div className="mb-5 flex items-center gap-2 border-b border-border/60 pb-3">
@@ -177,20 +201,44 @@ export function TournamentDetailPage() {
           )}
         </section>
 
-        {lists.length > 0 && (
-          <section>
-            <div className="mb-5 flex items-center gap-2 border-b border-border/60 pb-3">
-              <ScrollText className="h-5 w-5 text-primary" />
-              <h2 className="font-display text-2xl font-black tracking-tight">Listas destacadas del torneo</h2>
-            </div>
+        <section>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+            <h2 className="flex items-center gap-2 font-display text-2xl font-black tracking-tight">
+              <ScrollText className="h-5 w-5 text-primary" /> Listas del torneo
+            </h2>
+            {me && (
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => setPublishing(true)}>
+                <Plus className="h-3.5 w-3.5" /> Publicar mi lista
+              </Button>
+            )}
+          </div>
+          {lists.length === 0 && playerLists.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
+              Nadie ha publicado todavía su lista para este torneo.
+            </p>
+          ) : (
             <div className="grid gap-5 sm:grid-cols-2">
               {lists.map((l, i) => (
                 <FeaturedListCard key={l.id} l={l} index={i} />
               ))}
+              {playerLists.map((l, i) => (
+                <CommunityListCard key={l.id} list={l} author={listAuthors.get(l.userId)} index={i} />
+              ))}
             </div>
-          </section>
-        )}
+          )}
+        </section>
       </div>
+
+      {publishing && (
+        <ShareListDialog
+          defaultTournamentId={t.id}
+          onClose={() => setPublishing(false)}
+          onShared={(list) => {
+            setPublishing(false);
+            navigate(`/comunidad/listas/${list.id}`);
+          }}
+        />
+      )}
     </PageTransition>
   );
 }

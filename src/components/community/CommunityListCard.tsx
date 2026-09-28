@@ -61,6 +61,11 @@ export function CommunityListCard({
             <ArrowUpRight className="h-4 w-4 shrink-0 text-emerald-500/50 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-emerald-400" />
           </div>
           {list.detachmentName && <p className="truncate text-xs text-zinc-500">&gt; {list.detachmentName}</p>}
+          {list.tournamentName && (
+            <p className="flex items-center gap-1 truncate text-xs text-amber-400/80">
+              <Trophy className="h-3 w-3 shrink-0" /> {list.tournamentName}
+            </p>
+          )}
           <p className="line-clamp-3 font-sans text-sm leading-relaxed text-zinc-400">{list.description}</p>
         </div>
         <div className="flex items-center gap-4 border-t border-emerald-500/15 px-4 py-2.5 text-xs text-zinc-500">
