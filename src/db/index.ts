@@ -108,3 +108,4 @@ export * from './social';
 export * from './admin';
 export * from './communityLists';
 export * from './tournaments';
+export * from './notifications';

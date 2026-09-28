@@ -6,6 +6,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useIsAdmin } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore, useSocialStore } from "@/stores";
@@ -147,6 +148,8 @@ export function Navbar() {
         </nav>
 
         <div className="flex-1 lg:hidden" />
+
+        <NotificationBell />
 
         <NavLink
           to="/mensajes"

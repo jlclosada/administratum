@@ -183,7 +183,7 @@ export function AuthPage({
         const { needsConfirmation } = await signUp(email, password, name.trim());
         if (needsConfirmation) {
           setInfo(
-            "¡Cuenta creada! Revisa tu correo y confirma tu cuenta para empezar.",
+            "¡Cuenta creada! Revisa tu correo y pulsa el enlace: entrarás directamente en tu cuenta.",
           );
           setMode("login");
           setPassword("");

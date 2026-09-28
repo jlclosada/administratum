@@ -1607,6 +1607,215 @@ create trigger tournament_attendance_count
   for each row execute function public.recalc_attendee_count();
 
 -- ============================================================
+-- Notifications (friend requests, likes and comments)
+-- ============================================================
+-- Rows are written only by the security-definer triggers below; users can
+-- read, mark as read and delete their own. entity_id points at the row that
+-- caused the notification (friendship, like or comment) so undoing the action
+-- removes it again.
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  actor_id uuid references auth.users (id) on delete cascade,
+  type text not null
+    check (type in ('friend_request', 'friend_accepted', 'like', 'comment', 'comment_like')),
+  -- What the notification links to: article | guide | photo | list.
+  target_type text,
+  target_id uuid,
+  entity_id uuid,
+  excerpt text not null default '',
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_notifications_user
+  on public.notifications (user_id, created_at desc);
+create index if not exists idx_notifications_unread
+  on public.notifications (user_id) where read_at is null;
+create index if not exists idx_notifications_entity
+  on public.notifications (entity_id);
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications_read" on public.notifications;
+drop policy if exists "notifications_delete" on public.notifications;
+
+create policy "notifications_read" on public.notifications
+  for select to authenticated using (user_id = auth.uid());
+create policy "notifications_delete" on public.notifications
+  for delete to authenticated using (user_id = auth.uid());
+
+-- Marks the given notifications (or all of them when ids is null) as read.
+create or replace function public.mark_notifications_read(ids uuid[] default null)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.notifications
+    set read_at = now()
+    where user_id = auth.uid()
+      and read_at is null
+      and (ids is null or id = any (ids));
+$$;
+
+revoke all on function public.mark_notifications_read(uuid[]) from public, anon;
+grant execute on function public.mark_notifications_read(uuid[]) to authenticated;
+
+-- Owner and a short label of a likeable/commentable item.
+create or replace function public.notification_target(
+  p_type text, p_id uuid, out owner_id uuid, out label text
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  case p_type
+    when 'photo' then
+      select user_id, coalesce(nullif(title, ''), caption) into owner_id, label
+        from public.shared_photos where id = p_id;
+    when 'list' then
+      select user_id, title into owner_id, label from public.community_lists where id = p_id;
+    when 'guide' then
+      select user_id, title into owner_id, label from public.painting_guides where id = p_id;
+    when 'article' then
+      select author_id, title into owner_id, label from public.articles where id = p_id;
+    else
+      null;
+  end case;
+end;
+$$;
+
+revoke all on function public.notification_target(text, uuid) from public, anon, authenticated;
+
+create or replace function public.notify_friendship()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.notifications (user_id, actor_id, type, entity_id)
+      values (new.addressee_id, new.requester_id, 'friend_request', new.id);
+  elsif tg_op = 'UPDATE' then
+    if old.status = 'pending' and new.status = 'accepted' then
+      insert into public.notifications (user_id, actor_id, type, entity_id)
+        values (new.requester_id, new.addressee_id, 'friend_accepted', new.id);
+      update public.notifications set read_at = coalesce(read_at, now())
+        where entity_id = new.id and type = 'friend_request';
+    end if;
+  elsif tg_op = 'DELETE' then
+    -- A cancelled or rejected request shouldn't linger in the list.
+    delete from public.notifications
+      where entity_id = old.id and type = 'friend_request';
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists friendships_notify on public.friendships;
+create trigger friendships_notify
+  after insert or update or delete on public.friendships
+  for each row execute function public.notify_friendship();
+
+create or replace function public.notify_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner uuid;
+  v_label text;
+  v_type text := 'like';
+  v_target_type text := new.target_type;
+  v_target_id uuid := new.target_id;
+begin
+  if new.target_type = 'comment' then
+    select user_id, content, target_type, target_id
+      into v_owner, v_label, v_target_type, v_target_id
+      from public.comments where id = new.target_id;
+    v_type := 'comment_like';
+  else
+    select t.owner_id, t.label into v_owner, v_label
+      from public.notification_target(new.target_type, new.target_id) t;
+  end if;
+
+  if v_owner is not null and v_owner <> new.user_id then
+    insert into public.notifications (user_id, actor_id, type, target_type, target_id, entity_id, excerpt)
+      values (v_owner, new.user_id, v_type, v_target_type, v_target_id, new.id, left(coalesce(v_label, ''), 140));
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists likes_notify on public.likes;
+create trigger likes_notify
+  after insert on public.likes
+  for each row execute function public.notify_like();
+
+create or replace function public.notify_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner uuid;
+begin
+  select t.owner_id into v_owner
+    from public.notification_target(new.target_type, new.target_id) t;
+  if v_owner is not null and v_owner <> new.user_id then
+    insert into public.notifications (user_id, actor_id, type, target_type, target_id, entity_id, excerpt)
+      values (v_owner, new.user_id, 'comment', new.target_type, new.target_id, new.id, left(new.content, 140));
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists comments_notify on public.comments;
+create trigger comments_notify
+  after insert on public.comments
+  for each row execute function public.notify_comment();
+
+-- Un-liking or deleting a comment withdraws its notification if unread.
+create or replace function public.withdraw_notification()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.notifications where entity_id = old.id and read_at is null;
+  return null;
+end;
+$$;
+
+drop trigger if exists likes_withdraw_notification on public.likes;
+create trigger likes_withdraw_notification
+  after delete on public.likes
+  for each row execute function public.withdraw_notification();
+
+drop trigger if exists comments_withdraw_notification on public.comments;
+create trigger comments_withdraw_notification
+  after delete on public.comments
+  for each row execute function public.withdraw_notification();
+
+-- Stream new notifications to the recipient (RLS still applies).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end$$;
+
+-- ============================================================
 -- Profile counters (defined last: reads tables from every section)
 -- ============================================================
 -- Friendships are private to the two people involved, so the public

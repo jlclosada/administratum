@@ -255,7 +255,7 @@ const CHAPTERS = [
   {
     kicker: "Comunidad",
     title: "Pinta en compañía.",
-    body: "Comparte fotos de tus ejércitos, sigue a otros pintores, haz amigos y habla con ellos por chat privado.",
+    body: "Comparte fotos de tus ejércitos, sigue a otros usuarios, haz amigos y habla con ellos por chat privado.",
     Mock: CommunityMock,
   },
 ] as const;
