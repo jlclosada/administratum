@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "sync:mfm": "node scripts/mfm/sync.mjs",
     "sync:downloads": "node scripts/downloads/sync.mjs",
+    "email:assets": "node scripts/email/assets.mjs",
     "email:build": "node scripts/email/build.mjs",
     "email:push": "node scripts/email/push.mjs",
     "lint": "eslint .",

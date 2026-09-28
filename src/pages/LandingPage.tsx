@@ -1,5 +1,6 @@
 import { MagneticButton, Marquee, RevealText } from "@/components/landing/primitives";
 import { ScrollStory } from "@/components/landing/ScrollStory";
+import { Seo } from "@/components/shared/Seo";
 import { StarRating } from "@/components/shared/StarRating";
 import { getArticles, getGuides, guideRating } from "@/db";
 import { cn } from "@/lib/utils";
@@ -15,7 +16,6 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { Seo } from "@/components/shared/Seo";
 import { ArrowDown, ArrowRight, Newspaper, Palette } from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "react-router-dom";
@@ -134,7 +134,7 @@ function Hero({ onEnter }: LandingPageProps) {
           transition={{ delay: 0.9, duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
           className="mt-7 max-w-xl text-base leading-relaxed text-white/65 sm:text-lg"
         >
-          Organiza tu colección, registra cómo pintas, prepara listas con los puntos oficiales y
+          Organiza tu colección, prepara listas con los puntos oficiales, registra cómo pintas y
           compártelo con una comunidad que vive el hobby como tú.
         </motion.p>
         <motion.div
@@ -385,7 +385,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
               <RevealText lines={["Recién salido", "del archivo."]} inView />
             </h2>
             <p className="hidden max-w-xs text-sm text-white/50 sm:block">
-              Noticias del hobby y las guías mejor valoradas por la comunidad. Arrastra para ver más.
+              Noticias actualizadas y las guías mejor valoradas por la comunidad. Arrastra para ver más.
             </p>
           </div>
           <Carousel slides={slides} onEnter={() => onEnter("login")} />

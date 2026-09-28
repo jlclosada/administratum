@@ -426,7 +426,7 @@ export function AuthPage({
                       icon={UserIcon}
                       value={name}
                       onChange={setName}
-                      placeholder="Tu nombre de hobbyista"
+                      placeholder="Tu nombre"
                       autoComplete="name"
                     />
                   </motion.div>
