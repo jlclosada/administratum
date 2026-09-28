@@ -1,19 +1,23 @@
+import { CommunityListCard } from "@/components/community/CommunityListCard";
 import { PhotoCard } from "@/components/community/PhotoCard";
 import { PhotoViewer } from "@/components/community/PhotoViewer";
+import { ShareListDialog } from "@/components/community/ShareListDialog";
 import { SharePhotoDialog } from "@/components/community/SharePhotoDialog";
 import { usePhotoFeed } from "@/components/community/usePhotoFeed";
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { Button } from "@/components/ui/button";
-import { getSharedPhotos } from "@/db";
+import { getCommunityLists, getProfilesByIds, getSharedPhotos } from "@/db";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore } from "@/stores";
-import type { SharedPhoto } from "@/types";
+import type { CommunityList, Profile, SharedPhoto } from "@/types";
 import { motion } from "framer-motion";
-import { Camera, Flame, Plus, Search, Sparkles, UserPlus, Users } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Camera, Flame, Images, Plus, ScrollText, Search, Sparkles, UserPlus, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+
+type Content = "fotos" | "listas";
 
 type Sort = "recent" | "popular";
 
@@ -47,9 +51,40 @@ export function SharedPhotosPage() {
   const load = useCallback(() => getSharedPhotos(), []);
   const { photos, authors, loading, toggle, toggleSave, setCommentCount, remove, prepend } = usePhotoFeed(load);
   const [showShare, setShowShare] = useState(false);
+  const [showShareList, setShowShareList] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const content: Content = searchParams.get("tab") === "listas" ? "listas" : "fotos";
+  const [lists, setLists] = useState<CommunityList[]>([]);
+  const [listAuthors, setListAuthors] = useState<Map<string, Profile>>(new Map());
+  const [listsLoading, setListsLoading] = useState(true);
   const [sort, setSort] = useState<Sort>("recent");
   const [query, setQuery] = useState("");
   const [viewerId, setViewerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCommunityLists()
+      .then(async (l) => {
+        setLists(l);
+        setListAuthors(await getProfilesByIds(l.map((x) => x.userId)));
+      })
+      .finally(() => setListsLoading(false));
+  }, []);
+
+  function setContent(next: Content) {
+    setSearchParams(next === "listas" ? { tab: "listas" } : {}, { replace: true });
+  }
+
+  const visibleLists = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? lists.filter((l) =>
+          [l.title, l.factionName, l.detachmentName, l.description, listAuthors.get(l.userId)?.displayName ?? l.authorName]
+            .filter(Boolean)
+            .some((t) => t!.toLowerCase().includes(q)),
+        )
+      : lists;
+    return sort === "popular" ? [...filtered].sort((a, b) => b.likeCount - a.likeCount) : filtered;
+  }, [lists, listAuthors, query, sort]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -134,10 +169,16 @@ export function SharedPhotosPage() {
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {user && (
-                <Button variant="gradient" className="gap-2" onClick={() => setShowShare(true)}>
-                  <Plus className="h-4 w-4" />
-                  Compartir foto
-                </Button>
+                <>
+                  <Button variant="gradient" className="gap-2" onClick={() => setShowShare(true)}>
+                    <Plus className="h-4 w-4" />
+                    Compartir foto
+                  </Button>
+                  <Button variant="outline" className="gap-2" onClick={() => setShowShareList(true)}>
+                    <ScrollText className="h-4 w-4" />
+                    Compartir lista
+                  </Button>
+                </>
               )}
               <Button variant="outline" className="gap-2" asChild>
                 <Link to="/amigos">
@@ -150,6 +191,7 @@ export function SharedPhotosPage() {
             <dl className="mt-8 flex gap-8">
               {[
                 { label: "fotos", value: photos.length },
+                { label: "listas", value: lists.length },
                 { label: "pintores", value: new Set(photos.map((p) => p.userId)).size },
                 { label: "me gusta", value: totalLikes },
               ].map((s) => (
@@ -201,8 +243,39 @@ export function SharedPhotosPage() {
         )}
 
         {/* Toolbar */}
-        <div className="sticky top-16 z-20 -mx-4 flex flex-col gap-3 border-b border-border/40 bg-background/80 px-4 py-3 backdrop-blur-xl sm:mx-0 sm:flex-row sm:items-center sm:rounded-2xl sm:border sm:px-3">
-          <div className="relative flex rounded-full border border-border/60 p-1">
+        <div className="sticky top-16 z-20 -mx-4 flex flex-col gap-3 border-b border-border/40 bg-background/80 px-4 py-3 backdrop-blur-xl sm:mx-0 sm:flex-row sm:flex-wrap sm:items-center sm:rounded-2xl sm:border sm:px-3">
+          <div className="flex gap-1" role="tablist" aria-label="Contenido">
+            {(
+              [
+                { id: "fotos", label: "Fotos", icon: Images, count: photos.length },
+                { id: "listas", label: "Listas", icon: ScrollText, count: lists.length },
+              ] as const
+            ).map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="tab"
+                aria-selected={content === c.id}
+                onClick={() => setContent(c.id)}
+                className={cn(
+                  "relative flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold transition-colors",
+                  content === c.id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <c.icon className="h-4 w-4" />
+                {c.label}
+                <span className="font-mono text-[11px] text-muted-foreground">{c.count}</span>
+                {content === c.id && (
+                  <motion.span
+                    layoutId="community-content"
+                    className="absolute inset-x-2 -bottom-0.5 h-0.5 rounded-full bg-foreground"
+                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="relative flex w-fit rounded-full border border-border/60 p-1">
             {SORTS.map((s) => (
               <button
                 key={s.id}
@@ -230,13 +303,36 @@ export function SharedPhotosPage() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por ejército, pintor o descripción…"
+              placeholder={content === "fotos" ? "Buscar por ejército, pintor o descripción…" : "Buscar por facción, título o autor…"}
               className="h-9 w-full rounded-full border border-border/60 bg-transparent pl-9 pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
         </div>
 
-        {loading ? (
+        {content === "listas" ? (
+          listsLoading ? (
+            <SkeletonGrid />
+          ) : visibleLists.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-24 text-center">
+              <ScrollText className="h-10 w-10 text-muted-foreground/40" />
+              <p className="font-medium">{query ? "Ninguna lista coincide" : "Aún no hay listas compartidas"}</p>
+              <p className="text-sm text-muted-foreground">
+                {query ? "Prueba con otro término." : "Comparte la tuya y explica cómo la juegas."}
+              </p>
+              {user && !query && (
+                <Button className="mt-2 gap-2" onClick={() => setShowShareList(true)}>
+                  <ScrollText className="h-4 w-4" /> Compartir lista
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+              {visibleLists.map((l, i) => (
+                <CommunityListCard key={l.id} list={l} author={listAuthors.get(l.userId)} index={i} />
+              ))}
+            </div>
+          )
+        ) : loading ? (
           <SkeletonGrid />
         ) : visible.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center">
@@ -269,6 +365,18 @@ export function SharedPhotosPage() {
           </div>
         )}
       </div>
+
+      {showShareList && (
+        <ShareListDialog
+          onClose={() => setShowShareList(false)}
+          onShared={(list) => {
+            setLists((prev) => [list, ...prev]);
+            if (myProfile) setListAuthors((prev) => new Map(prev).set(myProfile.id, myProfile));
+            setShowShareList(false);
+            setContent("listas");
+          }}
+        />
+      )}
 
       {showShare && (
         <SharePhotoDialog

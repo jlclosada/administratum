@@ -48,6 +48,35 @@ export interface ProfileStats {
   friends: number;
   photos: number;
   guides: number;
+  lists: number;
+}
+
+// ---------- Community: shared army lists ----------
+export interface CommunityList extends BaseEntity {
+  userId: string;
+  authorName: string;
+  title: string;
+  factionName: string;
+  totalPoints: number;
+  /** The author's explanation of the list (at least 20 characters). */
+  description: string;
+  detachmentName: string | null;
+  listData: ParsedArmyList;
+  /** Tournament result as "V-D-E", when the author played it in one. */
+  result: string | null;
+  likeCount: number;
+  commentCount: number;
+  likedByMe?: boolean;
+}
+
+export interface CreateCommunityListDTO {
+  title: string;
+  factionName: string;
+  totalPoints: number;
+  description: string;
+  detachmentName?: string | null;
+  listData: ParsedArmyList;
+  result?: string | null;
 }
 
 /** Row of the admin user directory (admin_list_users RPC). */
@@ -465,8 +494,8 @@ export interface FeaturedList extends BaseEntity {
   tournamentName: string | null;
 }
 
-export type LikeTargetType = 'article' | 'guide' | 'comment' | 'photo';
-export type CommentTargetType = 'article' | 'guide' | 'photo';
+export type LikeTargetType = 'article' | 'guide' | 'comment' | 'photo' | 'list';
+export type CommentTargetType = 'article' | 'guide' | 'photo' | 'list';
 
 export interface Comment extends BaseEntity {
   userId: string;

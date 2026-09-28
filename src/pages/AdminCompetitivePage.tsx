@@ -227,7 +227,7 @@ export function AdminCompetitivePage() {
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Pega la lista exportada (NewRecruit / app oficial) — rellena título, facción y puntos
+                Pega la lista exportada (app oficial o NewRecruit, en español o inglés) — rellena título, facción y puntos
               </label>
               <ArmyListPasteField value={lRaw} onChange={setLRaw} onParsed={handleListParsed} rows={6} />
             </div>

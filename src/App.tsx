@@ -42,6 +42,7 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ de
 const ProfilePage = lazy(() => import("@/pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
 const FriendsPage = lazy(() => import("@/pages/FriendsPage").then((m) => ({ default: m.FriendsPage })));
 const MessagesPage = lazy(() => import("@/pages/MessagesPage").then((m) => ({ default: m.MessagesPage })));
+const CommunityListDetailPage = lazy(() => import("@/pages/CommunityListDetailPage").then((m) => ({ default: m.CommunityListDetailPage })));
 const SharedPhotosPage = lazy(() => import("@/pages/SharedPhotosPage").then((m) => ({ default: m.SharedPhotosPage })));
 
 function RouteFallback() {
@@ -88,6 +89,7 @@ function AnimatedRoutes() {
             <Route path="competitivo/listas/:listId" element={<FeaturedListDetailPage />} />
             <Route path="competitivo/torneos/:tournamentId" element={<TournamentDetailPage />} />
             <Route path="comunidad" element={<SharedPhotosPage />} />
+            <Route path="comunidad/listas/:listId" element={<CommunityListDetailPage />} />
             <Route path="perfil" element={<ProfilePage />} />
             <Route path="perfil/:userId" element={<ProfilePage />} />
             <Route path="amigos" element={<FriendsPage />} />

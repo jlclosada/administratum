@@ -46,8 +46,13 @@ export async function searchProfiles(term: string, limit = 12): Promise<Profile[
 export async function getProfileStats(userId: string): Promise<ProfileStats> {
   const { data, error } = await supabase.rpc('profile_stats', { uid: userId });
   const row = Array.isArray(data) ? data[0] : data;
-  if (error || !row) return { friends: 0, photos: 0, guides: 0 };
-  return { friends: row.friends ?? 0, photos: row.photos ?? 0, guides: row.guides ?? 0 };
+  if (error || !row) return { friends: 0, photos: 0, guides: 0, lists: 0 };
+  return {
+    friends: row.friends ?? 0,
+    photos: row.photos ?? 0,
+    guides: row.guides ?? 0,
+    lists: row.lists ?? 0,
+  };
 }
 
 export async function getSharedPhotosByUser(userId: string): Promise<SharedPhoto[]> {

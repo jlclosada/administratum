@@ -1,4 +1,6 @@
 import { PhotoViewer } from "@/components/community/PhotoViewer";
+import { CommunityListCard } from "@/components/community/CommunityListCard";
+import { ShareListDialog } from "@/components/community/ShareListDialog";
 import { SharePhotoDialog } from "@/components/community/SharePhotoDialog";
 import { usePhotoFeed } from "@/components/community/usePhotoFeed";
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
@@ -10,6 +12,7 @@ import { UserAvatar } from "@/components/shared/UserAvatar";
 import { FriendButton } from "@/components/social/FriendButton";
 import { Button } from "@/components/ui/button";
 import {
+  getCommunityListsByUser,
   getFriendshipWith,
   getGuides,
   getProfile,
@@ -22,7 +25,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { linkLabel, profileLinks } from "@/lib/profileLinks";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
-import type { Friendship, PaintingGuide, Profile, ProfileStats, SharedPhoto } from "@/types";
+import type { CommunityList, Friendship, PaintingGuide, Profile, ProfileStats, SharedPhoto } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bookmark,
@@ -35,6 +38,7 @@ import {
   MessageCircle,
   Palette,
   Plus,
+  ScrollText,
   Settings,
   ShieldCheck,
   Swords,
@@ -43,7 +47,7 @@ import {
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
-type Tab = "photos" | "guides" | "saved";
+type Tab = "photos" | "lists" | "guides" | "saved";
 
 /** Square Instagram-style grid; hovering a tile shows its likes and comments. */
 function PhotoGrid({
@@ -107,7 +111,9 @@ function ProfileView({ userId }: { userId: string }) {
   const isMe = myId === userId;
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [stats, setStats] = useState<ProfileStats>({ friends: 0, photos: 0, guides: 0 });
+  const [stats, setStats] = useState<ProfileStats>({ friends: 0, photos: 0, guides: 0, lists: 0 });
+  const [lists, setLists] = useState<CommunityList[]>([]);
+  const [showShareList, setShowShareList] = useState(false);
   const [guides, setGuides] = useState<PaintingGuide[]>([]);
   const [friendship, setFriendship] = useState<Friendship | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,12 +133,14 @@ function ProfileView({ userId }: { userId: string }) {
       getProfileStats(userId),
       getGuides({ userId }),
       myId && !isMe ? getFriendshipWith(userId) : Promise.resolve(null),
+      getCommunityListsByUser(userId),
     ])
-      .then(([p, s, g, f]) => {
+      .then(([p, s, g, f, l]) => {
         setProfile(p);
         setStats(s);
         setGuides(g.filter((guide) => guide.published || isMe));
         setFriendship(f);
+        setLists(l);
       })
       .finally(() => setLoading(false));
   }, [userId, myId, isMe]);
@@ -253,9 +261,10 @@ function ProfileView({ userId }: { userId: string }) {
               </div>
             </div>
 
-            <dl className="mt-6 grid max-w-md grid-cols-3 gap-2 text-center sm:text-left">
+            <dl className="mt-6 grid max-w-lg grid-cols-4 gap-2 text-center sm:text-left">
               {[
                 { label: "Publicaciones", value: stats.photos },
+                { label: "Listas", value: stats.lists },
                 { label: "Guías", value: stats.guides },
                 { label: "Amigos", value: stats.friends },
               ].map((s) => (
@@ -319,6 +328,7 @@ function ProfileView({ userId }: { userId: string }) {
           {(
             [
               { id: "photos", label: "Publicaciones", icon: Grid3x3 },
+              { id: "lists", label: "Listas", icon: ScrollText },
               { id: "guides", label: "Guías", icon: Palette },
               ...(isMe ? [{ id: "saved", label: "Guardados", icon: Bookmark }] : []),
             ] as { id: Tab; label: string; icon: typeof Grid3x3 }[]
@@ -399,6 +409,30 @@ function ProfileView({ userId }: { userId: string }) {
                   }
                 />
               )
+            ) : tab === "lists" ? (
+              lists.length === 0 ? (
+                <EmptyState
+                  icon={<ScrollText className="h-8 w-8" />}
+                  title="Sin listas compartidas"
+                  description={isMe ? "Comparte una lista y explica cómo la juegas." : `${name} todavía no ha compartido listas.`}
+                  action={isMe ? { label: "Compartir lista", onClick: () => setShowShareList(true) } : undefined}
+                />
+              ) : (
+                <div className="space-y-4">
+                  {isMe && (
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowShareList(true)}>
+                        <Plus className="h-3.5 w-3.5" /> Compartir lista
+                      </Button>
+                    </div>
+                  )}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {lists.map((l, i) => (
+                      <CommunityListCard key={l.id} list={l} author={profile} index={i} showAuthor={false} />
+                    ))}
+                  </div>
+                </div>
+              )
             ) : guides.length === 0 ? (
               <EmptyState
                 icon={<Palette className="h-8 w-8" />}
@@ -443,6 +477,17 @@ function ProfileView({ userId }: { userId: string }) {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {showShareList && (
+        <ShareListDialog
+          onClose={() => setShowShareList(false)}
+          onShared={(list) => {
+            setLists((prev) => [list, ...prev]);
+            setStats((st) => ({ ...st, lists: st.lists + 1 }));
+            setShowShareList(false);
+          }}
+        />
+      )}
 
       {showShare && (
         <SharePhotoDialog
