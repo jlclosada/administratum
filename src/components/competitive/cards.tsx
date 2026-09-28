@@ -90,11 +90,10 @@ export function TournamentCard({ t, index = 0 }: { t: Tournament; index?: number
                 <Swords className="h-3.5 w-3.5" /> {t.pointsLimit} pts
               </span>
             )}
-            {t.maxPlayers && (
-              <span className="flex items-center gap-1">
-                <Users className="h-3.5 w-3.5" /> {t.maxPlayers} plazas
-              </span>
-            )}
+            <span className="flex items-center gap-1">
+              <Users className="h-3.5 w-3.5" /> {t.attendeeCount}
+              {t.maxPlayers ? `/${t.maxPlayers}` : ""} asistentes
+            </span>
           </div>
         </div>
       </Link>

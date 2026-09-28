@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { CommunityList, CreateCommunityListDTO } from '@/types';
+import type { CommunityList, CreateCommunityListDTO, UpdateCommunityListDTO } from '@/types';
 import { getMyLikes, mapRow, mapRows } from './repository';
 
 async function withMyLikes(lists: CommunityList[]): Promise<CommunityList[]> {
@@ -59,6 +59,8 @@ export async function createCommunityList(dto: CreateCommunityListDTO): Promise<
       detachment_name: dto.detachmentName ?? null,
       list_data: dto.listData,
       result: dto.result ?? null,
+      tournament_id: dto.tournamentId ?? null,
+      tournament_name: dto.tournamentName ?? null,
     })
     .select()
     .single();
@@ -69,4 +71,27 @@ export async function createCommunityList(dto: CreateCommunityListDTO): Promise<
 export async function deleteCommunityList(id: string): Promise<void> {
   const { error } = await supabase.from('community_lists').delete().eq('id', id);
   if (error) throw error;
+}
+
+/** Only the author can update (enforced by RLS). */
+export async function updateCommunityList(dto: UpdateCommunityListDTO): Promise<CommunityList> {
+  const payload: Record<string, unknown> = {};
+  if (dto.title !== undefined) payload.title = dto.title;
+  if (dto.factionName !== undefined) payload.faction_name = dto.factionName;
+  if (dto.totalPoints !== undefined) payload.total_points = dto.totalPoints;
+  if (dto.description !== undefined) payload.description = dto.description;
+  if (dto.detachmentName !== undefined) payload.detachment_name = dto.detachmentName;
+  if (dto.listData !== undefined) payload.list_data = dto.listData;
+  if (dto.result !== undefined) payload.result = dto.result;
+  if (dto.tournamentId !== undefined) payload.tournament_id = dto.tournamentId;
+  if (dto.tournamentName !== undefined) payload.tournament_name = dto.tournamentName;
+  const { data, error } = await supabase
+    .from('community_lists')
+    .update(payload)
+    .eq('id', dto.id)
+    .select()
+    .single();
+  if (error) throw error;
+  const [list] = await withMyLikes([mapRow<CommunityList>(data)]);
+  return list!;
 }

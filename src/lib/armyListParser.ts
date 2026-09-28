@@ -39,6 +39,8 @@ export interface ParsedArmyList {
   battleSize?: { name: string; points: number } | null;
   /** Other lines before the first category, e.g. "Force Dispositions: …". */
   notes?: string[];
+  /** Language of the export it was parsed from (drives serializeArmyList). */
+  language?: "es" | "en";
   categories: ArmyListCategory[];
 }
 
@@ -74,6 +76,7 @@ export function parseArmyListExport(raw: string): ParsedArmyList | null {
   const headerMatch = (lines[i] ?? "").trim().match(LIST_HEADER_RE);
   if (!headerMatch) return null;
   const listName = (headerMatch[1] ?? "").trim();
+  const language: "es" | "en" = /puntos\)\s*$/i.test((lines[i] ?? "").trim()) ? "es" : "en";
   const totalPoints = toInt(headerMatch[2]);
 
   i = next(i + 1);
@@ -162,6 +165,7 @@ export function parseArmyListExport(raw: string): ParsedArmyList | null {
     detachmentPoints,
     battleSize,
     notes,
+    language,
     categories: nonEmpty,
   };
 }
@@ -169,6 +173,44 @@ export function parseArmyListExport(raw: string): ParsedArmyList | null {
 /** Sum of every unit's points — useful to sanity-check the header total. */
 export function sumUnitPoints(list: ParsedArmyList): number {
   return list.categories.reduce((n, c) => n + c.units.reduce((m, u) => m + u.points, 0), 0);
+}
+
+/** The export's language; lists stored before `language` existed are guessed from their headers. */
+export function listLanguage(list: ParsedArmyList): "es" | "en" {
+  if (list.language) return list.language;
+  const text = [...list.categories.map((c) => c.name), list.battleSize?.name ?? ""].join(" ");
+  return /[ÁÉÍÓÚÑ]|PERSONAJE|BATALLA|TRANSPORTE|OTRAS|HOJAS|UNIDADES|Fuerza|Incursi/i.test(text) ? "es" : "en";
+}
+
+/**
+ * Inverse of parseArmyListExport: writes the list back in the export format
+ * it came from (Spanish: indented bullets, "puntos"; English: flat bullets,
+ * "Points", thousands separators), so it can be pasted into list builders
+ * or shared as text. parse(serialize(list)) reproduces the list.
+ */
+export function serializeArmyList(list: ParsedArmyList): string {
+  const es = listLanguage(list) === "es";
+  const n = (v: number) => (es ? String(v) : v.toLocaleString("en-US"));
+  const out: string[] = [`${list.listName} (${n(list.totalPoints)} ${es ? "puntos" : "Points"})`, "", list.factionName];
+  if (list.detachmentName) {
+    out.push(`${list.detachmentName} (${list.detachmentPoints ?? 0} ${es ? "puntos de destacamento" : "Detachment Points"})`);
+  }
+  out.push(...(list.notes ?? []));
+  if (list.battleSize) out.push(`${list.battleSize.name} (${n(list.battleSize.points)} Points)`);
+
+  for (const category of list.categories) {
+    out.push("", category.name);
+    let group: string | undefined;
+    for (const unit of category.units) {
+      if (unit.group && unit.group !== group) out.push("", unit.group);
+      group = unit.group;
+      out.push("", `${unit.name} (${n(unit.points)} Points)`);
+      for (const b of unit.bullets) {
+        out.push(es ? `${b.depth > 0 ? "     ◦" : "  •"} ${b.text}` : `${b.depth > 0 ? "◦" : "•"} ${b.text}`);
+      }
+    }
+  }
+  return `${out.join("\n")}\n`;
 }
 
 /** "3-1-0" → "3V · 1D · 0E"; null when the string isn't a valid V-D-E triple. */

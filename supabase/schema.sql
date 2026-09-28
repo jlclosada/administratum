@@ -1517,6 +1517,95 @@ alter table public.comments drop constraint if exists comments_target_type_check
 alter table public.comments add constraint comments_target_type_check
   check (target_type in ('article', 'guide', 'photo', 'list'));
 
+-- Lists can say which tournament they were played at: a real tournament
+-- (tournament_id) or free text for events not listed here. tournament_name
+-- is always filled so search and display never need a join.
+alter table public.community_lists add column if not exists tournament_id uuid
+  references public.tournaments (id) on delete set null;
+alter table public.community_lists add column if not exists tournament_name text;
+create index if not exists idx_community_lists_tournament on public.community_lists (tournament_id);
+
+-- ============================================================
+-- Competitivo: tournament attendance ("Asistiré")
+-- ============================================================
+create table if not exists public.tournament_attendees (
+  tournament_id uuid not null references public.tournaments (id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (tournament_id, user_id)
+);
+
+create index if not exists idx_tournament_attendees_user on public.tournament_attendees (user_id);
+
+alter table public.tournaments add column if not exists attendee_count integer not null default 0;
+
+alter table public.tournament_attendees enable row level security;
+
+drop policy if exists "tournament_attendees_read" on public.tournament_attendees;
+drop policy if exists "tournament_attendees_insert" on public.tournament_attendees;
+drop policy if exists "tournament_attendees_delete" on public.tournament_attendees;
+
+-- The attendee list is public; people only sign themselves up or out.
+create policy "tournament_attendees_read" on public.tournament_attendees
+  for select to anon, authenticated using (true);
+create policy "tournament_attendees_insert" on public.tournament_attendees
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "tournament_attendees_delete" on public.tournament_attendees
+  for delete to authenticated using (user_id = auth.uid() or public.is_admin());
+
+-- Rejects sign-ups for finished or full tournaments. Locks the tournament
+-- row so two people can't take the last spot at the same time.
+create or replace function public.check_tournament_attendance()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t record;
+begin
+  select status, max_players, attendee_count into t
+    from public.tournaments where id = new.tournament_id for update;
+  if not found then
+    raise exception 'Torneo no encontrado';
+  end if;
+  if t.status = 'finished' then
+    raise exception 'El torneo ya ha terminado';
+  end if;
+  if t.max_players is not null and t.attendee_count >= t.max_players then
+    raise exception 'No quedan plazas en este torneo';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists tournament_attendance_check on public.tournament_attendees;
+create trigger tournament_attendance_check
+  before insert on public.tournament_attendees
+  for each row execute function public.check_tournament_attendance();
+
+create or replace function public.recalc_attendee_count()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t_id uuid;
+begin
+  t_id := coalesce(new.tournament_id, old.tournament_id);
+  update public.tournaments
+    set attendee_count = (select count(*) from public.tournament_attendees where tournament_id = t_id)
+    where id = t_id;
+  return null;
+end;
+$$;
+
+drop trigger if exists tournament_attendance_count on public.tournament_attendees;
+create trigger tournament_attendance_count
+  after insert or delete on public.tournament_attendees
+  for each row execute function public.recalc_attendee_count();
+
 -- ============================================================
 -- Profile counters (defined last: reads tables from every section)
 -- ============================================================
@@ -1539,3 +1628,45 @@ as $$
 $$;
 
 grant execute on function public.profile_stats(uuid) to anon, authenticated;
+
+-- ============================================================
+-- Admin overview (platform-wide counters for the admin dashboard)
+-- ============================================================
+create or replace function public.admin_overview()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, auth
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'No autorizado';
+  end if;
+  return jsonb_build_object(
+    'users', (select count(*) from auth.users),
+    'users_7d', (select count(*) from auth.users where created_at > now() - interval '7 days'),
+    'admins', (select count(*) from public.profiles where role = 'admin') + 1,
+    'photos', (select count(*) from public.shared_photos),
+    'photos_7d', (select count(*) from public.shared_photos where created_at > now() - interval '7 days'),
+    'lists', (select count(*) from public.community_lists),
+    'lists_7d', (select count(*) from public.community_lists where created_at > now() - interval '7 days'),
+    'featured_lists', (select count(*) from public.featured_lists),
+    'comments_7d', (select count(*) from public.comments where created_at > now() - interval '7 days'),
+    'likes_7d', (select count(*) from public.likes where created_at > now() - interval '7 days'),
+    'tournaments_active', (select count(*) from public.tournaments where status <> 'finished'),
+    'attendees', (select coalesce(sum(attendee_count), 0) from public.tournaments where status <> 'finished'),
+    'tournaments_without_rules', (
+      select count(*) from public.tournaments
+      where status <> 'finished' and (rules is null or rules -> 'content' is null or jsonb_array_length(rules -> 'content') = 0)
+    ),
+    'articles', (select count(*) from public.articles where published),
+    'drafts', (select count(*) from public.articles where not published),
+    'guides', (select count(*) from public.painting_guides where published),
+    'ads_active', (select count(*) from public.ads where active)
+  );
+end;
+$$;
+
+revoke all on function public.admin_overview() from public, anon;
+grant execute on function public.admin_overview() to authenticated;

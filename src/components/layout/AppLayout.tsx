@@ -4,7 +4,7 @@ import type { Ad } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { Megaphone, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { AdRail, MobileAdStrip } from "./SideRail";
@@ -15,6 +15,7 @@ export function AppLayout() {
   const [dismissed, setDismissed] = useState(false);
   const [ads, setAds] = useState<Ad[]>([]);
   const [rightRailContent, setRightRailContent] = useState<ReactNode>(null);
+  const { pathname } = useLocation();
 
   useEffect(() => {
     getAds().then(setAds);
@@ -30,10 +31,13 @@ export function AppLayout() {
       .catch(() => {});
   }, []);
 
-  const leftAds = ads.filter((a) => a.position === "left");
-  const rightAds = ads.filter((a) => a.position === "right");
+  // The admin area has its own side menu and no ads.
+  const inAdmin = pathname.startsWith("/admin");
+  const shownAds = inAdmin ? [] : ads;
+  const leftAds = shownAds.filter((a) => a.position === "left");
+  const rightAds = shownAds.filter((a) => a.position === "right");
   const hasLeft = leftAds.length > 0;
-  const hasRight = rightAds.length > 0 || rightRailContent != null;
+  const hasRight = rightAds.length > 0 || (!inAdmin && rightRailContent != null);
 
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-background">
@@ -93,7 +97,7 @@ export function AppLayout() {
           <main className="min-w-0">
             <Outlet />
             <div className="xl:hidden">
-              <MobileAdStrip ads={ads} />
+              <MobileAdStrip ads={shownAds} />
             </div>
             {hasLeft && (
               <div className="hidden xl:block 2xl:hidden">
