@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { seoListTitle } from "@/lib/seoCopy";
 import { metaDescription } from "@/lib/site";
 import { ArmyListCard } from "@/components/shared/ArmyListNode";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -52,7 +53,7 @@ export function FeaturedListDetailPage() {
   return (
     <PageTransition>
       <Seo
-        title={list.title}
+        title={seoListTitle(list.title, list.factionName, list.totalPoints)}
         description={
           metaDescription(list.description) ??
           `Lista de ${list.factionName ?? "Warhammer 40,000"} destacada en Administratum.`

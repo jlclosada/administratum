@@ -17,9 +17,22 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
-import { ArrowDown, ArrowRight, Newspaper, Palette } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  Brush,
+  Download,
+  Library,
+  Newspaper,
+  Palette,
+  ScrollText,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "react-router-dom";
+
+const MotionLink = motion.create(Link);
 
 const FACTIONS = [
   "Adeptus Astartes",
@@ -75,6 +88,12 @@ function Header({ onEnter }: LandingPageProps) {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <a
+            href="#explorar"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-white/70 transition-colors hover:text-white lg:hidden"
+          >
+            Explorar
+          </a>
           <button
             type="button"
             onClick={() => onEnter("login")}
@@ -170,6 +189,16 @@ function Hero({ onEnter }: LandingPageProps) {
             Ya tengo cuenta
           </MagneticButton>
         </motion.div>
+        <motion.a
+          href="#explorar"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.4 }}
+          className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-white/70 underline-offset-4 transition-colors hover:text-white hover:underline"
+        >
+          O explora el contenido sin cuenta
+          <ArrowDown className="h-4 w-4" />
+        </motion.a>
       </motion.div>
 
       <motion.div
@@ -235,9 +264,11 @@ type Slide =
   | { kind: "article"; item: Article }
   | { kind: "guide"; item: PaintingGuide };
 
-function Carousel({ slides, onEnter }: { slides: Slide[]; onEnter: () => void }) {
+function Carousel({ slides }: { slides: Slide[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState(0);
+  // A drag that ends over a card must not open it.
+  const dragged = useRef(false);
 
   useEffect(() => {
     const el = trackRef.current;
@@ -255,16 +286,19 @@ function Carousel({ slides, onEnter }: { slides: Slide[]; onEnter: () => void })
         drag="x"
         dragConstraints={{ left: -limit, right: 0 }}
         dragElastic={0.08}
+        onDragStart={() => (dragged.current = true)}
+        onDragEnd={() => setTimeout(() => (dragged.current = false), 0)}
         className="flex w-max cursor-grab gap-5 px-5 active:cursor-grabbing sm:px-8"
       >
         {slides.map((s, i) => {
           const isArticle = s.kind === "article";
           const cover = s.item.coverImage;
           return (
-            <motion.button
+            <MotionLink
               key={`${s.kind}-${s.item.id}`}
-              type="button"
-              onClick={onEnter}
+              to={isArticle ? `/articulos/${s.item.id}` : `/guias/${s.item.id}`}
+              draggable={false}
+              onClick={(e: React.MouseEvent) => dragged.current && e.preventDefault()}
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -301,7 +335,7 @@ function Carousel({ slides, onEnter }: { slides: Slide[]; onEnter: () => void })
                   Leer <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </div>
-            </motion.button>
+            </MotionLink>
           );
         })}
       </motion.div>
@@ -310,6 +344,91 @@ function Carousel({ slides, onEnter }: { slides: Slide[]; onEnter: () => void })
 }
 
 // ---------- Final CTA: circle reveal ----------
+
+// ---------- Explore without an account ----------
+
+const EXPLORE = [
+  {
+    to: "/catalogo-puntos",
+    icon: Library,
+    title: "Puntos de Warhammer 40K",
+    text: "Todas las facciones, unidades y destacamentos, actualizados cada día.",
+  },
+  {
+    to: "/competitivo",
+    icon: Trophy,
+    title: "Torneos en España",
+    text: "Calendario, bases, fechas y plazas de los torneos de la comunidad.",
+  },
+  {
+    to: "/competitivo#listas",
+    icon: ScrollText,
+    title: "Listas de ejército",
+    text: "Las listas que marcan el meta, explicadas por quienes las juegan.",
+  },
+  {
+    to: "/comunidad",
+    icon: Users,
+    title: "Comunidad",
+    text: "Ejércitos pintados, proyectos en curso y listas compartidas.",
+  },
+  {
+    to: "/guias",
+    icon: Brush,
+    title: "Guías de pintura",
+    text: "Tutoriales paso a paso con las pinturas de cada fase.",
+  },
+  {
+    to: "/descargas",
+    icon: Download,
+    title: "Descargas oficiales",
+    text: "Reglas, faction packs y dataslates en su última versión.",
+  },
+];
+
+function Explore() {
+  return (
+    <section id="explorar" aria-labelledby="explorar-titulo" className="scroll-mt-20 py-24 sm:py-32">
+      <div className="mx-auto max-w-6xl px-5 sm:px-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/45">Sin registrarte</p>
+        <h2
+          id="explorar-titulo"
+          className="mt-3 font-display text-4xl font-black leading-[0.95] tracking-tight sm:text-6xl"
+        >
+          <RevealText lines={["Entra y", "echa un vistazo."]} inView />
+        </h2>
+        <p className="mt-5 max-w-xl text-white/60">
+          Todo el contenido es público: consulta puntos, torneos, listas y guías sin cuenta. Solo necesitas
+          registrarte para comentar, dar me gusta, publicar y llevar tu colección.
+        </p>
+        <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {EXPLORE.map((item, i) => (
+            <motion.li
+              key={item.to}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ delay: i * 0.05, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <Link
+                to={item.to}
+                className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-[border-color,background-color] duration-300 hover:border-white/30 hover:bg-white/[0.06]"
+              >
+                <item.icon className="h-6 w-6 text-white/70 transition-colors group-hover:text-white" />
+                <h3 className="mt-5 font-display text-xl font-bold text-white">{item.title}</h3>
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-white/55">{item.text}</p>
+                <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-white/80">
+                  Ver
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </span>
+              </Link>
+            </motion.li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
 
 function FinalCta({ onEnter }: LandingPageProps) {
   const ref = useRef<HTMLElement>(null);
@@ -337,6 +456,11 @@ function FinalCta({ onEnter }: LandingPageProps) {
           Crear mi cuenta
           <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
         </MagneticButton>
+        <p className="mt-6">
+          <Link to="/catalogo-puntos" className="text-sm text-white/65 underline-offset-4 hover:text-white hover:underline">
+            o consulta los puntos sin registrarte
+          </Link>
+        </p>
       </motion.div>
     </section>
   );
@@ -384,6 +508,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
         />
       </div>
 
+      <Explore />
+
       <Manifesto />
 
       <section aria-label="Qué puedes hacer">
@@ -400,7 +526,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
               Noticias actualizadas y las guías mejor valoradas por la comunidad. Arrastra para ver más.
             </p>
           </div>
-          <Carousel slides={slides} onEnter={() => onEnter("login")} />
+          <Carousel slides={slides} />
         </section>
       )}
 

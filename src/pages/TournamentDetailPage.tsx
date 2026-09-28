@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { seoTournamentTitle } from "@/lib/seoCopy";
 import { metaDescription } from "@/lib/site";
 import { Attendance } from "@/components/competitive/Attendance";
 import { FeaturedListCard, StatusPill } from "@/components/competitive/cards";
@@ -166,7 +167,7 @@ export function TournamentDetailPage() {
   return (
     <PageTransition>
       <Seo
-        title={tournament.name}
+        title={seoTournamentTitle(tournament.name, tournament.location)}
         description={
           metaDescription(tournament.description) ??
           `Bases, fechas y asistentes del torneo ${tournament.name}.`

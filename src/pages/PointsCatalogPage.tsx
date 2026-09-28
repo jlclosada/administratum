@@ -5,9 +5,13 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { getFactionCatalog, getFactionUnits, getUnitCatalog } from "@/db";
+import { CommunityListCard } from "@/components/community/CommunityListCard";
+import { getCommunityListsByFaction, getFactionCatalog, getFactionUnits, getUnitCatalog } from "@/db";
+import { factionSpanishName } from "@/lib/factionNames";
+import { SEO_CATALOG, seoFaction } from "@/lib/seoCopy";
 import { cn } from "@/lib/utils";
 import type {
+  CommunityList,
   Detachment,
   FactionCatalogEntry,
   UnitCatalogEntry,
@@ -26,7 +30,10 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+
+// Real links (crawlable, open in a new tab) with the card animations.
+const MotionLink = motion.create(Link);
 
 interface FactionSummary {
   slug: string;
@@ -205,19 +212,16 @@ export function PointsCatalogPage() {
 
   return (
     <PageTransition>
-      <Seo
-        title="Catálogo de puntos de Warhammer 40,000"
-        description="Puntos oficiales del Munitorum Field Manual de todas las facciones de Warhammer 40,000, actualizados cada día, con destacamentos y mejoras."
-        path="/catalogo-puntos"
-      />
+      <Seo {...SEO_CATALOG} path="/catalogo-puntos" />
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            Catálogo de puntos
+            Puntos de Warhammer 40K
           </h1>
           <p className="text-muted-foreground">
-            Biblioteca Munitorum: busca una miniatura o entra en un ejército
-            para ver unidades y destacamentos.
+            Catálogo oficial de puntos de todas las facciones, actualizado cada
+            día con el Munitorum Field Manual. Busca una miniatura o entra en un
+            ejército para ver unidades, destacamentos y mejoras.
           </p>
         </div>
 
@@ -293,15 +297,14 @@ export function PointsCatalogPage() {
           >
             <AnimatePresence>
               {matchingFactions.map((faction) => (
-                <motion.button
+                <MotionLink
                   key={faction.slug}
-                  type="button"
                   variants={{
                     hidden: { opacity: 0, y: 12 },
                     show: { opacity: 1, y: 0 },
                   }}
                   layout
-                  onClick={() => navigate(`/catalogo-puntos/${faction.slug}`)}
+                  to={`/catalogo-puntos/${faction.slug}`}
                   className="group relative overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
                 >
                   <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-muted to-background">
@@ -321,6 +324,11 @@ export function PointsCatalogPage() {
                     <div className="absolute inset-x-0 bottom-0 p-4">
                       <h3 className="font-semibold text-white">
                         {faction.name}
+                        {factionSpanishName(faction.slug, faction.name) && (
+                          <span className="ml-1.5 font-normal text-white/60">
+                            · {factionSpanishName(faction.slug, faction.name)}
+                          </span>
+                        )}
                       </h3>
                       <p className="mt-0.5 text-xs text-white/70">
                         {faction.count} miniaturas
@@ -331,7 +339,7 @@ export function PointsCatalogPage() {
                       </p>
                     </div>
                   </div>
-                </motion.button>
+                </MotionLink>
               ))}
             </AnimatePresence>
           </motion.div>
@@ -495,6 +503,14 @@ export function PointsCatalogFactionPage() {
   const factionName =
     faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug;
   const version = faction?.mfmVersion ?? armyUnits[0]?.mfmVersion;
+  const spanishName = factionSpanishName(factionSlug ?? "", factionName ?? "");
+
+  // "Listas de <facción>": community lists that name it in either language.
+  const [factionLists, setFactionLists] = useState<CommunityList[]>([]);
+  useEffect(() => {
+    if (!factionName) return;
+    getCommunityListsByFaction([factionName, spanishName ?? ""]).then(setFactionLists);
+  }, [factionName, spanishName]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -553,8 +569,7 @@ export function PointsCatalogFactionPage() {
   return (
     <PageTransition>
       <Seo
-        title={`Puntos de ${faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug} · Warhammer 40,000`}
-        description={`Puntos oficiales actualizados de todas las unidades, destacamentos y mejoras de ${faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug} para Warhammer 40,000.`}
+        {...seoFaction(factionSlug ?? "", factionName ?? "", armyUnits.length, faction?.detachments.length ?? 0)}
         path={`/catalogo-puntos/${factionSlug}`}
       />
       <div className="space-y-6">
@@ -584,7 +599,11 @@ export function PointsCatalogFactionPage() {
           </button>
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
             <h1 className="font-display text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              <span className="sr-only">Puntos de </span>
               {factionName}
+              {spanishName && (
+                <span className="ml-2 text-lg font-medium text-white/65 sm:text-xl">({spanishName})</span>
+              )}
             </h1>
             <p className="mt-1 text-sm text-white/70">
               {armyUnits.length} miniaturas
@@ -695,6 +714,29 @@ export function PointsCatalogFactionPage() {
                 </div>
               ))}
             </ConsolePanel>
+          )}
+        </section>
+
+        {/* Community lists of this faction */}
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">
+              Listas de {spanishName ?? factionName} de la comunidad
+            </h2>
+            <Link to="/competitivo" className="text-sm text-primary hover:underline">
+              Ver todas las listas
+            </Link>
+          </div>
+          {factionLists.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aún no hay listas de {spanishName ?? factionName}. ¡Publica la primera desde Competitivo!
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {factionLists.map((l) => (
+                <CommunityListCard key={l.id} list={l} author={undefined} />
+              ))}
+            </div>
           )}
         </section>
       </div>

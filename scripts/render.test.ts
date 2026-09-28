@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import * as server from '../api/render';
 import { inject, pricingText, renderPath, richText, summarize, type Query } from '../api/render';
+import { FACTION_ES } from '../src/lib/factionNames';
+import * as app from '../src/lib/seoCopy';
 
 // ?raw: import.meta.url isn't a file URL under happy-dom.
 import template from '../index.html?raw';
@@ -25,7 +28,7 @@ describe('prerender', () => {
   it('renders a faction page with units, detachments and breadcrumbs', async () => {
     const page = await renderPath('/catalogo-puntos/thousand-sons', q);
     expect(page?.status).toBe(200);
-    expect(page?.title).toBe('Puntos de Thousand Sons · Warhammer 40,000');
+    expect(page?.title).toBe('Puntos de Mil Hijos (Thousand Sons) · Warhammer 40K');
     expect(page?.body).toContain('Rubric Marines');
     expect(page?.body).toContain('5 miniaturas: 100 pts, 10 miniaturas: 200 pts');
     expect(page?.body).toContain('Athenaean Scrolls — 25 pts');
@@ -49,7 +52,7 @@ describe('prerender', () => {
     const page = (await renderPath('/catalogo-puntos/thousand-sons', q))!;
     const html = inject(template, page);
     expect(html.match(/<title>/g)).toHaveLength(1);
-    expect(html).toContain('<title>Puntos de Thousand Sons · Warhammer 40,000 · Administratum</title>');
+    expect(html).toContain('<title>Puntos de Mil Hijos (Thousand Sons) · Warhammer 40K · Administratum</title>');
     expect(html.match(/name="description"/g)).toHaveLength(1);
     expect(html.match(/rel="canonical"/g)).toHaveLength(1);
     expect(html).toContain('href="https://administratum.site/catalogo-puntos/thousand-sons"');
@@ -74,5 +77,16 @@ describe('prerender', () => {
       '<p><strong>&lt;script&gt;x&lt;/script&gt;</strong></p>',
     );
     expect(summarize('a '.repeat(200)).length).toBeLessThanOrEqual(156);
+  });
+
+  it('uses exactly the same SEO copy as the app', () => {
+    expect(server.FACTION_ES).toEqual(FACTION_ES);
+    for (const key of ['SEO_CATALOG', 'SEO_COMPETITIVO', 'SEO_COMUNIDAD', 'SEO_GUIAS', 'SEO_DESCARGAS'] as const) {
+      expect(server[key]).toEqual(app[key]);
+    }
+    expect(server.seoFaction('thousand-sons', 'Thousand Sons', 34, 9)).toEqual(app.seoFaction('thousand-sons', 'Thousand Sons', 34, 9));
+    expect(server.seoFaction('necrons', 'Necrons', 1, 1)).toEqual(app.seoFaction('necrons', 'Necrons', 1, 1));
+    expect(server.seoListTitle('Magnus', 'Mil Hijos', 2000)).toBe(app.seoListTitle('Magnus', 'Mil Hijos', 2000));
+    expect(server.seoTournamentTitle('GT', 'Talavera')).toBe(app.seoTournamentTitle('GT', 'Talavera'));
   });
 });

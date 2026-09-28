@@ -20,6 +20,94 @@ const NAME = 'Administratum';
 const DEFAULT_IMAGE = `${SITE}/og-image.jpg`;
 const GAME = 'Warhammer 40,000';
 
+
+// ---------------------------------------------------------------------------
+// SEO copy — mirror of src/lib/factionNames.ts and src/lib/seoCopy.ts
+// (scripts/render.test.ts checks they stay identical).
+// ---------------------------------------------------------------------------
+
+export const FACTION_ES: Record<string, string> = {
+  'black-templars': 'Templarios Negros',
+  'blood-angels': 'Ángeles Sangrientos',
+  'chaos-daemons': 'Demonios del Caos',
+  'chaos-knights': 'Caballeros del Caos',
+  'chaos-space-marines': 'Marines Espaciales del Caos',
+  'chaos-titan-legions': 'Legiones de Titanes del Caos',
+  'dark-angels': 'Ángeles Oscuros',
+  'death-guard': 'Guardia de la Muerte',
+  'emperors-children': 'Hijos del Emperador',
+  'genestealer-cults': 'Cultos Genestealer',
+  'grey-knights': 'Caballeros Grises',
+  'imperial-agents': 'Agentes Imperiales',
+  'imperial-knights': 'Caballeros Imperiales',
+  'leagues-of-votann': 'Ligas de Votann',
+  necrons: 'Necrones',
+  orks: 'Orkos',
+  'space-marines': 'Marines Espaciales',
+  'space-wolves': 'Lobos Espaciales',
+  'tau-empire': "Imperio T'au",
+  'thousand-sons': 'Mil Hijos',
+  'titan-legions': 'Legiones de Titanes',
+  tyranids: 'Tiránidos',
+  'world-eaters': 'Devoradores de Mundos',
+};
+
+export function factionDisplayName(slug: string, englishName: string): string {
+  const es = FACTION_ES[slug];
+  return es && es !== englishName ? `${es} (${englishName})` : englishName;
+}
+
+export interface SeoCopy {
+  title: string;
+  description: string;
+}
+
+export const SEO_CATALOG: SeoCopy = {
+  title: "Puntos de Warhammer 40K actualizados: todas las facciones",
+  description:
+    "Puntos oficiales de Warhammer 40.000 actualizados cada día desde el Munitorum Field Manual para todas las facciones: Marines Espaciales, Necrones, Mil Hijos, Orkos, Tiránidos y más.",
+};
+
+export function seoFaction(slug: string, englishName: string, units: number, detachments: number): SeoCopy {
+  const name = factionDisplayName(slug, englishName);
+  return {
+    title: `Puntos de ${name} · Warhammer 40K`,
+    description: `Puntos actualizados de ${name} para Warhammer 40K: ${units} unidades y ${detachments} destacamentos con sus mejoras, al día con el Munitorum Field Manual.`,
+  };
+}
+
+export const SEO_COMPETITIVO: SeoCopy = {
+  title: "Torneos de Warhammer 40K en España y listas competitivas",
+  description:
+    "Calendario de torneos de Warhammer 40K en España con sus bases, fechas y plazas, y las listas de ejército que están marcando el meta.",
+};
+
+export const SEO_COMUNIDAD: SeoCopy = {
+  title: "Comunidad de Warhammer 40K: ejércitos pintados y listas",
+  description:
+    "Fotos de ejércitos pintados, proyectos en curso y listas de ejército de Warhammer 40K compartidas por la comunidad hispanohablante.",
+};
+
+export const SEO_GUIAS: SeoCopy = {
+  title: "Guías de pintura de miniaturas de Warhammer",
+  description:
+    "Tutoriales paso a paso para pintar miniaturas de Warhammer 40K: esquemas de color, pinturas usadas en cada fase y fotos del proceso.",
+};
+
+export const SEO_DESCARGAS: SeoCopy = {
+  title: "Descargas oficiales de Warhammer 40K: reglas, faction packs y dataslates",
+  description:
+    "Reglas básicas, faction packs, dataslates y documentos oficiales de Warhammer 40K en PDF, siempre en su última versión.",
+};
+
+export function seoListTitle(title: string, faction: string | null, points: number | null): string {
+  return `${title}: lista de ${faction ?? "Warhammer 40K"}${points ? ` a ${points} pts` : ""} · Warhammer 40K`;
+}
+
+export function seoTournamentTitle(name: string, location: string | null): string {
+  return `${name}: torneo de Warhammer 40K${location ? ` en ${location}` : ""}`;
+}
+
 // ---------------------------------------------------------------------------
 // HTML helpers
 // ---------------------------------------------------------------------------
@@ -208,28 +296,27 @@ async function catalogIndex(q: Query): Promise<Page> {
   const factions = await q('faction_catalog', `select=faction_slug,faction_name,parent_faction&game_name=${eq(GAME)}&order=faction_name`);
   return {
     status: 200,
-    title: `Catálogo de puntos de ${GAME}`,
-    description: `Puntos oficiales del Munitorum Field Manual de todas las facciones de ${GAME}, actualizados cada día, con destacamentos y mejoras.`,
+    ...SEO_CATALOG,
     path: '/catalogo-puntos',
     breadcrumbs: [['Catálogo de puntos', '/catalogo-puntos']],
     jsonLd: [
       {
         '@type': 'CollectionPage',
-        name: `Catálogo de puntos de ${GAME}`,
+        name: SEO_CATALOG.title,
         mainEntity: {
           '@type': 'ItemList',
           itemListElement: factions.map((f, i) => ({
             '@type': 'ListItem',
             position: i + 1,
-            name: f.faction_name,
+            name: factionDisplayName(f.faction_slug, f.faction_name),
             url: `${SITE}/catalogo-puntos/${f.faction_slug}`,
           })),
         },
       },
     ],
-    body: `<h1>Catálogo de puntos de ${GAME}</h1>
-<p>Puntos oficiales de todas las facciones, sincronizados cada día con el Munitorum Field Manual: unidades, tamaños de escuadra, destacamentos y mejoras.</p>
-<ul class="grid">${factions.map((f) => `<li>${link(`/catalogo-puntos/${f.faction_slug}`, `Puntos de ${f.faction_name}`)}</li>`).join('')}</ul>`,
+    body: `<h1>Puntos de Warhammer 40K</h1>
+<p>Catálogo oficial de puntos de todas las facciones, actualizado cada día con el Munitorum Field Manual: unidades, tamaños de escuadra, destacamentos y mejoras.</p>
+<ul class="grid">${factions.map((f) => `<li>${link(`/catalogo-puntos/${f.faction_slug}`, `Puntos de ${factionDisplayName(f.faction_slug, f.faction_name)}`)}</li>`).join('')}</ul>`,
   };
 }
 
@@ -242,29 +329,29 @@ async function catalogFaction(q: Query, slug: string): Promise<Page> {
   const faction = factions[0];
   if (!faction && units.length === 0) return notFound(path);
   const name = faction?.faction_name ?? units[0].faction_name;
+  const spanish = FACTION_ES[slug] && FACTION_ES[slug] !== name ? FACTION_ES[slug] : null;
+  const display = factionDisplayName(slug, name);
+  const names = [name, spanish].filter(Boolean) as string[];
+  const lists = await q(
+    'community_lists',
+    `select=id,title,total_points,author_name&or=(${encodeURIComponent(names.map((n) => `faction_name.ilike."*${n.replace(/"/g, '')}*"`).join(','))})&order=created_at.desc&limit=12`,
+  ).catch(() => [] as Row[]);
   const version = faction?.mfm_version ?? units[0]?.mfm_version;
   const active = units.filter((u) => !u.legends);
   const detachments: Row[] = faction?.detachments ?? [];
-  const sample = active
-    .slice(0, 3)
-    .map((u) => `${u.name} ${u.pricing?.[0]?.costs?.[0]?.points ?? ''} pts`.trim())
-    .join(', ');
   return {
     status: 200,
-    title: `Puntos de ${name} · ${GAME}`,
-    description: summarize(
-      `Puntos oficiales actualizados de las ${active.length} unidades y ${detachments.length} destacamentos de ${name} para ${GAME}${sample ? `: ${sample}…` : '.'}`,
-    ),
+    ...seoFaction(slug, name, units.length, detachments.length),
     path,
     image: faction?.image,
     breadcrumbs: [
       ['Catálogo de puntos', '/catalogo-puntos'],
-      [name, path],
+      [display, path],
     ],
     jsonLd: [
       {
         '@type': 'ItemList',
-        name: `Puntos de ${name}`,
+        name: `Puntos de ${display}`,
         numberOfItems: units.length,
         itemListElement: active.slice(0, 100).map((u, i) => ({
           '@type': 'ListItem',
@@ -274,8 +361,8 @@ async function catalogFaction(q: Query, slug: string): Promise<Page> {
         })),
       },
     ],
-    body: `<h1>Puntos de ${esc(name)}</h1>
-<p>Puntos oficiales de ${esc(name)} para ${GAME}${version ? ` (${esc(version)})` : ''}, actualizados el ${esc(fmtDate(faction?.updated_at ?? units[0]?.updated_at))}.</p>
+    body: `<h1>Puntos de ${esc(display)}</h1>
+<p>Puntos oficiales de ${esc(display)} para ${GAME}${version ? ` (${esc(version)})` : ''}, actualizados el ${esc(fmtDate(faction?.updated_at ?? units[0]?.updated_at))}.</p>
 <h2>Unidades</h2>
 <table><thead><tr><th>Unidad</th><th>Puntos</th></tr></thead><tbody>${units
       .map((u) => `<tr><td>${esc(u.name)}${u.legends ? ' <small>(Legends)</small>' : ''}</td><td>${esc(pricingText(u.pricing))}</td></tr>`)
@@ -294,7 +381,13 @@ ${
         .join('')}`
     : ''
 }
-<p>${link('/catalogo-puntos', 'Ver todas las facciones')}</p>`,
+<h2>Listas de ${esc(spanish ?? name)} de la comunidad</h2>
+${
+  lists.length
+    ? `<ul>${lists.map((l) => `<li>${link(`/comunidad/listas/${l.id}`, l.title)} — ${esc(l.total_points)} pts <small>por ${esc(l.author_name)}</small></li>`).join('')}</ul>`
+    : `<p>Aún no hay listas de ${esc(spanish ?? name)}.</p>`
+}
+<p>${link('/catalogo-puntos', 'Ver todas las facciones')} · ${link('/competitivo', 'Ver todas las listas')}</p>`,
   };
 }
 
@@ -340,8 +433,7 @@ async function guidesIndex(q: Query): Promise<Page> {
   const guides = await q('painting_guides', 'select=id,title,summary,author_name,army_name&published=eq.true&order=like_count.desc,created_at.desc&limit=60');
   return {
     status: 200,
-    title: 'Guías de pintura',
-    description: 'Guías y tutoriales de pintura de miniaturas publicados por la comunidad: pasos, pinturas usadas y fotos del proceso.',
+    ...SEO_GUIAS,
     path: '/guias',
     breadcrumbs: [['Guías de pintura', '/guias']],
     body: `<h1>Guías de pintura</h1><p>Tutoriales paso a paso de la comunidad, con las pinturas usadas en cada fase.</p>
@@ -407,11 +499,10 @@ async function competitivo(q: Query): Promise<Page> {
   const listItems: Row[] = [...featured.map((l) => ({ ...l, href: `/competitivo/listas/${l.id}` })), ...lists.map((l) => ({ ...l, href: `/comunidad/listas/${l.id}` }))];
   return {
     status: 200,
-    title: 'Competitivo: torneos y listas',
-    description: `Torneos de ${GAME} con sus bases, fechas y plazas, y las listas de ejército que están marcando el meta.`,
+    ...SEO_COMPETITIVO,
     path: '/competitivo',
     breadcrumbs: [['Competitivo', '/competitivo']],
-    body: `<h1>Competitivo</h1><p>Torneos de la comunidad con sus bases completas, y las listas que están marcando el meta.</p>
+    body: `<h1>Competitivo</h1><p>Torneos de Warhammer 40K en España con sus bases completas, y las listas que están marcando el meta.</p>
 <h2>Torneos</h2><ul>${tournaments
       .map((t) => `<li>${link(`/competitivo/torneos/${t.id}`, t.name)}${t.start_date ? ` — ${esc(fmtDate(t.start_date))}` : ''}${t.location ? ` · ${esc(t.location)}` : ''}</li>`)
       .join('')}</ul>
@@ -438,7 +529,7 @@ async function tournament(q: Query, id: string): Promise<Page> {
   ].filter(Boolean) as string[];
   return {
     status: 200,
-    title: t.name,
+    title: seoTournamentTitle(t.name, t.location),
     description: summarize(t.description || `${t.name}: torneo de ${t.game_name || GAME}${t.location ? ` en ${t.location}` : ''}${t.start_date ? ` el ${fmtDate(t.start_date)}` : ''}.`),
     path,
     image: t.cover_image,
@@ -484,7 +575,7 @@ async function armyList(q: Query, id: string, kind: 'featured' | 'community'): P
   const parent: [string, string] = kind === 'featured' ? ['Competitivo', '/competitivo'] : ['Comunidad', '/comunidad'];
   return {
     status: 200,
-    title: `${l.title} · Lista de ${l.faction_name ?? GAME}`,
+    title: seoListTitle(l.title, l.faction_name, l.total_points),
     description: summarize(
       l.description || `Lista de ${l.faction_name}${detachment ? ` (${detachment})` : ''} a ${l.total_points} puntos, por ${l.author_name}.`,
     ),
@@ -520,8 +611,7 @@ async function comunidad(q: Query): Promise<Page> {
   ]);
   return {
     status: 200,
-    title: 'Comunidad: fotos y listas',
-    description: 'Ejércitos pintados, proyectos en curso y listas de ejército compartidas por la comunidad de Administratum.',
+    ...SEO_COMUNIDAD,
     path: '/comunidad',
     image: photos[0]?.image,
     breadcrumbs: [['Comunidad', '/comunidad']],
@@ -588,8 +678,7 @@ async function descargas(q: Query): Promise<Page> {
   for (const r of rows) byCategory.set(r.category, [...(byCategory.get(r.category) ?? []), r]);
   return {
     status: 200,
-    title: `Descargas oficiales de ${GAME}`,
-    description: `Reglas básicas, faction packs, dataslates y documentos oficiales de ${GAME}, siempre en su última versión.`,
+    ...SEO_DESCARGAS,
     path: '/descargas',
     breadcrumbs: [['Descargas', '/descargas']],
     body: `<h1>Descargas oficiales de ${GAME}</h1><p>Documentos oficiales en PDF, actualizados automáticamente cuando se publica una nueva versión.</p>

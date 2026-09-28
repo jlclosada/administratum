@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { SEO_COMPETITIVO } from "@/lib/seoCopy";
 import {
   DateBlock,
   FeaturedListCard,
@@ -207,11 +208,7 @@ export function CompetitivoPage() {
 
   return (
     <PageTransition>
-      <Seo
-        title="Competitivo: torneos y listas"
-        description="Torneos de Warhammer 40,000 con sus bases, y las listas de ejército que están marcando el meta, compartidas por la comunidad."
-        path="/competitivo"
-      />
+      <Seo {...SEO_COMPETITIVO} path="/competitivo" />
       <div className="space-y-14">
         <header className="relative isolate overflow-hidden rounded-3xl border border-border/50 bg-card/30 px-6 py-10 sm:px-10 sm:py-12">
           <div
@@ -232,8 +229,8 @@ export function CompetitivoPage() {
             Competitivo
           </h1>
           <p className="mt-3 max-w-xl text-muted-foreground">
-            Torneos de la comunidad con sus bases completas, y las listas que
-            están marcando el meta.
+            Torneos de Warhammer 40K en España con sus bases completas, y las
+            listas que están marcando el meta.
           </p>
           <Button
             variant="gradient"

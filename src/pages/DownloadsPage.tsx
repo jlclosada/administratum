@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { SEO_DESCARGAS } from "@/lib/seoCopy";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -126,11 +127,7 @@ export function DownloadsPage() {
 
   return (
     <PageTransition>
-      <Seo
-        title="Descargas oficiales de Warhammer 40,000"
-        description="Reglas básicas, faction packs, dataslates y documentos oficiales de Warhammer 40,000, siempre en su última versión."
-        path="/descargas"
-      />
+      <Seo {...SEO_DESCARGAS} path="/descargas" />
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
