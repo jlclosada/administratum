@@ -53,7 +53,7 @@ export function AvatarUploader({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
       <div
         className={cn(
-          "relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-2xl font-bold uppercase text-white",
+          "relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-2xl font-bold uppercase text-brand-foreground",
         )}
       >
         {avatarUrl ? (

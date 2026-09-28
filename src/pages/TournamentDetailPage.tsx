@@ -1,14 +1,24 @@
+import { Seo } from "@/components/shared/Seo";
+import { metaDescription } from "@/lib/site";
 import { Attendance } from "@/components/competitive/Attendance";
 import { FeaturedListCard, StatusPill } from "@/components/competitive/cards";
 import { CommunityListCard } from "@/components/community/CommunityListCard";
 import { ShareListDialog } from "@/components/community/ShareListDialog";
-import { countdownLabel, formatDateRange } from "@/components/competitive/status";
+import {
+  countdownLabel,
+  formatDateRange,
+} from "@/components/competitive/status";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { RichTextRenderer } from "@/components/shared/RichText";
 import { Button } from "@/components/ui/button";
-import { getCommunityLists, getFeaturedLists, getProfilesByIds, getTournamentById } from "@/db";
+import {
+  getCommunityLists,
+  getFeaturedLists,
+  getProfilesByIds,
+  getTournamentById,
+} from "@/db";
 import { useAuthStore } from "@/stores";
 import { useIsAdmin } from "@/lib/admin";
 import type { CommunityList, FeaturedList, Profile, Tournament } from "@/types";
@@ -35,12 +45,22 @@ function hasContent(rules: Tournament["rules"]): boolean {
   return Array.isArray(content) && content.length > 0;
 }
 
-function Fact({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+function Fact({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+}) {
   return (
     <div className="flex items-start gap-3 p-4">
       <span className="mt-0.5 text-muted-foreground">{icon}</span>
       <div className="min-w-0">
-        <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{label}</dt>
+        <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          {label}
+        </dt>
         <dd className="mt-0.5 font-semibold">{value}</dd>
       </div>
     </div>
@@ -54,22 +74,34 @@ export function TournamentDetailPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [lists, setLists] = useState<FeaturedList[]>([]);
   const [playerLists, setPlayerLists] = useState<CommunityList[]>([]);
-  const [listAuthors, setListAuthors] = useState<Map<string, Profile>>(new Map());
+  const [listAuthors, setListAuthors] = useState<Map<string, Profile>>(
+    new Map(),
+  );
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
   const me = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (!tournamentId) return;
-    Promise.all([getTournamentById(tournamentId), getFeaturedLists(), getCommunityLists(200)])
+    Promise.all([
+      getTournamentById(tournamentId),
+      getFeaturedLists(),
+      getCommunityLists(200),
+    ])
       .then(async ([t, all, community]) => {
         setTournament(t);
         // Featured lists reference tournaments by name (free text); player
         // lists by id, or by name when typed in as "Otro torneo".
         const name = t?.name.trim().toLowerCase();
-        setLists(name ? all.filter((l) => l.tournamentName?.trim().toLowerCase() === name) : []);
+        setLists(
+          name
+            ? all.filter((l) => l.tournamentName?.trim().toLowerCase() === name)
+            : [],
+        );
         const mine = community.filter(
-          (l) => l.tournamentId === tournamentId || (!!name && l.tournamentName?.trim().toLowerCase() === name),
+          (l) =>
+            l.tournamentId === tournamentId ||
+            (!!name && l.tournamentName?.trim().toLowerCase() === name),
         );
         setPlayerLists(mine);
         setListAuthors(await getProfilesByIds(mine.map((l) => l.userId)));
@@ -91,7 +123,10 @@ export function TournamentDetailPage() {
         icon={<Trophy className="h-8 w-8" />}
         title="Torneo no encontrado"
         description="Puede que se haya eliminado o que el enlace no sea correcto."
-        action={{ label: "Volver a Competitivo", onClick: () => navigate("/competitivo") }}
+        action={{
+          label: "Volver a Competitivo",
+          onClick: () => navigate("/competitivo"),
+        }}
       />
     );
   }
@@ -99,26 +134,62 @@ export function TournamentDetailPage() {
   const t = tournament;
   const countdown = countdownLabel(t);
   const facts = [
-    { icon: <CalendarDays className="h-4 w-4" />, label: "Fecha", value: formatDateRange(t) },
-    t.location && { icon: <MapPin className="h-4 w-4" />, label: "Lugar", value: t.location },
-    t.pointsLimit && { icon: <Swords className="h-4 w-4" />, label: "Formato", value: `${t.pointsLimit} puntos` },
+    {
+      icon: <CalendarDays className="h-4 w-4" />,
+      label: "Fecha",
+      value: formatDateRange(t),
+    },
+    t.location && {
+      icon: <MapPin className="h-4 w-4" />,
+      label: "Lugar",
+      value: t.location,
+    },
+    t.pointsLimit && {
+      icon: <Swords className="h-4 w-4" />,
+      label: "Formato",
+      value: `${t.pointsLimit} puntos`,
+    },
     {
       icon: <Users className="h-4 w-4" />,
       label: t.maxPlayers ? "Plazas" : "Asistentes",
-      value: t.maxPlayers ? `${t.attendeeCount} / ${t.maxPlayers}` : t.attendeeCount,
+      value: t.maxPlayers
+        ? `${t.attendeeCount} / ${t.maxPlayers}`
+        : t.attendeeCount,
     },
-    t.entryFee && { icon: <Ticket className="h-4 w-4" />, label: "Inscripción", value: t.entryFee },
+    t.entryFee && {
+      icon: <Ticket className="h-4 w-4" />,
+      label: "Inscripción",
+      value: t.entryFee,
+    },
   ].filter(Boolean) as { icon: ReactNode; label: string; value: ReactNode }[];
 
   return (
     <PageTransition>
+      <Seo
+        title={tournament.name}
+        description={
+          metaDescription(tournament.description) ??
+          `Bases, fechas y asistentes del torneo ${tournament.name}.`
+        }
+        path={`/competitivo/torneos/${tournament.id}`}
+      />
       <div className="mx-auto max-w-4xl space-y-10">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/competitivo")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+            onClick={() => navigate("/competitivo")}
+          >
             <ArrowLeft className="h-4 w-4" /> Competitivo
           </Button>
           {isAdmin && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate("/admin/torneos")}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate("/admin/torneos")}
+            >
               <Pencil className="h-3.5 w-3.5" /> Editar
             </Button>
           )}
@@ -147,12 +218,18 @@ export function TournamentDetailPage() {
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
+              transition={{
+                delay: 0.15,
+                duration: 0.7,
+                ease: [0.23, 1, 0.32, 1],
+              }}
               className="mt-4 font-display text-4xl font-black leading-[0.95] tracking-tight text-white sm:text-6xl"
             >
               {t.name}
             </motion.h1>
-            {t.description && <p className="mt-4 max-w-2xl text-white/75">{t.description}</p>}
+            {t.description && (
+              <p className="mt-4 max-w-2xl text-white/75">{t.description}</p>
+            )}
             {t.externalLink && (
               <a
                 href={t.externalLink}
@@ -176,14 +253,18 @@ export function TournamentDetailPage() {
 
         <Attendance
           tournament={t}
-          onCountChange={(count) => setTournament((x) => (x ? { ...x, attendeeCount: count } : x))}
+          onCountChange={(count) =>
+            setTournament((x) => (x ? { ...x, attendeeCount: count } : x))
+          }
         />
 
         {/* Rules */}
         <section>
           <div className="mb-5 flex items-center gap-2 border-b border-border/60 pb-3">
             <FileText className="h-5 w-5 text-primary" />
-            <h2 className="font-display text-2xl font-black tracking-tight">Bases del torneo</h2>
+            <h2 className="font-display text-2xl font-black tracking-tight">
+              Bases del torneo
+            </h2>
           </div>
           {hasContent(t.rules) ? (
             <motion.div
@@ -192,7 +273,10 @@ export function TournamentDetailPage() {
               viewport={{ once: true }}
               className="rounded-2xl border border-border/60 bg-card/30 p-5 sm:p-8"
             >
-              <RichTextRenderer content={t.rules} className="text-[15px] leading-relaxed" />
+              <RichTextRenderer
+                content={t.rules}
+                className="text-[15px] leading-relaxed"
+              />
             </motion.div>
           ) : (
             <p className="rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
@@ -207,7 +291,12 @@ export function TournamentDetailPage() {
               <ScrollText className="h-5 w-5 text-primary" /> Listas del torneo
             </h2>
             {me && (
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => setPublishing(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setPublishing(true)}
+              >
                 <Plus className="h-3.5 w-3.5" /> Publicar mi lista
               </Button>
             )}
@@ -222,7 +311,12 @@ export function TournamentDetailPage() {
                 <FeaturedListCard key={l.id} l={l} index={i} />
               ))}
               {playerLists.map((l, i) => (
-                <CommunityListCard key={l.id} list={l} author={listAuthors.get(l.userId)} index={i} />
+                <CommunityListCard
+                  key={l.id}
+                  list={l}
+                  author={listAuthors.get(l.userId)}
+                  index={i}
+                />
               ))}
             </div>
           )}

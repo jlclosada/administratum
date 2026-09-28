@@ -1,3 +1,5 @@
+import { Seo } from "@/components/shared/Seo";
+import { metaDescription } from "@/lib/site";
 import { CommentSection } from "@/components/shared/CommentSection";
 import { LikeButton } from "@/components/shared/LikeButton";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -6,7 +8,7 @@ import { RichTextRenderer } from "@/components/shared/RichText";
 import { Button } from "@/components/ui/button";
 import { deleteArticle, getArticleById, getMyLikes, toggleLike } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
-import { useAuthStore } from "@/stores";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 import type { Article } from "@/types";
 import { ArrowLeft, Newspaper, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -30,7 +32,7 @@ export function ArticleDetailPage() {
   const { articleId } = useParams<{ articleId: string }>();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
-  const { user } = useAuthStore();
+  const requireAuth = useRequireAuth();
   const [article, setArticle] = useState<Article | null>(null);
   const [liked, setLiked] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -104,9 +106,19 @@ export function ArticleDetailPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title={article.title}
+        description={metaDescription(article.excerpt)}
+        path={`/articulos/${article.id}`}
+      />
       <article className="mx-auto max-w-3xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+            onClick={() => navigate("/")}
+          >
             <ArrowLeft className="h-4 w-4" />
             Inicio
           </Button>
@@ -175,8 +187,7 @@ export function ArticleDetailPage() {
                 <LikeButton
                   liked={liked}
                   count={article.likeCount}
-                  onToggle={handleToggleLike}
-                  disabled={!user}
+                  onToggle={requireAuth(handleToggleLike, "dar me gusta")}
                 />
               </div>
               {article.excerpt && (
@@ -186,7 +197,10 @@ export function ArticleDetailPage() {
               )}
             </div>
 
-            <RichTextRenderer content={article.content} className="article-report pt-2" />
+            <RichTextRenderer
+              content={article.content}
+              className="article-report pt-2"
+            />
           </div>
 
           <div className="border-t-2 border-foreground/90 px-4 py-1.5 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">

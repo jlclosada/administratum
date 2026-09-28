@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { createComment, deleteComment, getComments, getProfilesByIds, toggleLike } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
 import { timeAgo } from "@/lib/time";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 import { useAuthStore, useProfileStore } from "@/stores";
 import type { Comment, CommentTargetType, Profile } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
@@ -24,7 +25,8 @@ export function CommentSection({
   onCountChange?: (count: number) => void;
   hideHeading?: boolean;
 }) {
-  const { user } = useAuthStore();
+  const { user, openAuth } = useAuthStore();
+  const requireAuth = useRequireAuth();
   const isAdmin = useIsAdmin();
   const myProfile = useProfileStore((s) => s.profile);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -128,9 +130,17 @@ export function CommentSection({
           </Button>
         </div>
       ) : (
-        <p className="rounded-lg border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">
-          Inicia sesión para comentar.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">
+          <span>Únete a la conversación: crea una cuenta gratis para comentar.</span>
+          <span className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => openAuth("login")}>
+              Iniciar sesión
+            </Button>
+            <Button size="sm" variant="gradient" onClick={() => openAuth("signup")}>
+              Crear cuenta
+            </Button>
+          </span>
+        </div>
       )}
 
       {!loading && comments.length === 0 && (
@@ -166,8 +176,7 @@ export function CommentSection({
                   <LikeButton
                     liked={!!c.likedByMe}
                     count={c.likeCount}
-                    onToggle={() => handleToggleLike(c.id)}
-                    disabled={!user}
+                    onToggle={requireAuth(() => handleToggleLike(c.id), "dar me gusta")}
                     size="sm"
                   />
                   {(user?.id === c.userId || isAdmin) && (

@@ -1,3 +1,5 @@
+import { Seo } from "@/components/shared/Seo";
+import { metaDescription } from "@/lib/site";
 import { CommentSection } from "@/components/shared/CommentSection";
 import { LikeButton } from "@/components/shared/LikeButton";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -7,23 +9,24 @@ import { StarRating } from "@/components/shared/StarRating";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-    deleteGuide,
-    getGuideById,
-    getMyGuideRating,
-    getMyLikes,
-    guideRating,
-    rateGuide,
-    toggleLike,
+  deleteGuide,
+  getGuideById,
+  getMyGuideRating,
+  getMyLikes,
+  guideRating,
+  rateGuide,
+  toggleLike,
 } from "@/db";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 import { useAuthStore } from "@/stores";
 import type { PaintingGuide } from "@/types";
 import {
-    ArrowLeft,
-    Palette,
-    Pencil,
-    Shield,
-    Swords,
-    Trash2,
+  ArrowLeft,
+  Palette,
+  Pencil,
+  Shield,
+  Swords,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -41,6 +44,7 @@ export function GuideDetailPage() {
   const { guideId } = useParams<{ guideId: string }>();
   const navigate = useNavigate();
   const userId = useAuthStore((s) => s.user?.id);
+  const requireAuth = useRequireAuth();
   const [guide, setGuide] = useState<PaintingGuide | null>(null);
   const [myRating, setMyRating] = useState(0);
   const [liked, setLiked] = useState(false);
@@ -48,7 +52,11 @@ export function GuideDetailPage() {
 
   useEffect(() => {
     if (!guideId) return;
-    Promise.all([getGuideById(guideId), getMyGuideRating(guideId), getMyLikes("guide", [guideId])])
+    Promise.all([
+      getGuideById(guideId),
+      getMyGuideRating(guideId),
+      getMyLikes("guide", [guideId]),
+    ])
       .then(([g, r, likes]) => {
         setGuide(g);
         setMyRating(r);
@@ -113,7 +121,9 @@ export function GuideDetailPage() {
       <PageTransition>
         <div className="mx-auto max-w-md py-24 text-center">
           <Palette className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
-          <h1 className="font-display text-2xl font-bold">Guía no encontrada</h1>
+          <h1 className="font-display text-2xl font-bold">
+            Guía no encontrada
+          </h1>
           <Button
             variant="outline"
             className="mt-4"
@@ -131,6 +141,14 @@ export function GuideDetailPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title={`${guide.title} · Guía de pintura`}
+        description={
+          metaDescription(guide.summary) ??
+          `Guía de pintura de ${guide.authorName} en Administratum.`
+        }
+        path={`/guias/${guide.id}`}
+      />
       <article className="mx-auto max-w-3xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Button
@@ -208,7 +226,10 @@ export function GuideDetailPage() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <span>
                 por{" "}
-                <Link to={`/perfil/${guide.userId}`} className="font-medium text-foreground hover:text-primary hover:underline">
+                <Link
+                  to={`/perfil/${guide.userId}`}
+                  className="font-medium text-foreground hover:text-primary hover:underline"
+                >
                   {guide.authorName}
                 </Link>
               </span>
@@ -225,8 +246,7 @@ export function GuideDetailPage() {
             <LikeButton
               liked={liked}
               count={guide.likeCount}
-              onToggle={handleToggleLike}
-              disabled={!userId}
+              onToggle={requireAuth(handleToggleLike, "dar me gusta")}
             />
           </div>
 
@@ -286,13 +306,17 @@ export function GuideDetailPage() {
         )}
 
         {/* Rate this guide */}
-        {!isOwner && userId && (
+        {!isOwner && (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
               <p className="text-sm font-semibold">
                 {myRating > 0 ? "Tu valoración" : "¿Te ha resultado útil?"}
               </p>
-              <StarRating value={myRating} onRate={handleRate} size="lg" />
+              <StarRating
+                value={myRating}
+                onRate={requireAuth(handleRate, "valorar guías")}
+                size="lg"
+              />
               <p className="text-xs text-muted-foreground">
                 Valora esta guía para ayudar a la comunidad.
               </p>

@@ -803,8 +803,9 @@ alter table public.unit_catalog enable row level security;
 drop policy if exists "unit_catalog_read" on public.unit_catalog;
 drop policy if exists "unit_catalog_admin_write" on public.unit_catalog;
 
+-- Public reference data: readable without an account (public pages, SEO).
 create policy "unit_catalog_read" on public.unit_catalog
-  for select to authenticated using (true);
+  for select to anon, authenticated using (true);
 
 create policy "unit_catalog_admin_write" on public.unit_catalog
   for all to authenticated
@@ -850,8 +851,9 @@ alter table public.faction_catalog enable row level security;
 drop policy if exists "faction_catalog_read" on public.faction_catalog;
 drop policy if exists "faction_catalog_admin_write" on public.faction_catalog;
 
+-- Public reference data: readable without an account (public pages, SEO).
 create policy "faction_catalog_read" on public.faction_catalog
-  for select to authenticated using (true);
+  for select to anon, authenticated using (true);
 
 create policy "faction_catalog_admin_write" on public.faction_catalog
   for all to authenticated
@@ -895,8 +897,9 @@ alter table public.downloads_catalog enable row level security;
 drop policy if exists "downloads_catalog_read" on public.downloads_catalog;
 drop policy if exists "downloads_catalog_admin_write" on public.downloads_catalog;
 
+-- Public reference data: readable without an account (public pages, SEO).
 create policy "downloads_catalog_read" on public.downloads_catalog
-  for select to authenticated using (true);
+  for select to anon, authenticated using (true);
 
 create policy "downloads_catalog_admin_write" on public.downloads_catalog
   for all to authenticated
@@ -934,8 +937,9 @@ alter table public.catalog_updates enable row level security;
 drop policy if exists "catalog_updates_read" on public.catalog_updates;
 drop policy if exists "catalog_updates_admin_write" on public.catalog_updates;
 
+-- Public reference data: readable without an account (public pages, SEO).
 create policy "catalog_updates_read" on public.catalog_updates
-  for select to authenticated using (true);
+  for select to anon, authenticated using (true);
 
 create policy "catalog_updates_admin_write" on public.catalog_updates
   for all to authenticated

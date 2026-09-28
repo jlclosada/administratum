@@ -1,3 +1,4 @@
+import { Seo } from "@/components/shared/Seo";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -52,6 +53,11 @@ export function GuidesPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title="Guías de pintura"
+        description="Guías y tutoriales de pintura de miniaturas publicados por la comunidad: pasos, pinturas usadas y fotos del proceso."
+        path="/guias"
+      />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -60,7 +66,8 @@ export function GuidesPage() {
               Pintura
             </h1>
             <p className="text-muted-foreground">
-              Guías y tutoriales de pintura publicados por la comunidad. Aprende y comparte.
+              Guías y tutoriales de pintura publicados por la comunidad. Aprende
+              y comparte.
             </p>
           </div>
           <Button
@@ -103,8 +110,8 @@ export function GuidesPage() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
                   sort === "top"
-                    ? "bg-brand-gradient text-white shadow"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-brand-gradient text-brand-foreground shadow"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Star className="h-3.5 w-3.5" />
@@ -116,8 +123,8 @@ export function GuidesPage() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
                   sort === "recent"
-                    ? "bg-brand-gradient text-white shadow"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-brand-gradient text-brand-foreground shadow"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Clock className="h-3.5 w-3.5" />
@@ -134,7 +141,7 @@ export function GuidesPage() {
                   "rounded-xl border px-3 py-1.5 text-sm font-medium transition-all",
                   mineOnly
                     ? "border-transparent bg-brand-soft text-primary"
-                    : "border-border/60 text-muted-foreground hover:text-foreground"
+                    : "border-border/60 text-muted-foreground hover:text-foreground",
                 )}
               >
                 Mis guías
@@ -150,8 +157,8 @@ export function GuidesPage() {
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-all",
                 gameFilter === null
-                  ? "border-transparent bg-brand-gradient text-white"
-                  : "border-border/60 text-muted-foreground hover:text-foreground"
+                  ? "border-transparent bg-brand-gradient text-brand-foreground"
+                  : "border-border/60 text-muted-foreground hover:text-foreground",
               )}
             >
               Todos
@@ -164,8 +171,8 @@ export function GuidesPage() {
                 className={cn(
                   "rounded-full border px-3 py-1 text-xs font-medium transition-all",
                   gameFilter === g.name
-                    ? "border-transparent bg-brand-gradient text-white"
-                    : "border-border/60 text-muted-foreground hover:text-foreground"
+                    ? "border-transparent bg-brand-gradient text-brand-foreground"
+                    : "border-border/60 text-muted-foreground hover:text-foreground",
                 )}
               >
                 {g.name}

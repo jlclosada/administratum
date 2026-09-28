@@ -26,7 +26,7 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 220 14% 30%;
+    --primary: 38 42% 36%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
@@ -38,13 +38,14 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 220 14% 30%;
+    --ring: 38 42% 36%;
     --radius: 0.85rem;
 
-    /* Brand accents — refined graphite/slate, not a saturated color */
-    --brand: 220 15% 22%;
-    --brand-2: 220 12% 34%;
-    --brand-3: 220 9% 46%;
+    /* Brand accents — bone and burnished gold, from the logo */
+    --brand: 43 58% 80%;
+    --brand-2: 41 49% 69%;
+    --brand-3: 40 38% 48%;
+    --brand-foreground: 30 14% 8%;
   }
 
   .dark {
@@ -54,8 +55,8 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 13% 6.5%;
     --popover-foreground: 0 0% 98%;
-    --primary: 220 9% 78%;
-    --primary-foreground: 240 15% 9%;
+    --primary: 41 50% 70%;
+    --primary-foreground: 30 14% 8%;
     --secondary: 240 6% 14%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 6% 13%;
@@ -66,16 +67,16 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 6% 16%;
     --input: 240 6% 17%;
-    --ring: 220 9% 78%;
+    --ring: 41 50% 70%;
     --radius: 0.85rem;
 
-    /* Brand accents — refined graphite/slate, not a saturated color.
-       Kept dark enough that the existing text-white on bg-brand-gradient
-       (buttons, badges) stays legible; see .text-gradient below for the
-       lighter silver tone used for gradient headline text. */
-    --brand: 220 15% 22%;
-    --brand-2: 220 12% 34%;
-    --brand-3: 220 9% 46%;
+    /* Brand accents — bone and burnished gold, as in the logo and the
+       emails. The gradient is light, so text on it uses --brand-foreground
+       (dark), never white. */
+    --brand: 43 58% 80%;
+    --brand-2: 41 49% 69%;
+    --brand-3: 40 38% 48%;
+    --brand-foreground: 30 14% 8%;
   }
 }
 
@@ -208,7 +209,7 @@
   /* Brand background gradient */
   .bg-brand-gradient {
     background-image: linear-gradient(
-      120deg,
+      135deg,
       hsl(var(--brand)) 0%,
       hsl(var(--brand-2)) 55%,
       hsl(var(--brand-3)) 100%

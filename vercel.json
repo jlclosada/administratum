@@ -15,7 +15,11 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
   ],
@@ -30,7 +34,7 @@
       ]
     },
     {
-      "source": "/((?!assets/).*)",
+      "source": "/((?!assets/|api/|sitemap\\.xml).*)",
       "headers": [
         {
           "key": "Cache-Control",

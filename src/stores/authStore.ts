@@ -11,6 +11,13 @@ interface AuthState {
   loading: boolean;
   /** True while the user arrived from a password-recovery email link. */
   recoveryMode: boolean;
+  /**
+   * Sign-in/sign-up screen requested while browsing as a guest. It opens over
+   * the current URL, so after signing in the user stays on the same page.
+   */
+  authPrompt: 'login' | 'signup' | null;
+  openAuth: (mode?: 'login' | 'signup') => void;
+  closeAuth: () => void;
   init: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   /** Redirects to Google; the user comes back to /auth/confirmar signed in. */
@@ -31,12 +38,44 @@ interface AuthState {
 
 let subscribed = false;
 
+const RETURN_KEY = 'auth-return-to';
+
+/** Remembers the page the user was on, to come back after an auth redirect. */
+function rememberReturnTo() {
+  try {
+    const here = window.location.pathname + window.location.search;
+    if (here !== '/' && !here.startsWith('/auth/')) sessionStorage.setItem(RETURN_KEY, here);
+  } catch {
+    // Storage blocked: they'll land on the home page instead.
+  }
+}
+
+/** The page to go back to after signing in (and forgets it), or "/". */
+export function takeReturnTo(): string {
+  try {
+    const to = sessionStorage.getItem(RETURN_KEY);
+    sessionStorage.removeItem(RETURN_KEY);
+    // Only same-site paths: never an absolute URL from storage.
+    if (to && to.startsWith('/') && !to.startsWith('//')) return to;
+  } catch {
+    // Ignore: fall back to home.
+  }
+  return '/';
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   session: null,
   initialized: false,
   loading: false,
   recoveryMode: false,
+  authPrompt: null,
+
+  openAuth: (mode = 'login') => {
+    rememberReturnTo();
+    set({ authPrompt: mode });
+  },
+  closeAuth: () => set({ authPrompt: null }),
 
   init: () => {
     if (subscribed) return;
@@ -57,6 +96,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         session,
         user: session?.user ?? null,
         initialized: true,
+        ...(session ? { authPrompt: null } : {}),
         ...(event === 'PASSWORD_RECOVERY' ? { recoveryMode: true } : {}),
       });
     });
@@ -76,6 +116,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signInWithGoogle: async () => {
+    rememberReturnTo();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

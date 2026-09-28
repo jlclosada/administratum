@@ -324,7 +324,7 @@ export function AuthPage({
                   >
                     <span
                       className={
-                        mode === m ? "text-white" : "text-muted-foreground"
+                        mode === m ? "text-brand-foreground" : "text-muted-foreground"
                       }
                     >
                       {m === "login" ? "Iniciar sesión" : "Crear cuenta"}
@@ -570,7 +570,7 @@ export function AuthPage({
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-brand-gradient text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-brand-gradient text-sm font-semibold text-brand-foreground shadow-lg transition-all hover:shadow-xl hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

@@ -1,3 +1,4 @@
+import { Seo } from "@/components/shared/Seo";
 import { UnitPoints } from "@/components/catalog/UnitPoints";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -6,18 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getFactionCatalog, getUnitCatalog } from "@/db";
 import { cn } from "@/lib/utils";
-import type { Detachment, FactionCatalogEntry, UnitCatalogEntry } from "@/types";
+import type {
+  Detachment,
+  FactionCatalogEntry,
+  UnitCatalogEntry,
+} from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-    ArrowLeft,
-    Award,
-    Bot,
-    ChevronDown,
-    Crosshair,
-    Library,
-    Search,
-    Shield,
-    Users,
+  ArrowLeft,
+  Award,
+  Bot,
+  ChevronDown,
+  Crosshair,
+  Library,
+  Search,
+  Shield,
+  Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -151,7 +156,10 @@ export function PointsCatalogPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const factionSummaries = useMemo(() => joinFactions(units, factions), [units, factions]);
+  const factionSummaries = useMemo(
+    () => joinFactions(units, factions),
+    [units, factions],
+  );
   const q = query.trim().toLowerCase();
 
   const matchingUnits = useMemo(() => {
@@ -197,14 +205,19 @@ export function PointsCatalogPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title="Catálogo de puntos de Warhammer 40,000"
+        description="Puntos oficiales del Munitorum Field Manual de todas las facciones de Warhammer 40,000, actualizados cada día, con destacamentos y mejoras."
+        path="/catalogo-puntos"
+      />
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
             Catálogo de puntos
           </h1>
           <p className="text-muted-foreground">
-            Biblioteca Munitorum: busca una miniatura o entra en un ejército para
-            ver unidades y destacamentos.
+            Biblioteca Munitorum: busca una miniatura o entra en un ejército
+            para ver unidades y destacamentos.
           </p>
         </div>
 
@@ -230,7 +243,10 @@ export function PointsCatalogPage() {
                 Ninguna miniatura coincide con «{query}».
               </p>
             ) : (
-              <ConsolePanel label="Búsqueda // resultados" count={matchingUnits.length}>
+              <ConsolePanel
+                label="Búsqueda // resultados"
+                count={matchingUnits.length}
+              >
                 {matchingUnits.map((unit) => (
                   <button
                     key={unit.id}
@@ -250,7 +266,10 @@ export function PointsCatalogPage() {
                         {unit.legends ? " · Legends" : ""}
                       </p>
                     </div>
-                    <UnitPoints unit={unit} className="sm:max-w-md sm:text-right" />
+                    <UnitPoints
+                      unit={unit}
+                      className="sm:max-w-md sm:text-right"
+                    />
                   </button>
                 ))}
               </ConsolePanel>
@@ -300,7 +319,9 @@ export function PointsCatalogPage() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 p-4">
-                      <h3 className="font-semibold text-white">{faction.name}</h3>
+                      <h3 className="font-semibold text-white">
+                        {faction.name}
+                      </h3>
                       <p className="mt-0.5 text-xs text-white/70">
                         {faction.count} miniaturas
                         {faction.detachmentCount > 0
@@ -317,8 +338,8 @@ export function PointsCatalogPage() {
         </section>
 
         <p className="text-[11px] text-muted-foreground">
-          Valores del Munitorum Field Manual. No es un producto oficial de
-          Games Workshop.
+          Valores del Munitorum Field Manual. No es un producto oficial de Games
+          Workshop.
         </p>
       </div>
     </PageTransition>
@@ -345,7 +366,9 @@ function DetachmentRow({ detachment }: { detachment: Detachment }) {
             )}
           </div>
           {detachment.unique && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{detachment.unique}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {detachment.unique}
+            </p>
           )}
           {detachment.objectives.length > 0 && (
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -382,9 +405,13 @@ function DetachmentRow({ detachment }: { detachment: Detachment }) {
                     <p className="truncate">{e.name}</p>
                     {(e.leaderTo?.length || e.supportTo?.length) && (
                       <p className="truncate text-[11px] text-muted-foreground">
-                        {e.leaderTo?.length ? `Líder: ${e.leaderTo.join(", ")}` : ""}
+                        {e.leaderTo?.length
+                          ? `Líder: ${e.leaderTo.join(", ")}`
+                          : ""}
                         {e.leaderTo?.length && e.supportTo?.length ? " · " : ""}
-                        {e.supportTo?.length ? `Apoyo: ${e.supportTo.join(", ")}` : ""}
+                        {e.supportTo?.length
+                          ? `Apoyo: ${e.supportTo.join(", ")}`
+                          : ""}
                       </p>
                     )}
                   </div>
@@ -429,7 +456,13 @@ function UnitRow({ unit }: { unit: UnitCatalogEntry }) {
   );
 }
 
-const CATEGORY_FILTERS = ["all", "character", "squad", "vehicle", "other"] as const;
+const CATEGORY_FILTERS = [
+  "all",
+  "character",
+  "squad",
+  "vehicle",
+  "other",
+] as const;
 type CategoryFilter = (typeof CATEGORY_FILTERS)[number];
 
 export function PointsCatalogFactionPage() {
@@ -459,7 +492,8 @@ export function PointsCatalogFactionPage() {
     () => units.filter((u) => u.factionSlug === factionSlug),
     [units, factionSlug],
   );
-  const factionName = faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug;
+  const factionName =
+    faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug;
   const version = faction?.mfmVersion ?? armyUnits[0]?.mfmVersion;
 
   const categoryCounts = useMemo(() => {
@@ -518,6 +552,11 @@ export function PointsCatalogFactionPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title={`Puntos de ${faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug} · Warhammer 40,000`}
+        description={`Puntos oficiales actualizados de todas las unidades, destacamentos y mejoras de ${faction?.factionName ?? armyUnits[0]?.factionName ?? factionSlug} para Warhammer 40,000.`}
+        path={`/catalogo-puntos/${factionSlug}`}
+      />
       <div className="space-y-6">
         {/* Hero */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60">
@@ -549,7 +588,9 @@ export function PointsCatalogFactionPage() {
             </h1>
             <p className="mt-1 text-sm text-white/70">
               {armyUnits.length} miniaturas
-              {faction?.detachments.length ? ` · ${faction.detachments.length} destacamentos` : ""}
+              {faction?.detachments.length
+                ? ` · ${faction.detachments.length} destacamentos`
+                : ""}
               {version ? ` · MFM ${version}` : ""}
             </p>
           </div>
@@ -563,7 +604,10 @@ export function PointsCatalogFactionPage() {
               <h2 className="font-semibold">Destacamentos</h2>
               <Badge variant="secondary">{faction.detachments.length}</Badge>
             </div>
-            <ConsolePanel label="Munitorum // destacamentos" count={faction.detachments.length}>
+            <ConsolePanel
+              label="Munitorum // destacamentos"
+              count={faction.detachments.length}
+            >
               <div className="divide-y divide-emerald-500/10">
                 {faction.detachments.map((d) => (
                   <DetachmentRow key={d.name} detachment={d} />
@@ -593,7 +637,8 @@ export function PointsCatalogFactionPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             {CATEGORY_FILTERS.map((c) => {
-              const count = c === "all" ? armyUnits.length : categoryCounts[c] ?? 0;
+              const count =
+                c === "all" ? armyUnits.length : (categoryCounts[c] ?? 0);
               if (c !== "all" && count === 0) return null;
               return (
                 <button
@@ -633,7 +678,10 @@ export function PointsCatalogFactionPage() {
           ) : (
             <ConsolePanel label="Munitorum // unidades" count={filtered.length}>
               {groups.map(([group, list], gi) => (
-                <div key={group} className={cn(gi !== 0 && "border-t border-emerald-500/10")}>
+                <div
+                  key={group}
+                  className={cn(gi !== 0 && "border-t border-emerald-500/10")}
+                >
                   {groups.length > 1 && group !== "Unidades" && (
                     <p className="border-b border-emerald-500/10 bg-emerald-500/[0.03] px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-500/60">
                       {group}

@@ -85,7 +85,7 @@ export function ResetPasswordScreen() {
               <button
                 type="button"
                 onClick={clearRecoveryMode}
-                className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110"
+                className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient text-sm font-semibold text-brand-foreground shadow-lg transition-all hover:brightness-110"
               >
                 Continuar
                 <ArrowRight className="h-4 w-4" />
@@ -191,7 +191,7 @@ export function ResetPasswordScreen() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient text-sm font-semibold text-brand-foreground shadow-lg transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

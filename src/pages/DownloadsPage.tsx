@@ -1,3 +1,4 @@
+import { Seo } from "@/components/shared/Seo";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -18,7 +19,13 @@ function formatDate(iso: string | null): string | null {
   });
 }
 
-function DownloadCard({ entry, index }: { entry: DownloadEntry; index: number }) {
+function DownloadCard({
+  entry,
+  index,
+}: {
+  entry: DownloadEntry;
+  index: number;
+}) {
   return (
     <motion.a
       href={entry.fileUrl}
@@ -55,7 +62,9 @@ function DownloadCard({ entry, index }: { entry: DownloadEntry; index: number })
           )}
         </div>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {[formatDate(entry.sourceUpdatedAt), entry.fileSize].filter(Boolean).join(" · ")}
+          {[formatDate(entry.sourceUpdatedAt), entry.fileSize]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
       <Download className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
@@ -117,6 +126,11 @@ export function DownloadsPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title="Descargas oficiales de Warhammer 40,000"
+        description="Reglas básicas, faction packs, dataslates y documentos oficiales de Warhammer 40,000, siempre en su última versión."
+        path="/descargas"
+      />
       <div className="space-y-6">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
