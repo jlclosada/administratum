@@ -77,6 +77,7 @@ export {
   getTournaments,
   getUserPaints,
   getWishlistPaints,
+  getFactionUnits,
   getUnitCatalog,
   getUnitCatalogCount,
   upsertUnitCatalog,

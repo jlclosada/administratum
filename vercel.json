@@ -19,6 +19,54 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/catalogo-puntos",
+      "destination": "/api/render?path=/catalogo-puntos"
+    },
+    {
+      "source": "/catalogo-puntos/:slug",
+      "destination": "/api/render?path=/catalogo-puntos/:slug"
+    },
+    {
+      "source": "/articulos/:id",
+      "destination": "/api/render?path=/articulos/:id"
+    },
+    {
+      "source": "/guias",
+      "destination": "/api/render?path=/guias"
+    },
+    {
+      "source": "/guias/:id",
+      "destination": "/api/render?path=/guias/:id"
+    },
+    {
+      "source": "/competitivo",
+      "destination": "/api/render?path=/competitivo"
+    },
+    {
+      "source": "/competitivo/torneos/:id",
+      "destination": "/api/render?path=/competitivo/torneos/:id"
+    },
+    {
+      "source": "/competitivo/listas/:id",
+      "destination": "/api/render?path=/competitivo/listas/:id"
+    },
+    {
+      "source": "/comunidad",
+      "destination": "/api/render?path=/comunidad"
+    },
+    {
+      "source": "/comunidad/listas/:id",
+      "destination": "/api/render?path=/comunidad/listas/:id"
+    },
+    {
+      "source": "/perfil/:id",
+      "destination": "/api/render?path=/perfil/:id"
+    },
+    {
+      "source": "/descargas",
+      "destination": "/api/render?path=/descargas"
+    },
+    {
       "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }

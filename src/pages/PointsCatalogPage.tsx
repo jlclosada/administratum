@@ -5,7 +5,7 @@ import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { getFactionCatalog, getUnitCatalog } from "@/db";
+import { getFactionCatalog, getFactionUnits, getUnitCatalog } from "@/db";
 import { cn } from "@/lib/utils";
 import type {
   Detachment,
@@ -477,7 +477,7 @@ export function PointsCatalogFactionPage() {
 
   useEffect(() => {
     Promise.all([
-      getUnitCatalog("Warhammer 40,000"),
+      getFactionUnits("Warhammer 40,000", factionSlug ?? ""),
       getFactionCatalog("Warhammer 40,000"),
     ])
       .then(([u, f]) => {

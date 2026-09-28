@@ -1,14 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
-import { AuthCallbackPage, CONFIRM_PATH } from "@/pages/AuthCallbackPage";
-import { AuthPage } from "@/pages/AuthPage";
-import { LandingPage } from "@/pages/LandingPage";
-import { AvisoLegalPage } from "@/pages/legal/AvisoLegalPage";
-import { CookiesPage } from "@/pages/legal/CookiesPage";
-import { PrivacidadPage } from "@/pages/legal/PrivacidadPage";
-import { TerminosPage } from "@/pages/legal/TerminosPage";
-import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { lazyRoute } from "@/lib/chunkReload";
+import { CONFIRM_PATH } from "@/lib/site";
 import { isPublicPath } from "@/lib/publicPaths";
 import {
   useAuthStore,
@@ -28,6 +21,43 @@ import {
 } from "react-router-dom";
 import { Toaster } from "sonner";
 
+// Entry screens outside the app shell load on demand too, so a visitor
+// landing on a public page doesn't download the landing, sign-in or legal
+// pages (and vice versa).
+const LandingPage = lazyRoute(() =>
+  import("@/pages/LandingPage").then((m) => ({ default: m.LandingPage })),
+);
+const AuthPage = lazyRoute(() =>
+  import("@/pages/AuthPage").then((m) => ({ default: m.AuthPage })),
+);
+const AuthCallbackPage = lazyRoute(() =>
+  import("@/pages/AuthCallbackPage").then((m) => ({
+    default: m.AuthCallbackPage,
+  })),
+);
+const ResetPasswordScreen = lazyRoute(() =>
+  import("@/pages/ResetPasswordScreen").then((m) => ({
+    default: m.ResetPasswordScreen,
+  })),
+);
+const AvisoLegalPage = lazyRoute(() =>
+  import("@/pages/legal/AvisoLegalPage").then((m) => ({
+    default: m.AvisoLegalPage,
+  })),
+);
+const CookiesPage = lazyRoute(() =>
+  import("@/pages/legal/CookiesPage").then((m) => ({ default: m.CookiesPage })),
+);
+const PrivacidadPage = lazyRoute(() =>
+  import("@/pages/legal/PrivacidadPage").then((m) => ({
+    default: m.PrivacidadPage,
+  })),
+);
+const TerminosPage = lazyRoute(() =>
+  import("@/pages/legal/TerminosPage").then((m) => ({
+    default: m.TerminosPage,
+  })),
+);
 const AdminLayout = lazyRoute(() =>
   import("@/pages/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })),
 );
@@ -214,6 +244,14 @@ const publicRoutes = (
   </>
 );
 
+function FullScreenFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
+
 function RouteFallback() {
   return (
     <div className="min-h-[50vh] flex items-center justify-center">
@@ -333,7 +371,8 @@ function AppGate() {
 
   // Campaign links (e.g. the promo email) use ?registro=1 to open sign-up.
   useEffect(() => {
-    if (initialized && !user && new URLSearchParams(search).has("registro")) openAuth("signup");
+    if (initialized && !user && new URLSearchParams(search).has("registro"))
+      openAuth("signup");
     // Only on arrival: later navigations shouldn't reopen the form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialized]);
@@ -416,15 +455,17 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
-        <Routes>
-          {/* Reachable regardless of auth state — legal pages are never gated. */}
-          <Route path="/legal/aviso-legal" element={<AvisoLegalPage />} />
-          <Route path="/legal/privacidad" element={<PrivacidadPage />} />
-          <Route path="/legal/cookies" element={<CookiesPage />} />
-          <Route path="/legal/terminos" element={<TerminosPage />} />
-          <Route path={CONFIRM_PATH} element={<AuthCallbackPage />} />
-          <Route path="*" element={<AppGate />} />
-        </Routes>
+        <Suspense fallback={<FullScreenFallback />}>
+          <Routes>
+            {/* Reachable regardless of auth state — legal pages are never gated. */}
+            <Route path="/legal/aviso-legal" element={<AvisoLegalPage />} />
+            <Route path="/legal/privacidad" element={<PrivacidadPage />} />
+            <Route path="/legal/cookies" element={<CookiesPage />} />
+            <Route path="/legal/terminos" element={<TerminosPage />} />
+            <Route path={CONFIRM_PATH} element={<AuthCallbackPage />} />
+            <Route path="*" element={<AppGate />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </MotionConfig>
   );
