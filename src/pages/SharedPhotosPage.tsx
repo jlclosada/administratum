@@ -358,7 +358,7 @@ export function SharedPhotosPage() {
                       to={`/perfil/${userId}`}
                       className="group flex w-20 flex-col items-center gap-1.5 text-center"
                     >
-                      <span className="rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-violet-500 p-[2px] transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110">
+                      <span className="rounded-full bg-brand-gradient p-[2px] transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110">
                         <span className="block rounded-full bg-background p-[2px]">
                           <UserAvatar
                             src={profile?.avatarUrl}

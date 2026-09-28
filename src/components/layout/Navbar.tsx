@@ -177,7 +177,7 @@ export function Navbar() {
                       profileActive && "bg-brand-soft",
                     )}
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-xs font-bold uppercase text-white">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-xs font-bold uppercase text-brand-foreground">
                       {avatarUrl ? (
                         <img
                           src={avatarUrl}
@@ -369,7 +369,7 @@ export function Navbar() {
                     }}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-[11px] font-bold uppercase text-white">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-gradient text-[11px] font-bold uppercase text-brand-foreground">
                       {avatarUrl ? (
                         <img
                           src={avatarUrl}

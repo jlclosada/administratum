@@ -110,7 +110,7 @@ export function GuidesPage() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
                   sort === "top"
-                    ? "bg-brand-gradient text-white shadow"
+                    ? "bg-brand-gradient text-brand-foreground shadow"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -123,7 +123,7 @@ export function GuidesPage() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
                   sort === "recent"
-                    ? "bg-brand-gradient text-white shadow"
+                    ? "bg-brand-gradient text-brand-foreground shadow"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -157,7 +157,7 @@ export function GuidesPage() {
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-all",
                 gameFilter === null
-                  ? "border-transparent bg-brand-gradient text-white"
+                  ? "border-transparent bg-brand-gradient text-brand-foreground"
                   : "border-border/60 text-muted-foreground hover:text-foreground",
               )}
             >
@@ -171,7 +171,7 @@ export function GuidesPage() {
                 className={cn(
                   "rounded-full border px-3 py-1 text-xs font-medium transition-all",
                   gameFilter === g.name
-                    ? "border-transparent bg-brand-gradient text-white"
+                    ? "border-transparent bg-brand-gradient text-brand-foreground"
                     : "border-border/60 text-muted-foreground hover:text-foreground",
                 )}
               >

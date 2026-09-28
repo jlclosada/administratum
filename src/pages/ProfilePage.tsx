@@ -245,7 +245,7 @@ function ProfileView({ userId }: { userId: string }) {
                 initial={{ scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", bounce: 0.45, duration: 0.8 }}
-                className="w-fit rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-violet-500 p-[3px] shadow-2xl"
+                className="w-fit rounded-full bg-brand-gradient p-[3px] shadow-2xl"
               >
                 <span className="block rounded-full bg-background p-1">
                   <UserAvatar src={profile.avatarUrl} name={name} size="xl" />
