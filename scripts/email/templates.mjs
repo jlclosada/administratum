@@ -8,12 +8,12 @@
 // Placeholders like {{ .TokenHash }} are Go template variables that Supabase
 // fills in when it sends the email.
 
-const SITE = 'https://administratum.site';
-const ASSETS = `${SITE}/email`;
-const CONTACT = 'hola@administratum.site';
+export const SITE = 'https://administratum.site';
+export const ASSETS = `${SITE}/email`;
+export const CONTACT = 'hola@administratum.site';
 
 // Palette: dark stone, bone and burnished gold, as in the logo.
-const C = {
+export const C = {
   page: '#0a0a0b',
   card: '#111113',
   panel: '#18181b',
@@ -30,9 +30,9 @@ const C = {
 // Cinzel (Trajan-like, as the logo lettering) and Geist load where the client
 // allows web fonts (Apple Mail, iOS, Outlook.com…); elsewhere the fallbacks
 // keep the same classic serif / clean sans contrast.
-const SERIF = "'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif";
-const SANS = "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-const MONO = "'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace";
+export const SERIF = "'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif";
+export const SANS = "'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+export const MONO = "'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace";
 
 /** Link into the app's /auth/confirmar page, which verifies the token itself. */
 const confirmLink = (type, extra = '') =>
@@ -49,12 +49,12 @@ const GREETING =
 const greeting = (text = GREETING) =>
   `<p style="margin:0 0 18px;font-family:${SERIF};font-size:22px;line-height:1.3;font-weight:700;color:${C.white};">${text}</p>`;
 
-const p = (html) =>
+export const p = (html) =>
   `<p style="margin:0 0 16px;font-family:${SANS};font-size:16px;line-height:1.7;color:${C.text};">${html}</p>`;
 
-const strong = (text) => `<strong style="color:${C.white};font-weight:600;">${text}</strong>`;
+export const strong = (text) => `<strong style="color:${C.white};font-weight:600;">${text}</strong>`;
 
-const button = (href, label) => `
+export const button = (href, label) => `
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:30px 0 30px;">
   <tr>
     <td align="center" bgcolor="${C.gold}" style="border-radius:10px;background:${C.gold};background-image:linear-gradient(135deg,#ecdcae 0%,${C.gold} 45%,${C.goldDeep} 100%);box-shadow:0 10px 30px rgba(216,192,138,0.18);">
@@ -64,7 +64,7 @@ const button = (href, label) => `
 </table>`;
 
 /** Panel with a coloured side accent. */
-const note = (html, accent = C.gold) => `
+export const note = (html, accent = C.gold) => `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
   <tr>
     <td style="border-left:3px solid ${accent};background:${C.panel};border-radius:0 10px 10px 0;padding:16px 20px;font-family:${SANS};font-size:14px;line-height:1.65;color:${C.muted};">${html}</td>
@@ -131,7 +131,7 @@ const fallback = (href) => `
 </p>`;
 
 /** Sign-off with the emblem, like a letter's seal. */
-const signature = (closing) => `
+export const signature = (closing) => `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;border-top:1px solid ${C.line};">
   <tr>
     <td style="padding-top:26px;">
@@ -155,13 +155,13 @@ const signature = (closing) => `
   </tr>
 </table>`;
 
-const footerLink = (href, label) => `<a href="${href}" style="color:${C.muted};text-decoration:none;">${label}</a>`;
+export const footerLink = (href, label) => `<a href="${href}" style="color:${C.muted};text-decoration:none;">${label}</a>`;
 
 // ---------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------
 
-function layout({ subject, preheader, eyebrow, title, body, accent = C.gold, siteUrl = '{{ .SiteURL }}', reason }) {
+export function layout({ subject, preheader, eyebrow, title, body, accent = C.gold, siteUrl = '{{ .SiteURL }}', reason, footerNote = '' }) {
   return `<!doctype html>
 <html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -238,7 +238,7 @@ function layout({ subject, preheader, eyebrow, title, body, accent = C.gold, sit
               <p style="margin:0 0 10px;font-size:12px;line-height:1.7;color:${C.faint};">
                 ${reason}<br>
                 ¿Dudas? Escríbenos a <a href="mailto:${CONTACT}" style="color:${C.muted};">${CONTACT}</a>.
-              </p>
+              </p>${footerNote}
               <p style="margin:0;font-size:11px;line-height:1.7;color:#4a4a52;">
                 © 2026 Administratum · Proyecto independiente, sin afiliación con Games Workshop.<br>
                 <a href="${SITE}/legal/privacidad" style="color:#4a4a52;">Privacidad</a>&nbsp;·&nbsp;<a href="${SITE}/legal/terminos" style="color:#4a4a52;">Términos</a>

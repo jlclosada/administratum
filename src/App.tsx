@@ -317,7 +317,7 @@ function AppGate() {
   const { start: startNotifications, stop: stopNotifications } =
     useNotificationStore();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   // Confirmation links from emails sent before the callback page existed
   // land on "/" — send their errors (expired / used link) there too.
@@ -330,6 +330,13 @@ function AppGate() {
   useEffect(() => {
     init();
   }, [init]);
+
+  // Campaign links (e.g. the promo email) use ?registro=1 to open sign-up.
+  useEffect(() => {
+    if (initialized && !user && new URLSearchParams(search).has("registro")) openAuth("signup");
+    // Only on arrival: later navigations shouldn't reopen the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialized]);
 
   useEffect(() => {
     if (user) {
