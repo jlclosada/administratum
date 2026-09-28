@@ -129,6 +129,23 @@ export interface Friendship extends BaseEntity {
   status: FriendshipStatus;
 }
 
+export type NotificationType = 'friend_request' | 'friend_accepted' | 'like' | 'comment' | 'comment_like';
+
+/** In-app notification, written by database triggers for the recipient. */
+export interface AppNotification {
+  id: string;
+  userId: string;
+  actorId: string | null;
+  type: NotificationType;
+  /** What the notification links to: article | guide | photo | list. */
+  targetType: 'article' | 'guide' | 'photo' | 'list' | null;
+  targetId: string | null;
+  /** Title of the liked item, or the text of the comment. */
+  excerpt: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
 /** Friendship from the current user's point of view, with the other person's profile. */
 export interface FriendEntry {
   friendship: Friendship;

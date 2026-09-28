@@ -90,7 +90,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         password,
         options: {
           data: metadata,
-          emailRedirectTo: `${window.location.origin}/`,
+          // Lands on the confirmation page, which signs the user in.
+          emailRedirectTo: `${window.location.origin}/auth/confirmar`,
         },
       });
       if (error) throw error;

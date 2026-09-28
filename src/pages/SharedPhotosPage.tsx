@@ -7,15 +7,17 @@ import { usePhotoFeed } from "@/components/community/usePhotoFeed";
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { UserAvatar } from "@/components/shared/UserAvatar";
+import { UserSearch } from "@/components/social/UserSearch";
 import { Button } from "@/components/ui/button";
-import { getCommunityLists, getProfilesByIds, getSharedPhotos } from "@/db";
+import { getCommunityLists, getProfilesByIds, getSharedPhotoById, getSharedPhotos } from "@/db";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore } from "@/stores";
 import type { CommunityList, Profile, SharedPhoto } from "@/types";
 import { motion } from "framer-motion";
-import { Camera, Flame, Images, Plus, ScrollText, Search, Sparkles, UserPlus, Users } from "lucide-react";
+import { Camera, Flame, Images, Plus, ScrollText, Search, Sparkles, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 type Content = "fotos" | "listas";
 
@@ -69,6 +71,35 @@ export function SharedPhotosPage() {
       })
       .finally(() => setListsLoading(false));
   }, []);
+
+  // Deep link from a notification: /comunidad?foto=<id> opens that photo,
+  // fetching it first when it's older than the loaded feed.
+  const fotoParam = searchParams.get("foto");
+  useEffect(() => {
+    if (!fotoParam || loading) return;
+    let cancelled = false;
+    (async () => {
+      if (!photos.some((p) => p.id === fotoParam)) {
+        const photo = await getSharedPhotoById(fotoParam);
+        if (cancelled) return;
+        if (!photo) {
+          toast.error("Esta foto ya no está disponible.");
+          setSearchParams({}, { replace: true });
+          return;
+        }
+        const author = (await getProfilesByIds([photo.userId])).get(photo.userId) ?? null;
+        if (cancelled) return;
+        prepend(photo, author);
+      }
+      setViewerId(fotoParam);
+      setSearchParams({}, { replace: true });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Runs once per link, after the feed has loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fotoParam, loading]);
 
   function setContent(next: Content) {
     setSearchParams(next === "listas" ? { tab: "listas" } : {}, { replace: true });
@@ -180,19 +211,13 @@ export function SharedPhotosPage() {
                   </Button>
                 </>
               )}
-              <Button variant="outline" className="gap-2" asChild>
-                <Link to="/amigos">
-                  <UserPlus className="h-4 w-4" />
-                  Encontrar pintores
-                </Link>
-              </Button>
             </div>
 
             <dl className="mt-8 flex gap-8">
               {[
                 { label: "fotos", value: photos.length },
                 { label: "listas", value: lists.length },
-                { label: "pintores", value: new Set(photos.map((p) => p.userId)).size },
+                { label: "usuarios", value: new Set(photos.map((p) => p.userId)).size },
                 { label: "me gusta", value: totalLikes },
               ].map((s) => (
                 <div key={s.label}>
@@ -206,11 +231,21 @@ export function SharedPhotosPage() {
           </div>
         </section>
 
-        {/* Top painters */}
+        {/* User search */}
+        <section className="space-y-3">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <Search className="h-4 w-4 text-primary" /> Buscar usuarios
+          </h2>
+          <div className="max-w-xl">
+            <UserSearch />
+          </div>
+        </section>
+
+        {/* Top users */}
         {topPainters.length > 0 && (
           <section className="space-y-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <Users className="h-4 w-4 text-primary" /> Pintores destacados
+              <Users className="h-4 w-4 text-primary" /> Usuarios destacados
             </h2>
             <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
               {topPainters.map(([userId, stat], i) => {

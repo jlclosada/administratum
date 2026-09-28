@@ -1,5 +1,5 @@
 import { parseArmyListExport, type ParsedArmyList } from "@/lib/armyListParser";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 /**
@@ -25,7 +25,15 @@ export function ArmyListPasteField({
   }, [parsed, onParsed]);
 
   return (
-    <div>
+    <div className="space-y-2">
+      <div className="flex gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/[0.06] px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+        <p>
+          <span className="font-semibold text-foreground">Formato Games Workshop.</span> Exporta la lista como texto desde
+          la app oficial de Warhammer 40,000 (o desde NewRecruit con el formato de GW) y pégala tal cual, sin editarla.
+          Se admite en español o en inglés.
+        </p>
+      </div>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -34,13 +42,14 @@ export function ArmyListPasteField({
         className="w-full resize-y rounded-lg border border-input bg-background/40 px-3 py-2 font-mono text-xs leading-relaxed placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       {showError && (
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-destructive">
+        <p className="flex items-start gap-1.5 text-xs text-destructive">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          No se reconoce el formato de la lista. Revisa que hayas copiado el texto completo.
+          No se reconoce el formato. Debe ser la exportación de texto de Games Workshop completa, empezando por una
+          línea como «Mi lista (2000 puntos)» o «My list (2,000 Points)».
         </p>
       )}
       {parsed && (
-        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-500">
+        <p className="flex items-center gap-1.5 text-xs text-emerald-500">
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
           {parsed.listName} · {parsed.factionName} · {parsed.totalPoints} pts ·{" "}
           {parsed.categories.reduce((n, c) => n + c.units.length, 0)} unidades
