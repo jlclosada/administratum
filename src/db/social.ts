@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSessionUser, supabase } from '@/lib/supabase';
 import type {
   Conversation,
   FriendEntry,
@@ -13,7 +13,7 @@ import { mapRow, mapRows, toProfile, withMyPhotoState } from './repository';
 async function requireUserId(): Promise<string> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
   return user.id;
 }

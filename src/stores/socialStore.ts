@@ -51,11 +51,16 @@ export const useSocialStore = create<SocialState>((set, get) => ({
 
   refresh: async () => {
     if (!currentUserId) return;
-    const [unread, friendships] = await Promise.all([getUnreadCount(), getMyFriendships()]);
-    set({
-      unread,
-      incomingRequests: friendships.filter((f) => f.friendship.status === 'pending' && !f.outgoing).length,
-    });
+    try {
+      const [unread, friendships] = await Promise.all([getUnreadCount(), getMyFriendships()]);
+      set({
+        unread,
+        incomingRequests: friendships.filter((f) => f.friendship.status === 'pending' && !f.outgoing).length,
+      });
+    } catch {
+      // Offline or session still restoring: keep the last counts; the next
+      // refresh (new message, friend action, notification) fixes them.
+    }
   },
 
   setActiveChat: (userId) => set({ activeChatId: userId }),

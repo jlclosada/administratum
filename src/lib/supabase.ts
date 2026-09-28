@@ -20,3 +20,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 /** Storage bucket used for all user media (miniature images, covers, process media, PDFs). */
 export const STORAGE_BUCKET = 'media';
+
+/**
+ * The signed-in user, read from the local session (refreshed first if the
+ * access token has expired). Unlike `auth.getUser()` it needs no extra network
+ * round trip, so it doesn't report "no session" on a flaky mobile connection or
+ * right after the app comes back from the background. Every query is still
+ * checked server-side by RLS. Same return shape as `auth.getUser()`.
+ */
+export async function getSessionUser() {
+  const { data } = await supabase.auth.getSession();
+  return { data: { user: data.session?.user ?? null } };
+}

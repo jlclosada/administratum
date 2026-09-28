@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSessionUser, supabase } from '@/lib/supabase';
 import type { CommunityList, CreateCommunityListDTO, UpdateCommunityListDTO } from '@/types';
 import { getMyLikes, mapRow, mapRows } from './repository';
 
@@ -40,7 +40,7 @@ export async function getCommunityListById(id: string): Promise<CommunityList | 
 export async function createCommunityList(dto: CreateCommunityListDTO): Promise<CommunityList> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
   const authorName =
     (user.user_metadata?.display_name as string | undefined) ??
