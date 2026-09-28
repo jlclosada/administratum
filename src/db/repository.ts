@@ -1,6 +1,6 @@
 import { PAINT_CATALOG, PAINT_CATALOG_BY_ID } from '@/data/paints';
 import { normalizeFactionName, puntosEjercito, puntosListaTotal } from '@/lib/mfm';
-import { supabase } from '@/lib/supabase';
+import { getSessionUser, supabase } from '@/lib/supabase';
 import type {
   AppConfig,
   Army,
@@ -164,7 +164,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 export async function getMyProfile(): Promise<Profile | null> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) return null;
   return getProfile(user.id);
 }
@@ -177,7 +177,7 @@ export async function getMyProfile(): Promise<Profile | null> {
 export async function updateMyProfile(dto: UpdateProfileDTO): Promise<Profile> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
 
   const payload: Record<string, unknown> = { id: user.id };
@@ -1547,7 +1547,7 @@ export async function getArticleById(id: string): Promise<Article | null> {
 export async function createArticle(dto: CreateArticleDTO): Promise<Article> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   const { data, error } = await supabase
     .from('articles')
     .insert({
@@ -1647,7 +1647,7 @@ export async function getGuideById(id: string): Promise<PaintingGuide | null> {
 export async function createGuide(dto: CreateGuideDTO): Promise<PaintingGuide> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   const authorName =
     (user?.user_metadata?.display_name as string | undefined) ??
     (user?.user_metadata?.full_name as string | undefined) ??
@@ -1710,7 +1710,7 @@ export async function deleteGuide(id: string): Promise<void> {
 export async function getMyGuideRating(guideId: string): Promise<number> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) return 0;
   const { data, error } = await supabase
     .from('guide_ratings')
@@ -1729,7 +1729,7 @@ export async function rateGuide(
 ): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
   const { error } = await supabase.from('guide_ratings').upsert(
     {
@@ -1966,7 +1966,7 @@ export async function getMyLikes(
   if (targetIds.length === 0) return new Set();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) return new Set();
   const { data, error } = await supabase
     .from('likes')
@@ -1985,7 +1985,7 @@ export async function toggleLike(
 ): Promise<boolean> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
 
   const { data: existing } = await supabase
@@ -2036,7 +2036,7 @@ export async function getComments(
 export async function createComment(dto: CreateCommentDTO): Promise<Comment> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
   const authorName =
     (user.user_metadata?.display_name as string | undefined) ??
@@ -2082,7 +2082,7 @@ export async function getSharedPhotos(limit = 60): Promise<SharedPhoto[]> {
 export async function createSharedPhoto(dto: CreateSharedPhotoDTO): Promise<SharedPhoto> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
   const authorName =
     (user.user_metadata?.display_name as string | undefined) ??
@@ -2111,7 +2111,7 @@ async function getMySavedPhotoIds(ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) return new Set();
   const { data } = await supabase.from('saved_photos').select('photo_id').in('photo_id', ids);
   return new Set((data ?? []).map((r) => r.photo_id as string));

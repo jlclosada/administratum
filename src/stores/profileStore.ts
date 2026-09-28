@@ -21,6 +21,9 @@ export const useProfileStore = create<ProfileState>((set) => ({
     try {
       const profile = await getMyProfile();
       set({ profile, fetched: true });
+    } catch {
+      // Network hiccup at startup: the app works without the profile row
+      // (name falls back to auth metadata); it loads again on the next visit.
     } finally {
       set({ loading: false });
     }

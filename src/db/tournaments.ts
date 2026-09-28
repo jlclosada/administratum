@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSessionUser, supabase } from '@/lib/supabase';
 import type { AdminOverview, Profile } from '@/types';
 import { getProfilesByIds } from './social';
 
@@ -26,7 +26,7 @@ export async function getTournamentAttendees(tournamentId: string): Promise<Atte
 export async function getMyAttendance(): Promise<Set<string>> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) return new Set();
   const { data } = await supabase.from('tournament_attendees').select('tournament_id').eq('user_id', user.id);
   return new Set((data ?? []).map((r) => r.tournament_id as string));
@@ -40,7 +40,7 @@ export async function setAttendance(tournamentId: string, attending: boolean): P
   } else {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getSessionUser();
     const { error } = await supabase
       .from('tournament_attendees')
       .delete()

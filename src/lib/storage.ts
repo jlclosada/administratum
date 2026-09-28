@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import { STORAGE_BUCKET, supabase } from './supabase';
+import { getSessionUser, STORAGE_BUCKET, supabase } from './supabase';
 
 /**
  * Upload a File to Supabase Storage and return its public URL.
@@ -8,7 +8,7 @@ import { STORAGE_BUCKET, supabase } from './supabase';
 export async function uploadFile(file: File, folder: string): Promise<string> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) throw new Error('No hay sesión activa.');
 
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
@@ -42,7 +42,7 @@ export async function removeFileByUrl(
 export async function removeAllUserFiles(): Promise<void> {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await getSessionUser();
   if (!user) return;
 
   const folders = ['covers', 'miniatures', 'process', 'lists', 'pdfs', 'shared', 'avatar', 'ads', 'featured-lists', 'misc'];
