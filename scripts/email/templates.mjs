@@ -8,7 +8,7 @@
 // fills in when it sends the email.
 
 const SITE = 'https://administratum.site';
-const CONTACT = 'jlcaclosada@gmail.com';
+const CONTACT = 'hola@administratum.site';
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 /** Link into the app's /auth/confirmar page, which verifies the token itself. */
