@@ -214,6 +214,9 @@ function supabaseQuery(): Query {
   };
 }
 
+/** Warhammer 40,000 only: guides from before the 40K-only change may have no game. */
+const ONLY_40K = `or=${encodeURIComponent('(game_name.is.null,game_name.ilike.*40*)')}`;
+
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const eq = (v: string) => `eq.${encodeURIComponent(v)}`;
 
@@ -430,7 +433,7 @@ ${richText(a.content)}</article>`,
 }
 
 async function guidesIndex(q: Query): Promise<Page> {
-  const guides = await q('painting_guides', 'select=id,title,summary,author_name,army_name&published=eq.true&order=like_count.desc,created_at.desc&limit=60');
+  const guides = await q('painting_guides', `select=id,title,summary,author_name,army_name&published=eq.true&${ONLY_40K}&order=like_count.desc,created_at.desc&limit=60`);
   return {
     status: 200,
     ...SEO_GUIAS,

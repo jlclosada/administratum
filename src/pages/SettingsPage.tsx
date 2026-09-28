@@ -595,7 +595,7 @@ export function SettingsPage() {
                 <span className="font-medium text-foreground">Administratum</span> v
                 {APP_VERSION}
               </p>
-              <p>Gestor de colecciones de miniaturas para wargaming.</p>
+              <p>Tu colección, listas y comunidad de Warhammer 40.000.</p>
               <p className="pt-2 text-xs">
                 © {new Date().getFullYear()} Jose Luis Caceres Losada. Todos los
                 derechos reservados.
@@ -614,7 +614,7 @@ export function SettingsPage() {
               Eliminar cuenta
             </DialogTitle>
             <DialogDescription>
-              Esta acción es permanente. Se eliminarán tu cuenta, tus juegos,
+              Esta acción es permanente. Se eliminarán tu cuenta, tus
               ejércitos, miniaturas, imágenes y listas. No podrás recuperarlos.
             </DialogDescription>
           </DialogHeader>

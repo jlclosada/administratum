@@ -25,7 +25,7 @@ import {
   Palette,
   Pencil,
   Shield,
-  Swords,
+ 
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -196,12 +196,6 @@ export function GuideDetailPage() {
 
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            {guide.gameName && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-primary">
-                <Swords className="h-3 w-3" />
-                {guide.gameName}
-              </span>
-            )}
             {guide.armyName && (
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                 <Shield className="h-3 w-3" />

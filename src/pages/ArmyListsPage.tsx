@@ -21,9 +21,8 @@ import {
     deleteArmyList,
     getAllArmies,
     getAllArmyLists,
-    getAllGames,
 } from "@/db";
-import type { ArmyListWithDetails, ArmyWithStats, Game } from "@/types";
+import type { ArmyListWithDetails, ArmyWithStats } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     CalendarIcon,
@@ -45,24 +44,17 @@ export function ArmyListsPage() {
 
   // Form
   const [formName, setFormName] = useState("");
-  const [formGameId, setFormGameId] = useState("");
   const [formArmyId, setFormArmyId] = useState("");
   const [formDate, setFormDate] = useState("");
   const [formNotes, setFormNotes] = useState("");
 
   // Data for selects
-  const [games, setGames] = useState<Game[]>([]);
   const [armies, setArmies] = useState<(ArmyWithStats & { gameName: string })[]>([]);
 
   const loadData = useCallback(async () => {
     try {
-      const [l, g, a] = await Promise.all([
-        getAllArmyLists(),
-        getAllGames(),
-        getAllArmies(),
-      ]);
+      const [l, a] = await Promise.all([getAllArmyLists(), getAllArmies()]);
       setLists(l);
-      setGames(g);
       setArmies(a);
     } catch (err) {
       console.error("Failed to load lists:", err);
@@ -77,7 +69,6 @@ export function ArmyListsPage() {
 
   function resetForm() {
     setFormName("");
-    setFormGameId("");
     setFormArmyId("");
     setFormDate("");
     setFormNotes("");
@@ -88,7 +79,7 @@ export function ArmyListsPage() {
     try {
       await createArmyList({
         name: formName.trim(),
-        gameId: formGameId || null,
+        gameId: armies.find((a) => a.id === formArmyId)?.gameId ?? null,
         armyId: formArmyId || null,
         points: 0,
         gameDate: formDate || null,
@@ -111,10 +102,6 @@ export function ArmyListsPage() {
       console.error("Failed to delete list:", err);
     }
   }
-
-  const filteredArmies = formGameId
-    ? armies.filter((a) => a.gameId === formGameId)
-    : armies;
 
   if (loading) {
     return (
@@ -195,11 +182,6 @@ export function ArmyListsPage() {
                               {list.armyName && (
                                 <span className="truncate">
                                   {list.armyName}
-                                </span>
-                              )}
-                              {list.gameName && !list.armyName && (
-                                <span className="truncate">
-                                  {list.gameName}
                                 </span>
                               )}
                             </div>
@@ -288,25 +270,7 @@ export function ArmyListsPage() {
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Juego</Label>
-                  <select
-                    value={formGameId}
-                    onChange={(e) => {
-                      setFormGameId(e.target.value);
-                      setFormArmyId("");
-                    }}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                  >
-                    <option value="">Sin juego</option>
-                    {games.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="grid gap-4">
                 <div className="space-y-2">
                   <Label>Ejército</Label>
                   <select
@@ -315,7 +279,7 @@ export function ArmyListsPage() {
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                   >
                     <option value="">Sin ejército</option>
-                    {filteredArmies.map((a) => (
+                    {armies.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
                       </option>

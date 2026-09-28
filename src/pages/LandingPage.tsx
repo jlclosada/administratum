@@ -534,7 +534,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
 
       <footer className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 text-xs text-white/45 lg:flex-row sm:px-8">
-          <p>© {new Date().getFullYear()} Administratum · Gestión de colecciones de wargaming.</p>
+          <p>© {new Date().getFullYear()} Administratum · Colección, listas y comunidad de Warhammer 40.000.</p>
           <nav aria-label="Explorar" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
             {exploreLinks.map((l) => (
               <Link key={l.to} to={l.to} className="transition-colors hover:text-white">

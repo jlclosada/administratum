@@ -3,7 +3,7 @@ import { ClipboardList, ImageIcon, LayoutDashboard, MessageCircle, Palette, Swor
 /** The user's own hobby spaces — in the profile menu and the side rail. */
 export const collectionItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/games", icon: Swords, label: "Mi Colección" },
+  { to: "/coleccion", icon: Swords, label: "Mi Colección" },
   { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
   { to: "/paints", icon: Palette, label: "Mis Pinturas" },
   { to: "/gallery", icon: ImageIcon, label: "Galería" },

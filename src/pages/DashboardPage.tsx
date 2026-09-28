@@ -121,7 +121,7 @@ export function DashboardPage() {
           <StatColumn
             label="Ejércitos"
             value={stats.totalArmies}
-            subtitle={`En ${stats.totalGames} juegos`}
+            subtitle="Warhammer 40.000"
             accent="border-t-sky-500/70"
           />
         </div>

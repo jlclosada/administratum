@@ -33,7 +33,7 @@ export function AvisoLegalPage() {
       <Section title="2. Objeto">
         <p>
           {SITE_NAME} es una aplicación web gratuita para gestionar colecciones de
-          miniaturas de wargaming: organizar juegos, ejércitos y miniaturas, registrar
+          miniaturas de Warhammer 40.000: organizar ejércitos y miniaturas, registrar
           el proceso de pintado, guardar listas de ejército y compartir guías de
           pintura con la comunidad.
         </p>

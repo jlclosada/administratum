@@ -30,7 +30,7 @@ const features = [
   {
     icon: Swords,
     title: "Organiza tus ejércitos",
-    desc: "Juegos, ejércitos y miniaturas en una jerarquía clara.",
+    desc: "Tus ejércitos de Warhammer 40.000 y cada miniatura, en orden.",
   },
   {
     icon: Palette,
@@ -245,7 +245,7 @@ export function AuthPage({
         {/* Headline + features */}
         <div className="relative z-10 max-w-md">
           <h1 className="text-4xl font-bold leading-tight tracking-tight text-foreground xl:text-5xl">
-            Domina tu colección de wargaming
+            Domina tu colección de Warhammer 40.000
           </h1>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground">
             Gestiona ejércitos, registra tus procesos de pintura y organiza cada

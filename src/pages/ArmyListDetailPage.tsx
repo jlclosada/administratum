@@ -183,8 +183,7 @@ export function ArmyListDetailPage() {
     ? allMiniatures.filter(
         (m) =>
           m.name.toLowerCase().includes(miniSearch.toLowerCase()) ||
-          m.armyName.toLowerCase().includes(miniSearch.toLowerCase()) ||
-          m.gameName.toLowerCase().includes(miniSearch.toLowerCase())
+          m.armyName.toLowerCase().includes(miniSearch.toLowerCase())
       )
     : allMiniatures;
 
@@ -229,13 +228,7 @@ export function ArmyListDetailPage() {
                 {list.name}
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                {list.gameName && <span>{list.gameName}</span>}
-                {list.armyName && (
-                  <>
-                    <span>·</span>
-                    <span>{list.armyName}</span>
-                  </>
-                )}
+                {list.armyName && <span>{list.armyName}</span>}
                 {list.gameDate && (
                   <span className="flex items-center gap-1">
                     <CalendarIcon className="h-3 w-3" />
@@ -624,7 +617,7 @@ export function ArmyListDetailPage() {
               <Input
                 value={miniSearch}
                 onChange={(e) => setMiniSearch(e.target.value)}
-                placeholder="Buscar por nombre, ejército o juego..."
+                placeholder="Buscar por nombre o ejército..."
                 className="pl-10"
               />
             </div>
@@ -646,7 +639,7 @@ export function ArmyListDetailPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{mini.name}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {mini.gameName} · {mini.armyName} · {mini.quantity}x
+                          {mini.armyName} · {mini.quantity}x
                         </p>
                       </div>
                       <MiniatureStatusBadge statuses={mini.statuses} />

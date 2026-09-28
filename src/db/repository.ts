@@ -1,5 +1,5 @@
 import { PAINT_CATALOG, PAINT_CATALOG_BY_ID } from '@/data/paints';
-import { normalizeFactionName, puntosEjercito, puntosListaTotal } from '@/lib/mfm';
+import { isWarhammer40k, normalizeFactionName, puntosEjercito, puntosListaTotal } from '@/lib/mfm';
 import { getSessionUser, supabase } from '@/lib/supabase';
 import type {
   AppConfig,
@@ -54,7 +54,6 @@ import type {
   UpdateArmyPresetDTO,
   UpdateArticleDTO,
   UpdateFeaturedListDTO,
-  UpdateGameDTO,
   UpdateGuideDTO,
   UpdateMiniatureDTO,
   UpdateProfileDTO,
@@ -210,16 +209,6 @@ export async function getAllGames(): Promise<Game[]> {
   return mapRows<Game>(data ?? []);
 }
 
-export async function getGameById(id: string): Promise<Game | null> {
-  const { data, error } = await supabase
-    .from('games')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw error;
-  return data ? mapRow<Game>(data) : null;
-}
-
 export async function createGame(dto: CreateGameDTO): Promise<Game> {
   const { data, error } = await supabase
     .from('games')
@@ -237,27 +226,60 @@ export async function createGame(dto: CreateGameDTO): Promise<Game> {
   return mapRow<Game>(data);
 }
 
-export async function updateGame(dto: UpdateGameDTO): Promise<Game> {
-  const payload: Record<string, unknown> = {};
-  if (dto.name !== undefined) payload.name = dto.name;
-  if (dto.description !== undefined) payload.description = dto.description;
-  if (dto.coverImage !== undefined) payload.cover_image = dto.coverImage;
-  if (dto.icon !== undefined) payload.icon = dto.icon;
-  if (dto.startDate !== undefined) payload.start_date = dto.startDate;
+// ======================== COLLECTION (Warhammer 40,000 only) ========================
+// The app is about Warhammer 40,000 only. Collections still hang from a
+// "games" row (armies need a game_id), but each user has a single
+// "Warhammer 40,000" container, created on first use, and the UI never
+// shows or asks for a game. Armies of other games from older accounts stay
+// in the database but are no longer listed.
 
-  const { data, error } = await supabase
-    .from('games')
-    .update(payload)
-    .eq('id', dto.id)
-    .select()
-    .single();
-  if (error) throw error;
-  return mapRow<Game>(data);
+export const COLLECTION_GAME_NAME = 'Warhammer 40,000';
+
+let collectionGame: { userId: string; game: Promise<Game> } | null = null;
+
+/** The user's Warhammer 40,000 container, created if it doesn't exist yet. */
+export async function getCollectionGame(): Promise<Game> {
+  const {
+    data: { user },
+  } = await getSessionUser();
+  if (!user) throw new Error('No hay sesión activa.');
+  if (collectionGame?.userId !== user.id) {
+    const game = (async () => {
+      const existing = (await getAllGames()).find((g) => isWarhammer40k(g.name));
+      return (
+        existing ??
+        createGame({ name: COLLECTION_GAME_NAME, description: '', coverImage: '/games/warhammer-40k.webp' })
+      );
+    })();
+    collectionGame = { userId: user.id, game };
+    // Don't cache a failure (e.g. offline): try again next time.
+    game.catch(() => {
+      if (collectionGame?.game === game) collectionGame = null;
+    });
+  }
+  return collectionGame.game;
 }
 
-export async function deleteGame(id: string): Promise<void> {
-  const { error } = await supabase.from('games').delete().eq('id', id);
+/** Ids of the user's Warhammer 40,000 containers (normally just one). */
+async function collectionGameIds(): Promise<Set<string>> {
+  const games = await getAllGames();
+  return new Set(games.filter((g) => isWarhammer40k(g.name)).map((g) => g.id));
+}
+
+/** Armies of the Warhammer 40,000 collection, with their stats. */
+export async function getCollectionArmies(): Promise<ArmyWithStats[]> {
+  const ids = [...(await collectionGameIds())];
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('armies')
+    .select('*')
+    .in('game_id', ids)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
   if (error) throw error;
+  const armies = mapRows<ArmyWithStats>(data ?? []);
+  const stats = await armyStats(armies.map((a) => a.id));
+  return armies.map((a) => applyArmyStats(a, stats));
 }
 
 // ======================== ARMIES ========================
@@ -280,7 +302,10 @@ export async function getAllArmies(): Promise<
 > {
   const { data, error } = await supabase.from('armies').select('*');
   if (error) throw error;
-  const armies = mapRows<ArmyWithStats & { gameName: string }>(data ?? []);
+  const gameIds = await collectionGameIds();
+  const armies = mapRows<ArmyWithStats & { gameName: string }>(data ?? []).filter((a) =>
+    gameIds.has(a.gameId),
+  );
 
   const games = await getAllGames();
   const gameNames = new Map(games.map((g) => [g.id, g.name]));
@@ -295,21 +320,6 @@ export async function getAllArmies(): Promise<
       (a, b) =>
         a.gameName.localeCompare(b.gameName) || a.name.localeCompare(b.name),
     );
-}
-
-export async function getArmiesByGame(
-  gameId: string,
-): Promise<ArmyWithStats[]> {
-  const { data, error } = await supabase
-    .from('armies')
-    .select('*')
-    .eq('game_id', gameId)
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
-  if (error) throw error;
-  const armies = mapRows<ArmyWithStats>(data ?? []);
-  const stats = await armyStats(armies.map((a) => a.id));
-  return armies.map((a) => applyArmyStats(a, stats));
 }
 
 export async function getArmyById(id: string): Promise<ArmyWithStats | null> {
@@ -728,9 +738,8 @@ export async function getImagesByArmy(
 // ======================== DASHBOARD ========================
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const [gamesRes, armiesRes, minisRes, statusRes, recentRes] =
+  const [armiesRes, minisRes, statusRes, recentRes] =
     await Promise.all([
-      supabase.from('games').select('*', { count: 'exact', head: true }),
       supabase.from('armies').select('*'),
       supabase
         .from('miniatures')
@@ -738,16 +747,25 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       supabase.from('miniature_statuses').select('miniature_id, status_type'),
       supabase
         .from('miniatures')
-        .select('id')
+        .select('id, army_id')
         .order('created_at', { ascending: false })
-        .limit(5),
+        .limit(50),
     ]);
   if (armiesRes.error) throw armiesRes.error;
   if (minisRes.error) throw minisRes.error;
   if (statusRes.error) throw statusRes.error;
   if (recentRes.error) throw recentRes.error;
 
-  const miniRows = (minisRes.data ?? []) as Record<string, unknown>[];
+  // Only the Warhammer 40,000 collection counts.
+  const gameIds = await collectionGameIds();
+  const armyRows = ((armiesRes.data ?? []) as Record<string, unknown>[]).filter((a) =>
+    gameIds.has(String(a.game_id)),
+  );
+  const armyIds = new Set(armyRows.map((a) => String(a.id)));
+  const miniRows = ((minisRes.data ?? []) as Record<string, unknown>[]).filter((m) =>
+    armyIds.has(String(m.army_id)),
+  );
+  const miniIds = new Set(miniRows.map((m) => String(m.id)));
   const totalMinis = miniRows.reduce(
     (sum, m) => sum + Number(m.quantity ?? 0),
     0,
@@ -761,6 +779,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const highestByMini = new Map<string, PaintStatusType>();
   for (const row of (statusRes.data ?? []) as Record<string, unknown>[]) {
     const miniId = String(row.miniature_id);
+    if (!miniIds.has(miniId)) continue;
     const status = String(row.status_type) as PaintStatusType;
     const current = highestByMini.get(miniId);
     if (
@@ -779,7 +798,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .sort((a, b) => b.count - a.count);
 
   // Army progress
-  const armies = mapRows<ArmyWithStats>(armiesRes.data ?? []);
+  const armies = mapRows<ArmyWithStats>(armyRows);
   const armyStatsMap = await armyStats(armies.map((a) => a.id));
   const armyProgress = armies
     .map((a) => applyArmyStats(a, armyStatsMap))
@@ -787,7 +806,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const recentMiniatures = (
     await Promise.all(
-      (recentRes.data ?? []).map(async (r) => {
+      ((recentRes.data ?? []) as { id: string; army_id: string }[])
+        .filter((r) => armyIds.has(String(r.army_id)))
+        .slice(0, 5)
+        .map(async (r) => {
         try {
           return await getMiniatureById(String((r as { id: string }).id));
         } catch {
@@ -798,8 +820,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   ).filter((m): m is MiniatureWithDetails => m !== null);
 
   return {
-    totalGames: gamesRes.count ?? 0,
-    totalArmies: (armiesRes.data ?? []).length,
+    totalGames: gameIds.size,
+    totalArmies: armyRows.length,
     totalMiniatures: totalMinis,
     totalPainted: totalPaint,
     completionPercentage:
@@ -857,6 +879,9 @@ export async function getAllArmyLists(): Promise<ArmyListWithDetails[]> {
   if (error) throw error;
   const lists: ArmyListWithDetails[] = [];
   for (const r of (data ?? []) as Record<string, unknown>[]) {
+    // Warhammer 40,000 only: skip lists tied to another game.
+    const gameName = (r.games as { name?: string } | null)?.name;
+    if (gameName && !isWarhammer40k(gameName)) continue;
     lists.push(await hydrateArmyList(r));
   }
   return lists;
@@ -1062,6 +1087,7 @@ export async function getAllMiniaturesFlat(): Promise<
     gameName: string;
   })[] = [];
   for (const r of (data ?? []) as Record<string, unknown>[]) {
+    if (!isWarhammer40k((r.armies as { games?: { name?: string } } | null)?.games?.name)) continue;
     const armies = r.armies as {
       name: string;
       games: { name: string } | null;
@@ -1623,7 +1649,8 @@ export async function getGuides(
     } else {
       q = q.eq('published', true);
     }
-    if (query.gameName) q = q.eq('game_name', query.gameName);
+    // Warhammer 40,000 only (older guides may have no game set).
+    q = q.or('game_name.is.null,game_name.ilike.*40*');
     if (query.tags && query.tags.length > 0) q = q.overlaps('tags', query.tags);
     if (query.search && query.search.trim()) {
       const term = query.search.trim().replace(/[%,]/g, ' ');

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  COLLECTION_GAME_NAME,
   createArmyPreset,
   deleteArmyPreset,
   getArmyPresets,
@@ -15,14 +16,14 @@ import {
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import type { ArmyPreset, FactionCatalogEntry, UnitCatalogEntry } from "@/types";
-import { PRESET_GAMES } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { ImageIcon, Loader2, Plus, RefreshCw, Shield, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export function AdminCatalogPage() {
-  const [selectedGame, setSelectedGame] = useState<string>(PRESET_GAMES[0]?.name ?? "");
+  // Warhammer 40,000 only.
+  const selectedGame = COLLECTION_GAME_NAME;
   const [presets, setPresets] = useState<ArmyPreset[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [factionName, setFactionName] = useState("");
@@ -157,31 +158,12 @@ export function AdminCatalogPage() {
       <section className="space-y-5 rounded-2xl border border-border/60 bg-card/30 p-5">
         <div>
           <h2 className="flex items-center gap-2 font-semibold">
-            <Shield className="h-4 w-4 text-primary" /> Facciones por juego
+            <Shield className="h-4 w-4 text-primary" /> Facciones de Warhammer 40.000
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Las facciones que los usuarios pueden elegir al crear un ejército, cada una con su imagen.
           </p>
         </div>
-            {/* Game selector */}
-            <div className="flex flex-wrap gap-2">
-              {PRESET_GAMES.map((g) => (
-                <button
-                  key={g.name}
-                  type="button"
-                  onClick={() => setSelectedGame(g.name)}
-                  className={cn(
-                    "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all",
-                    selectedGame === g.name
-                      ? "border-transparent bg-primary text-primary-foreground shadow"
-                      : "border-border/60 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                  )}
-                >
-                  {g.name}
-                </button>
-              ))}
-            </div>
-
             {/* Existing factions */}
             {presetsLoading ? (
               <div className="flex justify-center py-8">
