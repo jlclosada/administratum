@@ -31,7 +31,7 @@ export function PrivacidadPage() {
         </p>
         <SubHeading>Contenido que introduces voluntariamente</SubHeading>
         <p>
-          Todo lo que registras dentro de tu colección: juegos, ejércitos,
+          Todo lo que registras dentro de tu colección: ejércitos,
           miniaturas y su cantidad, notas, precio y tienda de compra (si lo indicas),
           procesos de pintado, colores usados, imágenes que subas, listas de
           ejército y, si las publicas, guías de pintura y valoraciones a guías de
@@ -74,7 +74,7 @@ export function PrivacidadPage() {
 
       <Section title="4. Contenido privado y contenido público">
         <Callout>
-          Tu colección personal (juegos, ejércitos, miniaturas, listas, notas) es{" "}
+          Tu colección personal (ejércitos, miniaturas, listas, notas) es{" "}
           <strong className="text-foreground">privada</strong>: solo tú puedes verla
           y modificarla, protegida mediante políticas de seguridad a nivel de fila
           (Row Level Security) en la base de datos. Las{" "}

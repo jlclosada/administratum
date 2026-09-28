@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createGuide, getArmyPresets, getGuideById, searchPaints, updateGuide } from "@/db";
+import { COLLECTION_GAME_NAME, createGuide, getArmyPresets, getGuideById, searchPaints, updateGuide } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { useAuthStore } from "@/stores";
 import type { GuidePaint, Paint, RichContent } from "@/types";
-import { PRESET_ARMIES, PRESET_GAMES } from "@/types";
+import { PRESET_ARMIES } from "@/types";
 import { ArrowLeft, ImageIcon, Loader2, Plus, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -33,7 +33,8 @@ export function GuideEditorPage() {
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [gameName, setGameName] = useState<string>("");
+  // Guides are about Warhammer 40,000 only.
+  const gameName = COLLECTION_GAME_NAME;
   const [armyName, setArmyName] = useState("");
   const [factionOptions, setFactionOptions] = useState<string[]>([]);
   const [customFaction, setCustomFaction] = useState(false);
@@ -59,7 +60,6 @@ export function GuideEditorPage() {
         setCoverImage(g.coverImage);
         setImages(g.images);
         setTags(g.tags);
-        setGameName(g.gameName ?? "");
         setArmyName(g.armyName ?? "");
         setPaints(g.paints);
         setContent(g.content);
@@ -80,7 +80,7 @@ export function GuideEditorPage() {
     }, 200);
   }, [paintQuery]);
 
-  // Load selectable factions for the chosen game (admin presets + defaults).
+  // Selectable factions (admin presets + defaults).
   useEffect(() => {
     if (!gameName) {
       setFactionOptions([]);
@@ -98,8 +98,7 @@ export function GuideEditorPage() {
     };
   }, [gameName]);
 
-  // When switching to a game whose faction list doesn't include the current
-  // army name, treat it as a custom faction so the value is preserved.
+  // A saved faction that isn't in the list is kept as a custom one.
   useEffect(() => {
     if (armyName && factionOptions.length > 0 && !factionOptions.includes(armyName)) {
       setCustomFaction(true);
@@ -162,7 +161,7 @@ export function GuideEditorPage() {
         coverImage,
         images,
         tags,
-        gameName: gameName || null,
+        gameName,
         armyName: armyName.trim() || null,
         paints,
         content,
@@ -310,27 +309,7 @@ export function GuideEditorPage() {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="guide-game">Juego asociado</Label>
-            <select
-              id="guide-game"
-              value={gameName}
-              onChange={(e) => {
-                setGameName(e.target.value);
-                setArmyName("");
-                setCustomFaction(false);
-              }}
-              className="h-9 w-full rounded-lg border border-input bg-background/40 px-3 text-sm outline-none focus:border-primary/60"
-            >
-              <option value="">Sin especificar</option>
-              {PRESET_GAMES.map((g) => (
-                <option key={g.name} value={g.name}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="grid gap-4">
           <div className="space-y-2">
             <Label htmlFor="guide-army">Facción / ejército</Label>
             {gameName && factionOptions.length > 0 && !customFaction ? (

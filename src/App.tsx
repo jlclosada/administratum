@@ -18,6 +18,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 import { Toaster } from "sonner";
 
@@ -147,11 +148,8 @@ const DownloadsPage = lazyRoute(() =>
 const GalleryPage = lazyRoute(() =>
   import("@/pages/GalleryPage").then((m) => ({ default: m.GalleryPage })),
 );
-const GameDetailPage = lazyRoute(() =>
-  import("@/pages/GameDetailPage").then((m) => ({ default: m.GameDetailPage })),
-);
-const GamesPage = lazyRoute(() =>
-  import("@/pages/GamesPage").then((m) => ({ default: m.GamesPage })),
+const CollectionPage = lazyRoute(() =>
+  import("@/pages/CollectionPage").then((m) => ({ default: m.CollectionPage })),
 );
 const GuideDetailPage = lazyRoute(() =>
   import("@/pages/GuideDetailPage").then((m) => ({
@@ -252,6 +250,17 @@ function FullScreenFallback() {
   );
 }
 
+/** /games/:gameId/armies/:armyId[/miniatures/:id] → /coleccion/:armyId[/miniaturas/:id] */
+function LegacyArmyRedirect() {
+  const { armyId, miniatureId } = useParams();
+  return (
+    <Navigate
+      to={`/coleccion/${armyId}${miniatureId ? `/miniaturas/${miniatureId}` : ""}`}
+      replace
+    />
+  );
+}
+
 function RouteFallback() {
   return (
     <div className="min-h-[50vh] flex items-center justify-center">
@@ -297,15 +306,19 @@ function AnimatedRoutes({ guest = false }: { guest?: boolean }) {
                 element={<GuideEditorPage />}
               />
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="games" element={<GamesPage />} />
-              <Route path="games/:gameId" element={<GameDetailPage />} />
+              <Route path="coleccion" element={<CollectionPage />} />
+              <Route path="coleccion/:armyId" element={<ArmyDetailPage />} />
               <Route
-                path="games/:gameId/armies/:armyId"
-                element={<ArmyDetailPage />}
+                path="coleccion/:armyId/miniaturas/:miniatureId"
+                element={<MiniatureDetailPage />}
               />
+              {/* Old game-based URLs (bookmarks) → the 40K collection. */}
+              <Route path="games" element={<Navigate to="/coleccion" replace />} />
+              <Route path="games/:gameId" element={<Navigate to="/coleccion" replace />} />
+              <Route path="games/:gameId/armies/:armyId" element={<LegacyArmyRedirect />} />
               <Route
                 path="games/:gameId/armies/:armyId/miniatures/:miniatureId"
-                element={<MiniatureDetailPage />}
+                element={<LegacyArmyRedirect />}
               />
               <Route path="paints" element={<MyPaintsPage />} />
               <Route path="lists" element={<ArmyListsPage />} />

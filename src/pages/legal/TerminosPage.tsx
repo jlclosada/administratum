@@ -7,7 +7,7 @@ export function TerminosPage() {
       <Section title="1. Objeto y aceptación">
         <p>
           Estos términos regulan el acceso y uso de {SITE_NAME}, una aplicación web
-          gratuita para gestionar colecciones de miniaturas de wargaming, titularidad
+          gratuita para gestionar colecciones de miniaturas de Warhammer 40.000, titularidad
           de {OWNER_NAME}. Al crear una cuenta o usar {SITE_NAME} aceptas estos
           términos junto con el{" "}
           <a href="/legal/aviso-legal" className="text-primary hover:underline">

@@ -237,7 +237,7 @@ const CHAPTERS = [
   {
     kicker: "Colección",
     title: "Tu colección, catalogada.",
-    body: "Juegos, ejércitos y cada miniatura con su estado de pintura, sus puntos y sus fotos. Por fin sabes qué tienes, qué falta y qué queda por pintar.",
+    body: "Tus ejércitos de Warhammer 40.000 y cada miniatura con su estado de pintura, sus puntos y sus fotos. Por fin sabes qué tienes, qué falta y qué queda por pintar.",
     Mock: CollectionMock,
   },
   {

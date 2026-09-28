@@ -25,7 +25,6 @@ import {
     deleteMiniature,
     getAllTags,
     getArmyById,
-    getGameById,
     getMiniatureById,
     toggleFavorite,
     updateMiniature
@@ -34,7 +33,6 @@ import { pickFiles, uploadFile } from "@/lib/storage";
 import { opcionesComposicion, puntosEjercito, resumenUnidad } from "@/lib/mfm";
 import type {
     ArmyWithStats,
-    Game,
     MiniatureCategory,
     MiniatureWithDetails,
     PaintStatusType,
@@ -60,15 +58,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 export function MiniatureDetailPage() {
-  const { gameId, armyId, miniatureId } = useParams<{
-    gameId: string;
+  const { armyId, miniatureId } = useParams<{
     armyId: string;
     miniatureId: string;
   }>();
   const navigate = useNavigate();
   const [miniature, setMiniature] = useState<MiniatureWithDetails | null>(null);
   const [army, setArmy] = useState<ArmyWithStats | null>(null);
-  const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Edit mode
@@ -95,17 +91,15 @@ export function MiniatureDetailPage() {
   const [newTagName, setNewTagName] = useState("");
 
   const loadData = useCallback(async () => {
-    if (!miniatureId || !armyId || !gameId) return;
+    if (!miniatureId || !armyId) return;
     try {
-      const [mini, a, g, tags] = await Promise.all([
+      const [mini, a, tags] = await Promise.all([
         getMiniatureById(miniatureId),
         getArmyById(armyId),
-        getGameById(gameId),
         getAllTags(),
       ]);
       setMiniature(mini);
       setArmy(a);
-      setGame(g);
       setAllTags(tags);
       if (mini) {
         setEditName(mini.name);
@@ -119,7 +113,7 @@ export function MiniatureDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [miniatureId, armyId, gameId]);
+  }, [miniatureId, armyId]);
 
   useEffect(() => {
     loadData();
@@ -211,7 +205,7 @@ export function MiniatureDetailPage() {
     if (!miniature) return;
     try {
       await deleteMiniature(miniature.id);
-      navigate(`/games/${gameId}/armies/${armyId}`);
+      navigate(`/coleccion/${armyId}`);
     } catch (err) {
       console.error("Failed to delete miniature:", err);
     }
@@ -267,12 +261,12 @@ export function MiniatureDetailPage() {
     );
   }
 
-  if (!miniature || !army || !game) {
+  if (!miniature || !army) {
     return (
       <EmptyState
         title="Miniatura no encontrada"
         description="La miniatura que buscas no existe"
-        action={{ label: "Volver", onClick: () => navigate(`/games/${gameId}/armies/${armyId}`) }}
+        action={{ label: "Volver", onClick: () => navigate(`/coleccion/${armyId}`) }}
       />
     );
   }
@@ -291,13 +285,13 @@ export function MiniatureDetailPage() {
               variant="ghost"
               size="icon"
               className="mt-0.5 h-10 w-10 shrink-0"
-              onClick={() => navigate(`/games/${gameId}/armies/${armyId}`)}
+              onClick={() => navigate(`/coleccion/${armyId}`)}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{game.name}</span>
+                <span>Mi Colección</span>
                 <span>›</span>
                 <span>{army.name}</span>
               </div>

@@ -388,9 +388,6 @@ export interface CreateGameDTO {
   startDate?: string | null;
 }
 
-export interface UpdateGameDTO extends Partial<CreateGameDTO> {
-  id: string;
-}
 
 export interface CreateArmyDTO {
   gameId: string;
@@ -789,11 +786,6 @@ export const MINIATURE_CATEGORIES: {
   { value: 'other', label: 'Otro', icon: 'box' },
 ];
 
-export interface PresetGame {
-  name: string;
-  description: string;
-  image: string;
-}
 
 /** Global app configuration managed by the admin. */
 export interface AppConfig {
@@ -947,28 +939,7 @@ export interface GuideQuery {
   userId?: string;
 }
 
-export const PRESET_GAMES: PresetGame[] = [
-  {
-    name: 'Warhammer 40,000',
-    description: 'In the grim darkness of the far future, there is only war.',
-    image: '/games/warhammer-40k.webp',
-  },
-  {
-    name: 'Warhammer Age of Sigmar',
-    description: 'Epic battles in the Mortal Realms.',
-    image: '/games/age-of-sigmar.webp',
-  },
-  {
-    name: 'Necromunda',
-    description: 'Gang warfare in the underhive.',
-    image: '/games/necromunda.webp',
-  },
-  {
-    name: 'Middle-earth SBG',
-    description: "Battles in J.R.R. Tolkien's Middle-earth.",
-    image: '/games/middle-earth.webp',
-  },
-];
+
 
 // ---------- Preset Armies / Factions ----------
 export interface PresetArmy {
@@ -1053,102 +1024,6 @@ export const PRESET_ARMIES: Record<string, PresetArmy[]> = {
       name: "T'au Empire",
       description: 'La tecnología del Bien Supremo.',
       color: '#b5651d',
-    },
-  ],
-  'Warhammer Age of Sigmar': [
-    {
-      name: 'Stormcast Eternals',
-      description: 'Guerreros forjados por Sigmar.',
-      color: '#c9a227',
-    },
-    {
-      name: 'Nighthaunt',
-      description: 'Legiones de espectros vengativos.',
-      color: '#2f6b6b',
-    },
-    {
-      name: 'Orruk Warclans',
-      description: 'Pieles verdes brutales y feroces.',
-      color: '#4a6b1f',
-    },
-    {
-      name: 'Cities of Sigmar',
-      description: 'Bastiones de civilización mortal.',
-      color: '#3a5f7a',
-    },
-    {
-      name: 'Maggotkin of Nurgle',
-      description: 'Portadores de plagas del Dios de la Putrefacción.',
-      color: '#6b6b2b',
-    },
-    {
-      name: 'Lumineth Realm-lords',
-      description: 'Aelfs del reino de la Luz.',
-      color: '#c9a227',
-    },
-  ],
-  Necromunda: [
-    {
-      name: 'House Escher',
-      description: 'Guerreras letales y venenos mortales.',
-      color: '#b5651d',
-    },
-    {
-      name: 'House Goliath',
-      description: 'Brutos musculosos y resistentes.',
-      color: '#7a1f2b',
-    },
-    {
-      name: 'House Orlock',
-      description: 'La Casa del Hierro y las armas.',
-      color: '#3a5f7a',
-    },
-    {
-      name: 'House Van Saar',
-      description: 'Tecnología arcana y precisión.',
-      color: '#1f6b6b',
-    },
-    {
-      name: 'House Delaque',
-      description: 'Espías y agentes de las sombras.',
-      color: '#2b2f45',
-    },
-    {
-      name: 'House Cawdor',
-      description: 'Fanáticos religiosos de los desechos.',
-      color: '#6b5a2b',
-    },
-  ],
-  'Middle-earth SBG': [
-    {
-      name: 'Gondor',
-      description: 'El reino de los hombres del oeste.',
-      color: '#3a5f7a',
-    },
-    {
-      name: 'Rohan',
-      description: 'Los Señores de los Caballos.',
-      color: '#6b5a2b',
-    },
-    {
-      name: 'Mordor',
-      description: 'Las huestes del Ojo Oscuro.',
-      color: '#2b2b2b',
-    },
-    {
-      name: 'Isengard',
-      description: 'Los Uruk-hai de Saruman.',
-      color: '#4a4a4a',
-    },
-    {
-      name: 'Rivendell',
-      description: 'Los altos elfos de Imladris.',
-      color: '#c9a227',
-    },
-    {
-      name: 'The Fellowship',
-      description: 'La Comunidad del Anillo.',
-      color: '#3f9c5a',
     },
   ],
 };

@@ -21,17 +21,15 @@ import {
     createMiniature,
     deleteMiniature,
     getArmyById,
-    getGameById,
     getImagesByArmy,
     getMiniaturesByArmy,
     getUnitCatalog,
     toggleFavorite,
 } from "@/db";
-import { isWarhammer40k, opcionesComposicion, puntosEjercito, resumenUnidad, tamanoMinimoUnidad, unitBelongsToArmy, canonicalFactionName } from "@/lib/mfm";
+import { opcionesComposicion, puntosEjercito, resumenUnidad, tamanoMinimoUnidad, unitBelongsToArmy, canonicalFactionName } from "@/lib/mfm";
 import type {
     ArmyWithStats,
     CatalogPricingTier,
-    Game,
     MiniatureCategory,
     MiniatureImage,
     MiniatureWithDetails,
@@ -73,9 +71,8 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
 };
 
 export function ArmyDetailPage() {
-  const { gameId, armyId } = useParams<{ gameId: string; armyId: string }>();
+  const { armyId } = useParams<{ armyId: string }>();
   const navigate = useNavigate();
-  const [game, setGame] = useState<Game | null>(null);
   const [army, setArmy] = useState<ArmyWithStats | null>(null);
   const [miniatures, setMiniatures] = useState<MiniatureWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,14 +116,12 @@ export function ArmyDetailPage() {
   );
 
   const loadData = useCallback(async () => {
-    if (!gameId || !armyId) return;
+    if (!armyId) return;
     try {
-      const [g, a, minis] = await Promise.all([
-        getGameById(gameId),
+      const [a, minis] = await Promise.all([
         getArmyById(armyId),
         getMiniaturesByArmy(armyId),
       ]);
-      setGame(g);
       setArmy(a);
       setMiniatures(minis);
       try {
@@ -138,7 +133,7 @@ export function ArmyDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [gameId, armyId]);
+  }, [armyId]);
 
   useEffect(() => {
     loadData();
@@ -170,7 +165,7 @@ export function ArmyDetailPage() {
   }
 
   useEffect(() => {
-    if (!showCreateDialog || !game || !isWarhammer40k(game.name)) return;
+    if (!showCreateDialog) return;
     let cancelled = false;
     setCatalogLoading(true);
     getUnitCatalog("Warhammer 40,000")
@@ -186,7 +181,7 @@ export function ArmyDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [showCreateDialog, game]);
+  }, [showCreateDialog]);
 
   function pickCatalogUnit(unit: UnitCatalogEntry) {
     setSelectedCatalog(unit);
@@ -264,12 +259,12 @@ export function ArmyDetailPage() {
     );
   }
 
-  if (!army || !game) {
+  if (!army) {
     return (
       <EmptyState
         title="Ejército no encontrado"
         description="El ejército que buscas no existe"
-        action={{ label: "Volver", onClick: () => navigate(`/games/${gameId}`) }}
+        action={{ label: "Volver", onClick: () => navigate("/coleccion") }}
       />
     );
   }
@@ -305,7 +300,7 @@ export function ArmyDetailPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(`/games/${gameId}`)}
+              onClick={() => navigate("/coleccion")}
               className="absolute left-3 top-3 z-10 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 hover:text-white"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -313,7 +308,7 @@ export function ArmyDetailPage() {
             <div className="absolute inset-x-0 bottom-0 hidden items-end justify-between gap-4 p-6 sm:flex">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-white/70">
-                  {game.name}
+                  Warhammer 40.000
                 </p>
                 <div className="flex items-center gap-2.5">
                   <span
@@ -364,7 +359,7 @@ export function ArmyDetailPage() {
           <div className="space-y-3 p-4 sm:hidden">
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {game.name}
+                Warhammer 40.000
               </p>
               <div className="mt-1 flex items-center gap-2">
                 <span
@@ -487,7 +482,7 @@ export function ArmyDetailPage() {
                       <button
                         type="button"
                         className="flex w-full min-w-0 items-start gap-3 text-left"
-                        onClick={() => navigate(`/games/${gameId}/armies/${armyId}/miniatures/${mini.id}`)}
+                        onClick={() => navigate(`/coleccion/${armyId}/miniaturas/${mini.id}`)}
                       >
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                           <CatIcon className="h-5 w-5 text-primary" />
@@ -552,7 +547,7 @@ export function ArmyDetailPage() {
                         <tr
                           key={mini.id}
                           className={`group cursor-pointer border-b border-border/50 last:border-0 transition-colors hover:bg-accent/50 ${miniatureReadyClass(mini.statuses)}`}
-                          onClick={() => navigate(`/games/${gameId}/armies/${armyId}/miniatures/${mini.id}`)}
+                          onClick={() => navigate(`/coleccion/${armyId}/miniaturas/${mini.id}`)}
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
@@ -687,17 +682,15 @@ export function ArmyDetailPage() {
             <DialogHeader>
               <DialogTitle>Añadir Miniatura</DialogTitle>
               <DialogDescription>
-                {isWarhammer40k(game?.name)
-                  ? `Solo unidades de ${army?.name ?? "este ejército"}${
-                      canonicalFactionName(army?.name ?? "")
-                        ? ` (${canonicalFactionName(army?.name ?? "")})`
-                        : ""
-                    }.`
-                  : "Añade una nueva miniatura al ejército"}
+                {`Solo unidades de ${army?.name ?? "este ejército"}${
+                  canonicalFactionName(army?.name ?? "")
+                    ? ` (${canonicalFactionName(army?.name ?? "")})`
+                    : ""
+                }.`}
               </DialogDescription>
             </DialogHeader>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
-              {isWarhammer40k(game?.name) && (
+              {(
                 <div className="space-y-2">
                   <Label>Buscar en el catálogo</Label>
                   <Input
@@ -768,7 +761,7 @@ export function ArmyDetailPage() {
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ej: Marines Rúbrica, Magnus el Rojo..."
-                  disabled={isWarhammer40k(game?.name) && !!selectedCatalog && !allowCustomName}
+                  disabled={!!selectedCatalog && !allowCustomName}
                 />
               </div>
 

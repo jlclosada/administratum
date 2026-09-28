@@ -26,6 +26,8 @@ describe('isPublicPath', () => {
       '/',
       '/dashboard',
       '/games',
+      '/coleccion',
+      '/coleccion/abc',
       '/lists',
       '/lists/1',
       '/paints',

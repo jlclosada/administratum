@@ -14,22 +14,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createArmy, deleteArmy, getArmiesByGame, getArmyPresets, getGameById } from "@/db";
+import {
+  COLLECTION_GAME_NAME,
+  createArmy,
+  deleteArmy,
+  getArmyPresets,
+  getCollectionArmies,
+  getCollectionGame,
+} from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
-import type { ArmyPreset, ArmyWithStats, Game } from "@/types";
+import type { ArmyPreset, ArmyWithStats } from "@/types";
 import { PRESET_ARMIES } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-    ArrowLeft,
     CalendarIcon,
     ImageIcon,
     Plus,
     Shield,
-    Swords,
     Trash2
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 type FactionOption = {
   name: string;
@@ -38,10 +43,14 @@ type FactionOption = {
   image: string | null;
 };
 
-export function GameDetailPage() {
-  const { gameId } = useParams<{ gameId: string }>();
+/**
+ * "Mi Colección": the user's Warhammer 40,000 armies. Collections are about
+ * 40K only, so there's no game to pick (see getCollectionGame()).
+ */
+export function CollectionPage() {
   const navigate = useNavigate();
-  const [game, setGame] = useState<Game | null>(null);
+  const [gameId, setGameId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [armies, setArmies] = useState<ArmyWithStats[]>([]);
   const [dbPresets, setDbPresets] = useState<ArmyPreset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,24 +64,23 @@ export function GameDetailPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    if (!gameId) return;
     try {
-      const [gameData, armyData] = await Promise.all([
-        getGameById(gameId),
-        getArmiesByGame(gameId),
+      const [game, armyData, presets] = await Promise.all([
+        getCollectionGame(),
+        getCollectionArmies(),
+        getArmyPresets(COLLECTION_GAME_NAME),
       ]);
-      setGame(gameData);
+      setGameId(game.id);
       setArmies(armyData);
-      if (gameData) {
-        const presets = await getArmyPresets(gameData.name);
-        setDbPresets(presets);
-      }
+      setDbPresets(presets);
+      setLoadError(false);
     } catch (err) {
-      console.error("Failed to load game:", err);
+      console.error("Failed to load collection:", err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [gameId]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -151,12 +159,18 @@ export function GameDetailPage() {
     );
   }
 
-  if (!game) {
+  if (loadError || !gameId) {
     return (
       <EmptyState
-        title="Juego no encontrado"
-        description="El juego que buscas no existe"
-        action={{ label: "Volver", onClick: () => navigate("/games") }}
+        title="No se pudo cargar tu colección"
+        description="Revisa tu conexión e inténtalo de nuevo."
+        action={{
+          label: "Reintentar",
+          onClick: () => {
+            setLoading(true);
+            loadData();
+          },
+        }}
       />
     );
   }
@@ -170,39 +184,24 @@ export function GameDetailPage() {
         {/* Hero header */}
         <div className="relative overflow-hidden rounded-2xl border border-border/60 shadow-lg">
           <div className="relative min-h-[18rem] w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-background sm:min-h-0 sm:aspect-[5/1]">
-            {game.coverImage || game.icon ? (
-              <img
-                src={(game.coverImage || game.icon) as string}
-                alt={game.name}
-                className="absolute inset-0 h-full w-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.opacity = "0";
-                }}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Swords className="h-24 w-24 text-primary/25" />
-              </div>
-            )}
+            <img
+              src="/games/warhammer-40k.webp"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover opacity-35"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.opacity = "0";
+              }}
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-            {/* Back button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/games")}
-              className="absolute left-3 top-3 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 hover:text-white"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             {/* Content */}
             <div className="absolute inset-x-0 bottom-0 flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4 sm:p-6">
               <div className="min-w-0">
                 <h1 className="font-display text-2xl font-bold tracking-tight text-white drop-shadow-lg sm:text-4xl">
-                  {game.name}
+                  Mi Colección
                 </h1>
-                {game.description && (
-                  <p className="mt-1 line-clamp-2 max-w-xl text-sm text-white/75">{game.description}</p>
-                )}
+                <p className="mt-1 max-w-xl text-sm text-white/75">
+                  Tus ejércitos de Warhammer 40.000 y el progreso de pintura de cada miniatura.
+                </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-white/90">
                   <span className="rounded-full bg-white/15 px-2.5 py-1 backdrop-blur-sm">
                     {armies.length} ejércitos
@@ -262,7 +261,7 @@ export function GameDetailPage() {
                   <Card
                     className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-xl hover:shadow-primary/10"
                     onClick={() =>
-                      navigate(`/games/${gameId}/armies/${army.id}`)
+                      navigate(`/coleccion/${army.id}`)
                     }
                   >
                     {/* Cover — aspect ratio */}
@@ -354,8 +353,8 @@ export function GameDetailPage() {
               <DialogTitle>Nuevo Ejército</DialogTitle>
               <DialogDescription>
                 {createMode === "select"
-                  ? `Elige una facción de ${game.name} o crea una personalizada`
-                  : `Crea un ejército personalizado para ${game.name}`}
+                  ? "Elige una facción de Warhammer 40.000 o crea una personalizada"
+                  : "Crea un ejército personalizado"}
               </DialogDescription>
             </DialogHeader>
 
@@ -369,7 +368,7 @@ export function GameDetailPage() {
                         color: p.color,
                         image: p.image,
                       }))
-                    : (PRESET_ARMIES[game.name] ?? []).map((p) => ({
+                    : (PRESET_ARMIES[COLLECTION_GAME_NAME] ?? []).map((p) => ({
                         name: p.name,
                         description: p.description,
                         color: p.color,

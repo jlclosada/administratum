@@ -9,7 +9,6 @@ import { getGuides, guideRating } from "@/db";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
 import type { GuideSort, PaintingGuide } from "@/types";
-import { PRESET_GAMES } from "@/types";
 import { motion } from "framer-motion";
 import { BookOpen, Clock, Palette, Plus, Search, Star, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -26,7 +25,6 @@ export function GuidesPage() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<GuideSort>("top");
-  const [gameFilter, setGameFilter] = useState<string | null>(null);
   const [mineOnly, setMineOnly] = useState(false);
 
   useEffect(() => {
@@ -40,7 +38,6 @@ export function GuidesPage() {
       const data = await getGuides({
         search: debounced,
         sort,
-        gameName: gameFilter,
         userId: mineOnly ? userId : undefined,
       });
       setGuides(data);
@@ -49,7 +46,7 @@ export function GuidesPage() {
     } finally {
       setLoading(false);
     }
-  }, [debounced, sort, gameFilter, mineOnly, userId]);
+  }, [debounced, sort, mineOnly, userId]);
 
   useEffect(() => {
     load();
@@ -147,37 +144,6 @@ export function GuidesPage() {
                 Mis guías
               </button>
             )}
-          </div>
-
-          {/* Game filter chips */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setGameFilter(null)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                gameFilter === null
-                  ? "border-transparent bg-brand-gradient text-brand-foreground"
-                  : "border-border/60 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Todos
-            </button>
-            {PRESET_GAMES.map((g) => (
-              <button
-                key={g.name}
-                type="button"
-                onClick={() => setGameFilter(g.name)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                  gameFilter === g.name
-                    ? "border-transparent bg-brand-gradient text-brand-foreground"
-                    : "border-border/60 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {g.name}
-              </button>
-            ))}
           </div>
         </div>
 

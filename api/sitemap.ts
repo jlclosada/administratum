@@ -53,7 +53,7 @@ export async function collectEntries(fetchRows: Fetcher): Promise<SitemapEntry[]
   const [factions, articles, guides, tournaments, featured, lists] = await Promise.all([
     safe('faction_catalog', 'select=faction_slug,updated_at'),
     safe('articles', 'select=id,updated_at&published=eq.true'),
-    safe('painting_guides', 'select=id,updated_at&published=eq.true'),
+    safe('painting_guides', `select=id,updated_at&published=eq.true&or=${encodeURIComponent('(game_name.is.null,game_name.ilike.*40*)')}`),
     safe('tournaments', 'select=id,updated_at&published=eq.true'),
     safe('featured_lists', 'select=id,updated_at&published=eq.true'),
     safe('community_lists', 'select=id,updated_at'),
