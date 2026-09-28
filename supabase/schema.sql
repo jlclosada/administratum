@@ -1246,6 +1246,8 @@ begin
     update public.comments set like_count = cnt where id = t_id;
   elsif t_type = 'photo' then
     update public.shared_photos set like_count = cnt where id = t_id;
+  elsif t_type = 'list' then
+    update public.community_lists set like_count = cnt where id = t_id;
   end if;
   return null;
 end;
@@ -1326,25 +1328,8 @@ as $$
   )
 $$;
 
--- Public counters for a profile page. Friendships themselves are private
--- to the two people involved, so the count is exposed through this RPC.
-create or replace function public.profile_stats(uid uuid)
-returns table (friends integer, photos integer, guides integer)
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select
-    (select count(*)::int from public.friendships
-       where status = 'accepted' and uid in (requester_id, addressee_id)),
-    (select count(*)::int from public.shared_photos where user_id = uid),
-    (select count(*)::int from public.painting_guides where user_id = uid and published)
-$$;
-
 revoke all on function public.accept_friend_request(uuid) from public, anon;
 grant execute on function public.accept_friend_request(uuid) to authenticated;
-grant execute on function public.profile_stats(uuid) to anon, authenticated;
 
 -- ============================================================
 -- Social: private chat between friends
@@ -1403,36 +1388,42 @@ begin
 end$$;
 
 -- ============================================================
--- Community: comment counts on shared photos
+-- Community: comment counts on shared photos and community lists
 -- ============================================================
 -- Same SECURITY DEFINER pattern as recalc_like_count(): the commenter is
--- usually not the photo's owner, so the trigger needs elevated rights.
-create or replace function public.recalc_photo_comment_count()
+-- usually not the post's owner, so the trigger needs elevated rights.
+create or replace function public.recalc_comment_count()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
+  t_type text;
   t_id uuid;
+  cnt integer;
 begin
-  if coalesce(new.target_type, old.target_type) <> 'photo' then
+  t_type := coalesce(new.target_type, old.target_type);
+  if t_type not in ('photo', 'list') then
     return null;
   end if;
   t_id := coalesce(new.target_id, old.target_id);
-  update public.shared_photos
-    set comment_count = (
-      select count(*) from public.comments where target_type = 'photo' and target_id = t_id
-    )
-    where id = t_id;
+  select count(*) into cnt from public.comments where target_type = t_type and target_id = t_id;
+  if t_type = 'photo' then
+    update public.shared_photos set comment_count = cnt where id = t_id;
+  else
+    update public.community_lists set comment_count = cnt where id = t_id;
+  end if;
   return null;
 end;
 $$;
 
 drop trigger if exists comments_photo_count on public.comments;
-create trigger comments_photo_count
+drop function if exists public.recalc_photo_comment_count();
+drop trigger if exists comments_count on public.comments;
+create trigger comments_count
   after insert or delete on public.comments
-  for each row execute function public.recalc_photo_comment_count();
+  for each row execute function public.recalc_comment_count();
 
 -- Backfill counts for photos commented before the trigger existed.
 update public.shared_photos p
@@ -1469,3 +1460,82 @@ create policy "saved_photos_insert" on public.saved_photos
   for insert to authenticated with check (user_id = auth.uid());
 create policy "saved_photos_delete" on public.saved_photos
   for delete to authenticated using (user_id = auth.uid());
+
+-- ============================================================
+-- Community: shared army lists
+-- ============================================================
+-- Lists users publish for the community (pasted export, parsed client-side
+-- by src/lib/armyListParser.ts). Title, faction, points and a short
+-- explanation are mandatory.
+create table if not exists public.community_lists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  author_name text not null default '',
+  title text not null check (char_length(btrim(title)) between 1 and 120),
+  faction_name text not null check (char_length(btrim(faction_name)) > 0),
+  total_points integer not null check (total_points > 0),
+  description text not null check (char_length(btrim(description)) >= 20),
+  detachment_name text,
+  list_data jsonb not null,
+  result text,
+  like_count integer not null default 0,
+  comment_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_community_lists_created on public.community_lists (created_at desc);
+create index if not exists idx_community_lists_user on public.community_lists (user_id, created_at desc);
+
+drop trigger if exists set_updated_at on public.community_lists;
+create trigger set_updated_at before update on public.community_lists
+  for each row execute function public.set_updated_at();
+
+alter table public.community_lists enable row level security;
+
+drop policy if exists "community_lists_read" on public.community_lists;
+drop policy if exists "community_lists_insert" on public.community_lists;
+drop policy if exists "community_lists_update" on public.community_lists;
+drop policy if exists "community_lists_delete" on public.community_lists;
+
+create policy "community_lists_read" on public.community_lists
+  for select to anon, authenticated using (true);
+create policy "community_lists_insert" on public.community_lists
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "community_lists_update" on public.community_lists
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- Authors delete their own lists; admins can moderate any list.
+create policy "community_lists_delete" on public.community_lists
+  for delete to authenticated using (user_id = auth.uid() or public.is_admin());
+
+-- Lists can be liked and commented like photos.
+alter table public.likes drop constraint if exists likes_target_type_check;
+alter table public.likes add constraint likes_target_type_check
+  check (target_type in ('article', 'guide', 'comment', 'photo', 'list'));
+alter table public.comments drop constraint if exists comments_target_type_check;
+alter table public.comments add constraint comments_target_type_check
+  check (target_type in ('article', 'guide', 'photo', 'list'));
+
+-- ============================================================
+-- Profile counters (defined last: reads tables from every section)
+-- ============================================================
+-- Friendships are private to the two people involved, so the public
+-- friend count is exposed through this RPC.
+drop function if exists public.profile_stats(uuid);
+create function public.profile_stats(uid uuid)
+returns table (friends integer, photos integer, guides integer, lists integer)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    (select count(*)::int from public.friendships
+       where status = 'accepted' and uid in (requester_id, addressee_id)),
+    (select count(*)::int from public.shared_photos where user_id = uid),
+    (select count(*)::int from public.painting_guides where user_id = uid and published),
+    (select count(*)::int from public.community_lists where user_id = uid)
+$$;
+
+grant execute on function public.profile_stats(uuid) to anon, authenticated;

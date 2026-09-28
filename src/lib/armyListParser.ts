@@ -1,8 +1,10 @@
 /**
- * Parses the plain-text army list export format used by list-builder apps
- * (e.g. NewRecruit's Spanish export): a header line with the list name and
- * total points, a faction, a detachment, then units grouped under ALL-CAPS
- * category headers, each with "•"/"◦" bullet lines for wargear and models.
+ * Parses the plain-text army list export of list-builder apps (the official
+ * app / NewRecruit), in Spanish or English: a header line with the list name
+ * and total points, the faction, an optional detachment, a few optional
+ * notes (battle size, force dispositions…), then units grouped under
+ * ALL-CAPS category headers, each with "•"/"◦" bullet lines. English
+ * exports can also group a leader with its bodyguard under "Attached unit N".
  *
  * Best-effort: unrecognized lines are dropped rather than throwing, since
  * this only ever runs against text a user pasted by hand.
@@ -18,6 +20,8 @@ export interface ArmyListUnit {
   name: string;
   points: number;
   bullets: ArmyListBullet[];
+  /** Label shared by units attached together, e.g. "Attached unit 1". */
+  group?: string;
 }
 
 export interface ArmyListCategory {
@@ -31,16 +35,28 @@ export interface ParsedArmyList {
   factionName: string;
   detachmentName: string | null;
   detachmentPoints: number | null;
+  /** Game size line, e.g. { name: "Strike Force", points: 2000 }. */
+  battleSize?: { name: string; points: number } | null;
+  /** Other lines before the first category, e.g. "Force Dispositions: …". */
+  notes?: string[];
   categories: ArmyListCategory[];
 }
 
-const LIST_HEADER_RE = /^(.+?)\s*\((\d+)\s*puntos\)\s*$/i;
-const DETACHMENT_RE = /^(.+?)\s*\((\d+)\s*puntos de destacamento\)\s*$/i;
-const POINTS_LINE_RE = /^(.+?)\s*\((\d+)\s*Points?\)\s*$/;
-const BULLET_RE = /^\s*([•◦])\s*(.+?)\s*$/;
-const FOOTER_RE = /^Exportada con/i;
+// "1,995" / "2.270" / "2 000" / "455" — separators are stripped by toInt.
+const NUM = String.raw`(\d{1,3}(?:[.,\s]\d{3})+|\d+)`;
+const toInt = (s: string | undefined) => Number((s ?? "").replace(/[.,\s]/g, ""));
 
-/** All-caps section header ("PERSONAJE", "LÍNEA DE BATALLA"...): no digits, no parens, no lowercase. */
+const LIST_HEADER_RE = new RegExp(String.raw`^(.+?)\s*\(${NUM}\s*(?:puntos|points?|pts)\)\s*$`, "i");
+const DETACHMENT_RE = new RegExp(
+  String.raw`^(.+?)\s*\(${NUM}\s*(?:puntos de destacamento|detachment points?)\)\s*$`,
+  "i",
+);
+const POINTS_LINE_RE = new RegExp(String.raw`^(.+?)\s*\(${NUM}\s*(?:points?|puntos|pts)\)\s*$`, "i");
+const BULLET_RE = /^\s*([•◦▪])\s*(.+?)\s*$/;
+const GROUP_RE = /^(?:attached unit|unidad(?:es)? (?:adjunta|agregada|unida)s?)\s*#?\d+$/i;
+const FOOTER_RE = /^(?:exportad[ao] con|exported with|created with|creada con)/i;
+
+/** All-caps section header ("PERSONAJE", "OTHER DATASHEETS"...): no digits, no parens, no lowercase. */
 function isCategoryHeader(line: string): boolean {
   const t = line.trim();
   if (!t || POINTS_LINE_RE.test(t)) return false;
@@ -49,33 +65,37 @@ function isCategoryHeader(line: string): boolean {
 
 export function parseArmyListExport(raw: string): ParsedArmyList | null {
   const lines = raw.split(/\r?\n/);
+  const next = (i: number) => {
+    while (i < lines.length && !(lines[i] ?? "").trim()) i++;
+    return i;
+  };
 
-  let i = 0;
-  while (i < lines.length && !(lines[i] ?? "").trim()) i++;
+  let i = next(0);
   const headerMatch = (lines[i] ?? "").trim().match(LIST_HEADER_RE);
   if (!headerMatch) return null;
   const listName = (headerMatch[1] ?? "").trim();
-  const totalPoints = Number(headerMatch[2]);
-  i++;
+  const totalPoints = toInt(headerMatch[2]);
 
-  while (i < lines.length && !(lines[i] ?? "").trim()) i++;
+  i = next(i + 1);
   const factionName = (lines[i] ?? "").trim();
-  i++;
+  if (!factionName || isCategoryHeader(factionName) || POINTS_LINE_RE.test(factionName)) return null;
 
   let detachmentName: string | null = null;
   let detachmentPoints: number | null = null;
-  while (i < lines.length && !(lines[i] ?? "").trim()) i++;
+  i = next(i + 1);
   const detachmentMatch = (lines[i] ?? "").trim().match(DETACHMENT_RE);
   if (detachmentMatch) {
     detachmentName = (detachmentMatch[1] ?? "").trim();
-    detachmentPoints = Number(detachmentMatch[2]);
+    detachmentPoints = toInt(detachmentMatch[2]);
     i++;
   }
 
   const categories: ArmyListCategory[] = [];
+  const notes: string[] = [];
+  let battleSize: ParsedArmyList["battleSize"] = null;
   let currentCategory: ArmyListCategory | null = null;
   let currentUnit: ArmyListUnit | null = null;
-  let sawFirstCategory = false;
+  let currentGroup: string | null = null;
 
   for (; i < lines.length; i++) {
     const line = lines[i] ?? "";
@@ -87,7 +107,7 @@ export function parseArmyListExport(raw: string): ParsedArmyList | null {
     if (bulletMatch && currentUnit) {
       currentUnit.bullets.push({
         text: bulletMatch[2] ?? "",
-        depth: bulletMatch[1] === "•" ? 0 : 1,
+        depth: bulletMatch[1] === "◦" ? 1 : 0,
       });
       continue;
     }
@@ -96,29 +116,59 @@ export function parseArmyListExport(raw: string): ParsedArmyList | null {
       currentCategory = { name: trimmed, units: [] };
       categories.push(currentCategory);
       currentUnit = null;
-      sawFirstCategory = true;
+      currentGroup = null;
       continue;
     }
 
     const unitMatch = trimmed.match(POINTS_LINE_RE);
-    if (unitMatch) {
-      // Before the first category header, a "(N Points)" line is the force
-      // org header (e.g. "Fuerza de Choque (2000 Points)"), not a unit.
-      if (!sawFirstCategory) continue;
-      if (!currentCategory) {
-        currentCategory = { name: "Unidades", units: [] };
-        categories.push(currentCategory);
+    if (!currentCategory) {
+      // Before the first category: the battle size line ("Strike Force
+      // (2,000 Points)") and free notes ("Force Dispositions: …").
+      if (unitMatch && !battleSize) {
+        battleSize = { name: (unitMatch[1] ?? "").trim(), points: toInt(unitMatch[2]) };
+      } else {
+        notes.push(trimmed);
       }
-      currentUnit = { name: (unitMatch[1] ?? "").trim(), points: Number(unitMatch[2]), bullets: [] };
+      continue;
+    }
+
+    if (GROUP_RE.test(trimmed)) {
+      currentGroup = trimmed;
+      currentUnit = null;
+      continue;
+    }
+
+    if (unitMatch) {
+      currentUnit = {
+        name: (unitMatch[1] ?? "").trim(),
+        points: toInt(unitMatch[2]),
+        bullets: [],
+        ...(currentGroup ? { group: currentGroup } : {}),
+      };
       currentCategory.units.push(currentUnit);
       continue;
     }
     // Unrecognized line (e.g. a stray note) — ignore rather than guess.
   }
 
-  if (categories.every((c) => c.units.length === 0)) return null;
+  const nonEmpty = categories.filter((c) => c.units.length > 0);
+  if (nonEmpty.length === 0) return null;
 
-  return { listName, totalPoints, factionName, detachmentName, detachmentPoints, categories };
+  return {
+    listName,
+    totalPoints,
+    factionName,
+    detachmentName,
+    detachmentPoints,
+    battleSize,
+    notes,
+    categories: nonEmpty,
+  };
+}
+
+/** Sum of every unit's points — useful to sanity-check the header total. */
+export function sumUnitPoints(list: ParsedArmyList): number {
+  return list.categories.reduce((n, c) => n + c.units.reduce((m, u) => m + u.points, 0), 0);
 }
 
 /** "3-1-0" → "3V · 1D · 0E"; null when the string isn't a valid V-D-E triple. */

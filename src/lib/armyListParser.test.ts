@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildResult, formatResult, parseArmyListExport } from './armyListParser';
+import EN from './__fixtures__/thousandSonsEnglish.txt?raw';
+import { buildResult, formatResult, parseArmyListExport, sumUnitPoints } from './armyListParser';
 
 const SAMPLE = `Talavera (2270 puntos)
 
@@ -124,5 +125,67 @@ describe('formatResult / buildResult', () => {
   it('builds a result only when something was entered', () => {
     expect(buildResult('', '', '')).toBeNull();
     expect(buildResult('4', '', '1')).toBe('4-0-1');
+  });
+});
+
+describe('parseArmyListExport — English export', () => {
+  const list = parseArmyListExport(EN);
+
+  it('reads the header with thousands separators and the (Copy) suffix', () => {
+    expect(list?.listName).toBe('Magic terms + mag (Copy)');
+    expect(list?.totalPoints).toBe(1995);
+    expect(list?.factionName).toBe('Thousand Sons');
+  });
+
+  it('reads the English detachment, battle size and dispositions', () => {
+    expect(list?.detachmentName).toBe('Hexwarp Thrallband and Sekhetar Cohort');
+    expect(list?.detachmentPoints).toBe(3);
+    expect(list?.battleSize).toEqual({ name: 'Strike Force', points: 2000 });
+    expect(list?.notes).toEqual(['Force Dispositions: Priority Assets, Take and Hold']);
+  });
+
+  it('keeps every unit, and their points add up to the header total', () => {
+    expect(list?.categories.map((c) => [c.name, c.units.length])).toEqual([
+      ['ATTACHED UNITS', 6],
+      ['CHARACTERS', 3],
+      ['OTHER DATASHEETS', 7],
+    ]);
+    expect(list && sumUnitPoints(list)).toBe(1995);
+  });
+
+  it('groups leaders with their bodyguard units', () => {
+    const attached = list?.categories[0]?.units ?? [];
+    expect(attached.map((u) => `${u.group}: ${u.name}`)).toEqual([
+      'Attached unit 1: Sorcerer in Terminator Armour',
+      'Attached unit 1: Scarab Occult Terminators',
+      'Attached unit 2: Sorcerer',
+      'Attached unit 2: Rubric Marines',
+      'Attached unit 3: Sorcerer',
+      'Attached unit 3: Rubric Marines',
+    ]);
+    expect(list?.categories[1]?.units[0]?.group).toBeUndefined();
+  });
+
+  it('reads bullets written without indentation, by glyph', () => {
+    const terminators = list?.categories[0]?.units[1];
+    expect(terminators?.bullets.slice(0, 3)).toEqual([
+      { text: 'Attached as: Bodyguard ()', depth: 0 },
+      { text: '1x Scarab Occult Sorcerer', depth: 0 },
+      { text: '1x Force weapon', depth: 1 },
+    ]);
+  });
+
+  it('stops at an English footer', () => {
+    const withFooter = `${EN}\nExported with App Version: v2.6.0\nJunk (999 Points)`;
+    const names = parseArmyListExport(withFooter)?.categories.flatMap((c) => c.units.map((u) => u.name));
+    expect(names).not.toContain('Junk');
+  });
+});
+
+describe('parseArmyListExport — number formats', () => {
+  it('accepts Spanish thousands separators', () => {
+    const list = parseArmyListExport('Lista (2.270 puntos)\n\nNecrones\n\nPERSONAJE\n\nOverlord (1.085 Points)');
+    expect(list?.totalPoints).toBe(2270);
+    expect(list?.categories[0]?.units[0]?.points).toBe(1085);
   });
 });
