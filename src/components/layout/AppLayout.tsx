@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
+import { ProfileRail } from "./ProfileRail";
 import { AdRail, MobileAdStrip } from "./SideRail";
 import { RightRailContext } from "./rightRail";
 
@@ -37,7 +38,8 @@ export function AppLayout() {
   const leftAds = shownAds.filter((a) => a.position === "left");
   const rightAds = shownAds.filter((a) => a.position === "right");
   const hasLeft = leftAds.length > 0;
-  const hasRight = rightAds.length > 0 || (!inAdmin && rightRailContent != null);
+  // Outside admin the right rail always carries the "Mi espacio" shortcuts.
+  const hasRight = !inAdmin;
 
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-background">
@@ -74,9 +76,8 @@ export function AppLayout() {
       </AnimatePresence>
 
       <RightRailContext.Provider value={setRightRailContent}>
-        {/* Side margins hold ads (left from 2xl, right from xl); the right
-            rail can also carry page content above its ads. Columns only
-            exist when they have something to show. */}
+        {/* Side margins: left ads from 2xl; from xl the right rail holds the
+            "Mi espacio" shortcuts, optional page content and the right ads. */}
         <div
           className={cn(
             "mx-auto grid w-full flex-1 gap-8 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:px-8",
@@ -108,7 +109,8 @@ export function AppLayout() {
 
           {hasRight && (
             <aside className="hidden xl:block">
-              <div className="sticky top-24 space-y-6">
+              <div className="sticky top-24 max-h-[calc(100vh-7rem)] space-y-6 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <ProfileRail />
                 {rightRailContent}
                 <AdRail ads={rightAds} />
               </div>

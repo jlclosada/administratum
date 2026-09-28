@@ -7,6 +7,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { isItemActive, profileItems } from "@/components/layout/navItems";
 import { useIsAdmin } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore, useSocialStore } from "@/stores";
@@ -14,22 +15,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
     Brush,
     ChevronDown,
-    ClipboardList,
     Download,
     Home,
-    ImageIcon,
-    LayoutDashboard,
     Library,
     LogOut,
     Menu,
     MessageCircle,
-    Palette,
     Settings,
     ShieldCheck,
-    Swords,
     Trophy,
-    UserPlus,
-    UserRound,
     Users,
     X,
 } from "lucide-react";
@@ -46,17 +40,6 @@ const primaryItems = [
   { to: "/descargas", icon: Download, label: "Descargas" },
 ];
 
-// Profile: the user's own collection and progress.
-const profileItems = [
-  { to: "/perfil", icon: UserRound, label: "Mi perfil" },
-  { to: "/amigos", icon: UserPlus, label: "Amigos" },
-  { to: "/mensajes", icon: MessageCircle, label: "Mensajes" },
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/games", icon: Swords, label: "Mi Colección" },
-  { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
-  { to: "/paints", icon: Palette, label: "Mis Pinturas" },
-  { to: "/gallery", icon: ImageIcon, label: "Galería" },
-];
 
 function CountBadge({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null;
@@ -76,9 +59,6 @@ function CountBadge({ count, className }: { count: number; className?: string })
   );
 }
 
-function isItemActive(pathname: string, to: string): boolean {
-  return to === "/" ? pathname === "/" : pathname.startsWith(to);
-}
 
 export function Navbar() {
   const { user, signOut } = useAuthStore();

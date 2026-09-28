@@ -362,7 +362,7 @@ export function HomePage() {
               Inicio
             </h1>
             <p className="text-muted-foreground">
-              Noticias, guías y comunidad del hobby
+              Noticias, guías y comunidad.
             </p>
           </div>
           {isAdmin && tab === "noticias" && (
@@ -378,8 +378,6 @@ export function HomePage() {
         </div>
 
         {!railVisible && <MiniatureOfTheMonth spotlight={spotlight} />}
-
-        <UpdatesFeed updates={updates} />
 
         <HomeTabs
           active={tab}
@@ -640,6 +638,9 @@ export function HomePage() {
               ))}
           </motion.div>
         </AnimatePresence>
+
+        {/* Points and downloads updates, after the news. */}
+        <UpdatesFeed updates={updates} />
       </div>
     </PageTransition>
   );
