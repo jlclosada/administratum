@@ -2,14 +2,25 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/",
       "has": [
         {
           "type": "host",
           "value": "administratum.vercel.app"
         }
       ],
-      "destination": "https://administratum.site/:path*",
+      "destination": "https://administratum.site/",
+      "permanent": true
+    },
+    {
+      "source": "/:path+",
+      "has": [
+        {
+          "type": "host",
+          "value": "administratum.vercel.app"
+        }
+      ],
+      "destination": "https://administratum.site/:path+",
       "permanent": true
     }
   ],
