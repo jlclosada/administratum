@@ -1,3 +1,5 @@
+import { Seo } from "@/components/shared/Seo";
+import { metaDescription } from "@/lib/site";
 import { PhotoViewer } from "@/components/community/PhotoViewer";
 import { CommunityListCard } from "@/components/community/CommunityListCard";
 import { ShareListDialog } from "@/components/community/ShareListDialog";
@@ -25,7 +27,14 @@ import { isAdminEmail } from "@/lib/admin";
 import { linkLabel, profileLinks } from "@/lib/profileLinks";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
-import type { CommunityList, Friendship, PaintingGuide, Profile, ProfileStats, SharedPhoto } from "@/types";
+import type {
+  CommunityList,
+  Friendship,
+  PaintingGuide,
+  Profile,
+  ProfileStats,
+  SharedPhoto,
+} from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bookmark,
@@ -43,6 +52,7 @@ import {
   ShieldCheck,
   Swords,
   UserRound,
+  UserPlus,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
@@ -80,13 +90,18 @@ function PhotoGrid({
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 p-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            {p.title && <span className="line-clamp-2 text-center text-xs font-semibold">{p.title}</span>}
+            {p.title && (
+              <span className="line-clamp-2 text-center text-xs font-semibold">
+                {p.title}
+              </span>
+            )}
             <span className="flex items-center gap-3 text-sm font-semibold">
               <span className="flex items-center gap-1">
                 <Heart className="h-4 w-4 fill-white" /> {p.likeCount}
               </span>
               <span className="flex items-center gap-1">
-                <MessageCircle className="h-4 w-4 fill-white" /> {p.commentCount}
+                <MessageCircle className="h-4 w-4 fill-white" />{" "}
+                {p.commentCount}
               </span>
             </span>
           </span>
@@ -107,24 +122,36 @@ export function ProfilePage() {
 function ProfileView({ userId }: { userId: string }) {
   const navigate = useNavigate();
   const me = useAuthStore((s) => s.user);
+  const openAuth = useAuthStore((s) => s.openAuth);
   const myId = me?.id;
   const isMe = myId === userId;
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [stats, setStats] = useState<ProfileStats>({ friends: 0, photos: 0, guides: 0, lists: 0 });
+  const [stats, setStats] = useState<ProfileStats>({
+    friends: 0,
+    photos: 0,
+    guides: 0,
+    lists: 0,
+  });
   const [lists, setLists] = useState<CommunityList[]>([]);
   const [showShareList, setShowShareList] = useState(false);
   const [guides, setGuides] = useState<PaintingGuide[]>([]);
   const [friendship, setFriendship] = useState<Friendship | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("photos");
-  const [viewer, setViewer] = useState<{ source: "photos" | "saved"; index: number } | null>(null);
+  const [viewer, setViewer] = useState<{
+    source: "photos" | "saved";
+    index: number;
+  } | null>(null);
   const [showShare, setShowShare] = useState(false);
 
   const loadPhotos = useCallback(() => getSharedPhotosByUser(userId), [userId]);
   const feed = usePhotoFeed(loadPhotos);
   // Saved posts are private: only ever loaded on your own profile.
-  const loadSaved = useCallback(() => (isMe ? getSavedPhotos() : Promise.resolve([])), [isMe]);
+  const loadSaved = useCallback(
+    () => (isMe ? getSavedPhotos() : Promise.resolve([])),
+    [isMe],
+  );
   const saved = usePhotoFeed(loadSaved);
 
   useEffect(() => {
@@ -159,7 +186,10 @@ function ProfileView({ userId }: { userId: string }) {
         icon={<UserRound className="h-8 w-8" />}
         title="Perfil no encontrado"
         description="Puede que la cuenta se haya eliminado."
-        action={{ label: "Ir a Comunidad", onClick: () => navigate("/comunidad") }}
+        action={{
+          label: "Ir a Comunidad",
+          onClick: () => navigate("/comunidad"),
+        }}
       />
     );
   }
@@ -182,6 +212,14 @@ function ProfileView({ userId }: { userId: string }) {
 
   return (
     <PageTransition>
+      <Seo
+        title={profile.displayName || "Perfil"}
+        description={
+          metaDescription(profile.bio) ??
+          `Colección, fotos, guías y listas de ${profile.displayName || "este usuario"} en Administratum.`
+        }
+        path={`/perfil/${profile.id}`}
+      />
       <div className="mx-auto max-w-4xl space-y-8">
         {/* Header */}
         <section className="relative overflow-hidden rounded-3xl border border-border/50">
@@ -216,7 +254,9 @@ function ProfileView({ userId }: { userId: string }) {
 
               <div className="min-w-0 flex-1 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">{name}</h1>
+                  <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">
+                    {name}
+                  </h1>
                   {isSuperadmin ? (
                     <span className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-500">
                       <Crown className="h-3 w-3" /> Superadmin
@@ -233,29 +273,47 @@ function ProfileView({ userId }: { userId: string }) {
                 <div className="flex flex-wrap gap-2">
                   {isMe ? (
                     <>
-                      <Button variant="outline" className="gap-2" onClick={() => navigate("/settings")}>
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => navigate("/settings")}
+                      >
                         <Settings className="h-4 w-4" /> Editar perfil
                       </Button>
-                      <Button variant="outline" className="gap-2" onClick={() => navigate("/mensajes")}>
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => navigate("/mensajes")}
+                      >
                         <MessageCircle className="h-4 w-4" /> Mensajes
                       </Button>
                     </>
+                  ) : !me ? (
+                    <Button
+                      variant="gradient"
+                      className="gap-2"
+                      onClick={() => openAuth("signup")}
+                    >
+                      <UserPlus className="h-4 w-4" /> Añadir amigo
+                    </Button>
                   ) : (
-                    me && (
-                      <>
-                        <FriendButton
-                          userId={userId}
-                          myId={me.id}
-                          friendship={friendship}
-                          onChange={handleFriendshipChange}
-                        />
-                        {friends && (
-                          <Button variant="outline" className="gap-2" onClick={() => navigate(`/mensajes/${userId}`)}>
-                            <MessageCircle className="h-4 w-4" /> Mensaje
-                          </Button>
-                        )}
-                      </>
-                    )
+                    <>
+                      <FriendButton
+                        userId={userId}
+                        myId={me.id}
+                        friendship={friendship}
+                        onChange={handleFriendshipChange}
+                      />
+                      {friends && (
+                        <Button
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => navigate(`/mensajes/${userId}`)}
+                        >
+                          <MessageCircle className="h-4 w-4" /> Mensaje
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -279,12 +337,17 @@ function ProfileView({ userId }: { userId: string }) {
 
             <div className="mt-5 max-w-2xl space-y-3">
               {profile.bio ? (
-                <p className="whitespace-pre-line text-sm leading-relaxed">{profile.bio}</p>
+                <p className="whitespace-pre-line text-sm leading-relaxed">
+                  {profile.bio}
+                </p>
               ) : (
                 isMe && (
                   <p className="text-sm text-muted-foreground">
                     Aún no tienes biografía.{" "}
-                    <Link to="/settings" className="text-primary hover:underline">
+                    <Link
+                      to="/settings"
+                      className="text-primary hover:underline"
+                    >
                       Añade una
                     </Link>
                     .
@@ -324,13 +387,18 @@ function ProfileView({ userId }: { userId: string }) {
         </section>
 
         {/* Tabs */}
-        <div className="flex justify-center gap-8 border-b border-border/60" role="tablist">
+        <div
+          className="flex justify-center gap-8 border-b border-border/60"
+          role="tablist"
+        >
           {(
             [
               { id: "photos", label: "Publicaciones", icon: Grid3x3 },
               { id: "lists", label: "Listas", icon: ScrollText },
               { id: "guides", label: "Guías", icon: Palette },
-              ...(isMe ? [{ id: "saved", label: "Guardados", icon: Bookmark }] : []),
+              ...(isMe
+                ? [{ id: "saved", label: "Guardados", icon: Bookmark }]
+                : []),
             ] as { id: Tab; label: string; icon: typeof Grid3x3 }[]
           ).map((t) => (
             <button
@@ -341,7 +409,9 @@ function ProfileView({ userId }: { userId: string }) {
               onClick={() => setTab(t.id)}
               className={cn(
                 "relative flex items-center gap-2 pb-3 text-xs font-bold uppercase tracking-widest transition-colors",
-                tab === t.id ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                tab === t.id
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <t.icon className="h-4 w-4" />
@@ -375,10 +445,16 @@ function ProfileView({ userId }: { userId: string }) {
                   icon={<Bookmark className="h-8 w-8" />}
                   title="Aún no has guardado nada"
                   description="Pulsa el marcador de cualquier publicación de la Comunidad para tenerla aquí. Solo tú ves lo que guardas."
-                  action={{ label: "Ir a Comunidad", onClick: () => navigate("/comunidad") }}
+                  action={{
+                    label: "Ir a Comunidad",
+                    onClick: () => navigate("/comunidad"),
+                  }}
                 />
               ) : (
-                <PhotoGrid photos={saved.photos} onOpen={(index) => setViewer({ source: "saved", index })} />
+                <PhotoGrid
+                  photos={saved.photos}
+                  onOpen={(index) => setViewer({ source: "saved", index })}
+                />
               )
             ) : tab === "photos" ? (
               feed.loading ? (
@@ -414,21 +490,43 @@ function ProfileView({ userId }: { userId: string }) {
                 <EmptyState
                   icon={<ScrollText className="h-8 w-8" />}
                   title="Sin listas compartidas"
-                  description={isMe ? "Comparte una lista y explica cómo la juegas." : `${name} todavía no ha compartido listas.`}
-                  action={isMe ? { label: "Compartir lista", onClick: () => setShowShareList(true) } : undefined}
+                  description={
+                    isMe
+                      ? "Comparte una lista y explica cómo la juegas."
+                      : `${name} todavía no ha compartido listas.`
+                  }
+                  action={
+                    isMe
+                      ? {
+                          label: "Compartir lista",
+                          onClick: () => setShowShareList(true),
+                        }
+                      : undefined
+                  }
                 />
               ) : (
                 <div className="space-y-4">
                   {isMe && (
                     <div className="flex justify-end">
-                      <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowShareList(true)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => setShowShareList(true)}
+                      >
                         <Plus className="h-3.5 w-3.5" /> Compartir lista
                       </Button>
                     </div>
                   )}
                   <div className="grid gap-4 sm:grid-cols-2">
                     {lists.map((l, i) => (
-                      <CommunityListCard key={l.id} list={l} author={profile} index={i} showAuthor={false} />
+                      <CommunityListCard
+                        key={l.id}
+                        list={l}
+                        author={profile}
+                        index={i}
+                        showAuthor={false}
+                      />
                     ))}
                   </div>
                 </div>
@@ -437,8 +535,19 @@ function ProfileView({ userId }: { userId: string }) {
               <EmptyState
                 icon={<Palette className="h-8 w-8" />}
                 title="Sin guías publicadas"
-                description={isMe ? "Comparte tu técnica con una guía de pintura." : `${name} todavía no ha publicado guías.`}
-                action={isMe ? { label: "Escribir guía", onClick: () => navigate("/guias/nueva") } : undefined}
+                description={
+                  isMe
+                    ? "Comparte tu técnica con una guía de pintura."
+                    : `${name} todavía no ha publicado guías.`
+                }
+                action={
+                  isMe
+                    ? {
+                        label: "Escribir guía",
+                        onClick: () => navigate("/guias/nueva"),
+                      }
+                    : undefined
+                }
               />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
@@ -455,7 +564,11 @@ function ProfileView({ userId }: { userId: string }) {
                     >
                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
                         {g.coverImage ? (
-                          <img src={g.coverImage} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                          <img
+                            src={g.coverImage}
+                            alt=""
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
                         ) : (
                           <div className="flex h-full items-center justify-center">
                             <Palette className="h-6 w-6 text-muted-foreground/40" />
@@ -463,10 +576,20 @@ function ProfileView({ userId }: { userId: string }) {
                         )}
                       </div>
                       <div className="min-w-0 py-1">
-                        <p className="line-clamp-2 font-semibold leading-tight group-hover:text-primary">{g.title}</p>
-                        {!g.published && <span className="text-[11px] text-amber-500">Borrador</span>}
+                        <p className="line-clamp-2 font-semibold leading-tight group-hover:text-primary">
+                          {g.title}
+                        </p>
+                        {!g.published && (
+                          <span className="text-[11px] text-amber-500">
+                            Borrador
+                          </span>
+                        )}
                         <div className="mt-2">
-                          <StarRating value={guideRating(g)} size="sm" readOnly />
+                          <StarRating
+                            value={guideRating(g)}
+                            size="sm"
+                            readOnly
+                          />
                         </div>
                       </div>
                     </Link>
@@ -503,7 +626,11 @@ function ProfileView({ userId }: { userId: string }) {
       <PhotoViewer
         photos={viewerFeed.photos}
         index={viewer?.index ?? null}
-        authors={viewer?.source === "saved" ? saved.authors : new Map([[profile.id, profile]])}
+        authors={
+          viewer?.source === "saved"
+            ? saved.authors
+            : new Map([[profile.id, profile]])
+        }
         currentUserId={me?.id}
         onIndexChange={(index) => setViewer((v) => (v ? { ...v, index } : v))}
         onClose={() => setViewer(null)}

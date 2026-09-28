@@ -2,7 +2,7 @@ import { Seo } from "@/components/shared/Seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/stores";
+import { takeReturnTo, useAuthStore } from "@/stores";
 import type { EmailOtpType, Session } from "@supabase/supabase-js";
 import { AlertTriangle, CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -168,7 +168,7 @@ export function AuthCallbackPage() {
           initialized: true,
           ...(setPassword ? { recoveryMode: true } : {}),
         });
-        navigate(flow === "email_change" ? "/settings" : "/", { replace: true });
+        navigate(flow === "email_change" ? "/settings" : setPassword ? "/" : takeReturnTo(), { replace: true });
         // The app's toaster mounts with the next screen.
         setTimeout(() => toast.success(copy.success), 300);
       } catch {

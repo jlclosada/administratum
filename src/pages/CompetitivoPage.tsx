@@ -1,26 +1,60 @@
-import { DateBlock, FeaturedListCard, StatusPill, TournamentCard } from "@/components/competitive/cards";
+import { Seo } from "@/components/shared/Seo";
+import {
+  DateBlock,
+  FeaturedListCard,
+  StatusPill,
+  TournamentCard,
+} from "@/components/competitive/cards";
 import { ListBrowser } from "@/components/competitive/ListBrowser";
 import { ShareListDialog } from "@/components/community/ShareListDialog";
-import { countdownLabel, formatDateRange } from "@/components/competitive/status";
+import {
+  countdownLabel,
+  formatDateRange,
+} from "@/components/competitive/status";
 import { AnimatedNumber } from "@/components/shared/AnimatedNumber";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Button } from "@/components/ui/button";
-import { getCommunityLists, getFeaturedLists, getProfilesByIds, getTournaments } from "@/db";
-import { useAuthStore } from "@/stores";
+import {
+  getCommunityLists,
+  getFeaturedLists,
+  getProfilesByIds,
+  getTournaments,
+} from "@/db";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 import type { CommunityList, FeaturedList, Profile, Tournament } from "@/types";
 import { motion } from "framer-motion";
-import { ArrowRight, History, MapPin, Plus, ScrollText, Star, Swords, Trophy, Users } from "lucide-react";
+import {
+  ArrowRight,
+  History,
+  MapPin,
+  Plus,
+  ScrollText,
+  Star,
+  Swords,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-function SectionHeading({ icon, title, kicker }: { icon: ReactNode; title: string; kicker: string }) {
+function SectionHeading({
+  icon,
+  title,
+  kicker,
+}: {
+  icon: ReactNode;
+  title: string;
+  kicker: string;
+}) {
   return (
     <div className="mb-5 border-b border-border/60 pb-3">
       <p className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
         {icon} {kicker}
       </p>
-      <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl">{title}</h2>
+      <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl">
+        {title}
+      </h2>
     </div>
   );
 }
@@ -55,7 +89,11 @@ function Spotlight({ t }: { t: Tournament }) {
         <h3 className="mt-3 max-w-3xl font-display text-3xl font-black leading-[0.95] tracking-tight text-white sm:text-5xl">
           {t.name}
         </h3>
-        {t.description && <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">{t.description}</p>}
+        {t.description && (
+          <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
+            {t.description}
+          </p>
+        )}
         <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/80">
           <span className="font-mono">{formatDateRange(t)}</span>
           {t.location && (
@@ -81,7 +119,15 @@ function Spotlight({ t }: { t: Tournament }) {
   );
 }
 
-function EmptyBlock({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+function EmptyBlock({
+  icon,
+  title,
+  text,
+}: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/60 py-16 text-center">
       {icon}
@@ -99,7 +145,7 @@ export function CompetitivoPage() {
   const [listsLoading, setListsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
-  const user = useAuthStore((s) => s.user);
+  const requireAuth = useRequireAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -128,13 +174,21 @@ export function CompetitivoPage() {
   const { spotlight, active, finished } = useMemo(() => {
     const byStart = (a: Tournament, b: Tournament) =>
       (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999");
-    const ongoing = tournaments.filter((t) => t.status === "ongoing").sort(byStart);
-    const upcoming = tournaments.filter((t) => t.status === "upcoming").sort(byStart);
+    const ongoing = tournaments
+      .filter((t) => t.status === "ongoing")
+      .sort(byStart);
+    const upcoming = tournaments
+      .filter((t) => t.status === "upcoming")
+      .sort(byStart);
     const done = tournaments
       .filter((t) => t.status === "finished")
       .sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""));
     const lead = ongoing[0] ?? upcoming[0] ?? null;
-    return { spotlight: lead, active: [...ongoing, ...upcoming].filter((t) => t !== lead), finished: done };
+    return {
+      spotlight: lead,
+      active: [...ongoing, ...upcoming].filter((t) => t !== lead),
+      finished: done,
+    };
   }, [tournaments]);
 
   if (loading) {
@@ -153,38 +207,64 @@ export function CompetitivoPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title="Competitivo: torneos y listas"
+        description="Torneos de Warhammer 40,000 con sus bases, y las listas de ejército que están marcando el meta, compartidas por la comunidad."
+        path="/competitivo"
+      />
       <div className="space-y-14">
         <header className="relative isolate overflow-hidden rounded-3xl border border-border/50 bg-card/30 px-6 py-10 sm:px-10 sm:py-12">
-          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-            <img src="/images/landing-hero.jpg" alt="" className="h-full w-full object-cover opacity-20 grayscale" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-10"
+          >
+            <img
+              src="/images/landing-hero.jpg"
+              alt=""
+              className="h-full w-full object-cover opacity-20 grayscale"
+            />
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/20" />
           </div>
           <p className="mb-3 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">
             <Trophy className="h-3.5 w-3.5" /> Escena competitiva
           </p>
-          <h1 className="font-display text-4xl font-black leading-[0.95] tracking-tight sm:text-6xl">Competitivo</h1>
+          <h1 className="font-display text-4xl font-black leading-[0.95] tracking-tight sm:text-6xl">
+            Competitivo
+          </h1>
           <p className="mt-3 max-w-xl text-muted-foreground">
-            Torneos de la comunidad con sus bases completas, y las listas que están marcando el meta.
+            Torneos de la comunidad con sus bases completas, y las listas que
+            están marcando el meta.
           </p>
-          {user && (
-            <Button variant="gradient" className="mt-6 gap-2" onClick={() => setPublishing(true)}>
-              <Plus className="h-4 w-4" /> Publicar lista
-            </Button>
-          )}
+          <Button
+            variant="gradient"
+            className="mt-6 gap-2"
+            onClick={requireAuth(
+              () => setPublishing(true),
+              "publicar tus listas",
+            )}
+          >
+            <Plus className="h-4 w-4" /> Publicar lista
+          </Button>
           <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4">
             {stats.map((s) => (
               <div key={s.label}>
                 <dd className="font-display text-3xl font-bold tabular-nums">
                   <AnimatedNumber value={s.value} />
                 </dd>
-                <dt className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</dt>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {s.label}
+                </dt>
               </div>
             ))}
           </dl>
         </header>
 
         <section>
-          <SectionHeading icon={<Trophy className="h-3 w-3" />} kicker="Calendario" title="Torneos" />
+          <SectionHeading
+            icon={<Trophy className="h-3 w-3" />}
+            kicker="Calendario"
+            title="Torneos"
+          />
           {!spotlight && finished.length === 0 ? (
             <EmptyBlock
               icon={<Trophy className="h-8 w-8 text-muted-foreground/40" />}
@@ -213,12 +293,21 @@ export function CompetitivoPage() {
                         to={`/competitivo/torneos/${t.id}`}
                         className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/40"
                       >
-                        <DateBlock iso={t.startDate} className="w-12 opacity-80" />
+                        <DateBlock
+                          iso={t.startDate}
+                          className="w-12 opacity-80"
+                        />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium group-hover:underline">{t.name}</p>
+                          <p className="truncate font-medium group-hover:underline">
+                            {t.name}
+                          </p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {[t.location, t.pointsLimit ? `${t.pointsLimit} pts` : null].filter(Boolean).join(" · ") ||
-                              formatDateRange(t)}
+                            {[
+                              t.location,
+                              t.pointsLimit ? `${t.pointsLimit} pts` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || formatDateRange(t)}
                           </p>
                         </div>
                         <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
@@ -237,23 +326,33 @@ export function CompetitivoPage() {
               <p className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                 <ScrollText className="h-3 w-3" /> Meta
               </p>
-              <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl">Listas</h2>
+              <h2 className="font-display text-2xl font-black tracking-tight sm:text-3xl">
+                Listas
+              </h2>
             </div>
-            {user && (
-              <Button className="gap-2" onClick={() => setPublishing(true)}>
-                <Plus className="h-4 w-4" /> Publicar lista
-              </Button>
-            )}
+            <Button
+              className="gap-2"
+              onClick={requireAuth(
+                () => setPublishing(true),
+                "publicar tus listas",
+              )}
+            >
+              <Plus className="h-4 w-4" /> Publicar lista
+            </Button>
           </div>
 
           {lists.length > 0 && (
             <div className="mb-8 space-y-3">
               <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> Destacadas por la organización
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />{" "}
+                Destacadas por la organización
               </h3>
               <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
                 {lists.map((l, i) => (
-                  <div key={l.id} className="w-[min(20rem,85vw)] shrink-0 snap-start">
+                  <div
+                    key={l.id}
+                    className="w-[min(20rem,85vw)] shrink-0 snap-start"
+                  >
                     <FeaturedListCard l={l} index={i} />
                   </div>
                 ))}
@@ -261,7 +360,11 @@ export function CompetitivoPage() {
             </div>
           )}
 
-          <ListBrowser lists={communityLists} authors={authors} loading={listsLoading} />
+          <ListBrowser
+            lists={communityLists}
+            authors={authors}
+            loading={listsLoading}
+          />
         </section>
 
         <div className="flex justify-center">

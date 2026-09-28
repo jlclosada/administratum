@@ -1,5 +1,6 @@
 import { getAds, getAppConfig } from "@/db";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores";
 import type { Ad } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { Megaphone, X } from "lucide-react";
@@ -7,6 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
+import { JoinRail } from "./JoinRail";
 import { ProfileRail } from "./ProfileRail";
 import { AdRail, MobileAdStrip } from "./SideRail";
 import { RightRailContext } from "./rightRail";
@@ -38,8 +40,10 @@ export function AppLayout() {
   const leftAds = shownAds.filter((a) => a.position === "left");
   const rightAds = shownAds.filter((a) => a.position === "right");
   const hasLeft = leftAds.length > 0;
-  // Outside admin the right rail always carries the "Mi espacio" shortcuts.
+  // Outside admin the right rail always carries "Mi espacio" (or, for
+  // guests, the invitation to join).
   const hasRight = !inAdmin;
+  const signedIn = useAuthStore((s) => !!s.user);
 
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-background">
@@ -110,7 +114,7 @@ export function AppLayout() {
           {hasRight && (
             <aside className="hidden xl:block">
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] space-y-6 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <ProfileRail />
+                {signedIn ? <ProfileRail /> : <JoinRail />}
                 {rightRailContent}
                 <AdRail ads={rightAds} />
               </div>

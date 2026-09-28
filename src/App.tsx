@@ -9,49 +9,210 @@ import { PrivacidadPage } from "@/pages/legal/PrivacidadPage";
 import { TerminosPage } from "@/pages/legal/TerminosPage";
 import { ResetPasswordScreen } from "@/pages/ResetPasswordScreen";
 import { lazyRoute } from "@/lib/chunkReload";
-import { useAuthStore, useNotificationStore, useProfileStore, useSocialStore } from "@/stores";
+import { isPublicPath } from "@/lib/publicPaths";
+import {
+  useAuthStore,
+  useNotificationStore,
+  useProfileStore,
+  useSocialStore,
+} from "@/stores";
 import { AnimatePresence, MotionConfig } from "framer-motion";
-import { Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Suspense, useEffect } from "react";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { Toaster } from "sonner";
 
-const AdminLayout = lazyRoute(() => import("@/pages/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })));
-const AdminOverviewPage = lazyRoute(() => import("@/pages/admin/AdminOverviewPage").then((m) => ({ default: m.AdminOverviewPage })));
-const AdminUsersPage = lazyRoute(() => import("@/pages/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })));
-const AdminAdsPage = lazyRoute(() => import("@/pages/AdminAdsPage").then((m) => ({ default: m.AdminAdsPage })));
-const AdminArticlesPage = lazyRoute(() => import("@/pages/admin/AdminArticlesPage").then((m) => ({ default: m.AdminArticlesPage })));
-const AdminSpotlightPage = lazyRoute(() => import("@/pages/admin/AdminSpotlightPage").then((m) => ({ default: m.AdminSpotlightPage })));
-const AdminTournamentsPage = lazyRoute(() => import("@/pages/admin/AdminTournamentsPage").then((m) => ({ default: m.AdminTournamentsPage })));
-const AdminListsPage = lazyRoute(() => import("@/pages/admin/AdminListsPage").then((m) => ({ default: m.AdminListsPage })));
-const AdminCatalogPage = lazyRoute(() => import("@/pages/admin/AdminCatalogPage").then((m) => ({ default: m.AdminCatalogPage })));
-const AdminSettingsPage = lazyRoute(() => import("@/pages/admin/AdminSettingsPage").then((m) => ({ default: m.AdminSettingsPage })));
-const CompetitivoPage = lazyRoute(() => import("@/pages/CompetitivoPage").then((m) => ({ default: m.CompetitivoPage })));
-const TournamentDetailPage = lazyRoute(() => import("@/pages/TournamentDetailPage").then((m) => ({ default: m.TournamentDetailPage })));
-const FeaturedListDetailPage = lazyRoute(() => import("@/pages/FeaturedListDetailPage").then((m) => ({ default: m.FeaturedListDetailPage })));
-const ArmyDetailPage = lazyRoute(() => import("@/pages/ArmyDetailPage").then((m) => ({ default: m.ArmyDetailPage })));
-const ArmyListDetailPage = lazyRoute(() => import("@/pages/ArmyListDetailPage").then((m) => ({ default: m.ArmyListDetailPage })));
-const ArmyListsPage = lazyRoute(() => import("@/pages/ArmyListsPage").then((m) => ({ default: m.ArmyListsPage })));
-const ArticleDetailPage = lazyRoute(() => import("@/pages/ArticleDetailPage").then((m) => ({ default: m.ArticleDetailPage })));
-const ArticleEditorPage = lazyRoute(() => import("@/pages/ArticleEditorPage").then((m) => ({ default: m.ArticleEditorPage })));
-const DashboardPage = lazyRoute(() => import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
-const DownloadsPage = lazyRoute(() => import("@/pages/DownloadsPage").then((m) => ({ default: m.DownloadsPage })));
-const GalleryPage = lazyRoute(() => import("@/pages/GalleryPage").then((m) => ({ default: m.GalleryPage })));
-const GameDetailPage = lazyRoute(() => import("@/pages/GameDetailPage").then((m) => ({ default: m.GameDetailPage })));
-const GamesPage = lazyRoute(() => import("@/pages/GamesPage").then((m) => ({ default: m.GamesPage })));
-const GuideDetailPage = lazyRoute(() => import("@/pages/GuideDetailPage").then((m) => ({ default: m.GuideDetailPage })));
-const GuideEditorPage = lazyRoute(() => import("@/pages/GuideEditorPage").then((m) => ({ default: m.GuideEditorPage })));
-const GuidesPage = lazyRoute(() => import("@/pages/GuidesPage").then((m) => ({ default: m.GuidesPage })));
-const HomePage = lazyRoute(() => import("@/pages/HomePage").then((m) => ({ default: m.HomePage })));
-const MiniatureDetailPage = lazyRoute(() => import("@/pages/MiniatureDetailPage").then((m) => ({ default: m.MiniatureDetailPage })));
-const MyPaintsPage = lazyRoute(() => import("@/pages/MyPaintsPage").then((m) => ({ default: m.MyPaintsPage })));
-const PointsCatalogPage = lazyRoute(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogPage })));
-const PointsCatalogFactionPage = lazyRoute(() => import("@/pages/PointsCatalogPage").then((m) => ({ default: m.PointsCatalogFactionPage })));
-const SettingsPage = lazyRoute(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
-const ProfilePage = lazyRoute(() => import("@/pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
-const FriendsPage = lazyRoute(() => import("@/pages/FriendsPage").then((m) => ({ default: m.FriendsPage })));
-const MessagesPage = lazyRoute(() => import("@/pages/MessagesPage").then((m) => ({ default: m.MessagesPage })));
-const CommunityListDetailPage = lazyRoute(() => import("@/pages/CommunityListDetailPage").then((m) => ({ default: m.CommunityListDetailPage })));
-const SharedPhotosPage = lazyRoute(() => import("@/pages/SharedPhotosPage").then((m) => ({ default: m.SharedPhotosPage })));
+const AdminLayout = lazyRoute(() =>
+  import("@/pages/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })),
+);
+const AdminOverviewPage = lazyRoute(() =>
+  import("@/pages/admin/AdminOverviewPage").then((m) => ({
+    default: m.AdminOverviewPage,
+  })),
+);
+const AdminUsersPage = lazyRoute(() =>
+  import("@/pages/AdminUsersPage").then((m) => ({ default: m.AdminUsersPage })),
+);
+const AdminAdsPage = lazyRoute(() =>
+  import("@/pages/AdminAdsPage").then((m) => ({ default: m.AdminAdsPage })),
+);
+const AdminArticlesPage = lazyRoute(() =>
+  import("@/pages/admin/AdminArticlesPage").then((m) => ({
+    default: m.AdminArticlesPage,
+  })),
+);
+const AdminSpotlightPage = lazyRoute(() =>
+  import("@/pages/admin/AdminSpotlightPage").then((m) => ({
+    default: m.AdminSpotlightPage,
+  })),
+);
+const AdminTournamentsPage = lazyRoute(() =>
+  import("@/pages/admin/AdminTournamentsPage").then((m) => ({
+    default: m.AdminTournamentsPage,
+  })),
+);
+const AdminListsPage = lazyRoute(() =>
+  import("@/pages/admin/AdminListsPage").then((m) => ({
+    default: m.AdminListsPage,
+  })),
+);
+const AdminCatalogPage = lazyRoute(() =>
+  import("@/pages/admin/AdminCatalogPage").then((m) => ({
+    default: m.AdminCatalogPage,
+  })),
+);
+const AdminSettingsPage = lazyRoute(() =>
+  import("@/pages/admin/AdminSettingsPage").then((m) => ({
+    default: m.AdminSettingsPage,
+  })),
+);
+const CompetitivoPage = lazyRoute(() =>
+  import("@/pages/CompetitivoPage").then((m) => ({
+    default: m.CompetitivoPage,
+  })),
+);
+const TournamentDetailPage = lazyRoute(() =>
+  import("@/pages/TournamentDetailPage").then((m) => ({
+    default: m.TournamentDetailPage,
+  })),
+);
+const FeaturedListDetailPage = lazyRoute(() =>
+  import("@/pages/FeaturedListDetailPage").then((m) => ({
+    default: m.FeaturedListDetailPage,
+  })),
+);
+const ArmyDetailPage = lazyRoute(() =>
+  import("@/pages/ArmyDetailPage").then((m) => ({ default: m.ArmyDetailPage })),
+);
+const ArmyListDetailPage = lazyRoute(() =>
+  import("@/pages/ArmyListDetailPage").then((m) => ({
+    default: m.ArmyListDetailPage,
+  })),
+);
+const ArmyListsPage = lazyRoute(() =>
+  import("@/pages/ArmyListsPage").then((m) => ({ default: m.ArmyListsPage })),
+);
+const ArticleDetailPage = lazyRoute(() =>
+  import("@/pages/ArticleDetailPage").then((m) => ({
+    default: m.ArticleDetailPage,
+  })),
+);
+const ArticleEditorPage = lazyRoute(() =>
+  import("@/pages/ArticleEditorPage").then((m) => ({
+    default: m.ArticleEditorPage,
+  })),
+);
+const DashboardPage = lazyRoute(() =>
+  import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })),
+);
+const DownloadsPage = lazyRoute(() =>
+  import("@/pages/DownloadsPage").then((m) => ({ default: m.DownloadsPage })),
+);
+const GalleryPage = lazyRoute(() =>
+  import("@/pages/GalleryPage").then((m) => ({ default: m.GalleryPage })),
+);
+const GameDetailPage = lazyRoute(() =>
+  import("@/pages/GameDetailPage").then((m) => ({ default: m.GameDetailPage })),
+);
+const GamesPage = lazyRoute(() =>
+  import("@/pages/GamesPage").then((m) => ({ default: m.GamesPage })),
+);
+const GuideDetailPage = lazyRoute(() =>
+  import("@/pages/GuideDetailPage").then((m) => ({
+    default: m.GuideDetailPage,
+  })),
+);
+const GuideEditorPage = lazyRoute(() =>
+  import("@/pages/GuideEditorPage").then((m) => ({
+    default: m.GuideEditorPage,
+  })),
+);
+const GuidesPage = lazyRoute(() =>
+  import("@/pages/GuidesPage").then((m) => ({ default: m.GuidesPage })),
+);
+const HomePage = lazyRoute(() =>
+  import("@/pages/HomePage").then((m) => ({ default: m.HomePage })),
+);
+const MiniatureDetailPage = lazyRoute(() =>
+  import("@/pages/MiniatureDetailPage").then((m) => ({
+    default: m.MiniatureDetailPage,
+  })),
+);
+const MyPaintsPage = lazyRoute(() =>
+  import("@/pages/MyPaintsPage").then((m) => ({ default: m.MyPaintsPage })),
+);
+const PointsCatalogPage = lazyRoute(() =>
+  import("@/pages/PointsCatalogPage").then((m) => ({
+    default: m.PointsCatalogPage,
+  })),
+);
+const PointsCatalogFactionPage = lazyRoute(() =>
+  import("@/pages/PointsCatalogPage").then((m) => ({
+    default: m.PointsCatalogFactionPage,
+  })),
+);
+const SettingsPage = lazyRoute(() =>
+  import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
+const ProfilePage = lazyRoute(() =>
+  import("@/pages/ProfilePage").then((m) => ({ default: m.ProfilePage })),
+);
+const FriendsPage = lazyRoute(() =>
+  import("@/pages/FriendsPage").then((m) => ({ default: m.FriendsPage })),
+);
+const MessagesPage = lazyRoute(() =>
+  import("@/pages/MessagesPage").then((m) => ({ default: m.MessagesPage })),
+);
+const CommunityListDetailPage = lazyRoute(() =>
+  import("@/pages/CommunityListDetailPage").then((m) => ({
+    default: m.CommunityListDetailPage,
+  })),
+);
+const SharedPhotosPage = lazyRoute(() =>
+  import("@/pages/SharedPhotosPage").then((m) => ({
+    default: m.SharedPhotosPage,
+  })),
+);
+
+/**
+ * Pages anyone can read without an account: articles, guides, the points
+ * catalog, downloads, Competitivo, Comunidad and public profiles. Signed-in
+ * users get them too, alongside their private pages.
+ */
+const publicRoutes = (
+  <>
+    <Route path="articulos/:articleId" element={<ArticleDetailPage />} />
+    <Route path="guias" element={<GuidesPage />} />
+    <Route path="guias/:guideId" element={<GuideDetailPage />} />
+    <Route path="catalogo-puntos" element={<PointsCatalogPage />} />
+    <Route
+      path="catalogo-puntos/:factionSlug"
+      element={<PointsCatalogFactionPage />}
+    />
+    <Route path="descargas" element={<DownloadsPage />} />
+    <Route path="competitivo" element={<CompetitivoPage />} />
+    <Route
+      path="competitivo/listas/:listId"
+      element={<FeaturedListDetailPage />}
+    />
+    <Route
+      path="competitivo/torneos/:tournamentId"
+      element={<TournamentDetailPage />}
+    />
+    <Route path="comunidad" element={<SharedPhotosPage />} />
+    <Route
+      path="comunidad/listas/:listId"
+      element={<CommunityListDetailPage />}
+    />
+    <Route path="perfil/:userId" element={<ProfilePage />} />
+  </>
+);
 
 function RouteFallback() {
   return (
@@ -72,61 +233,68 @@ function routeKey(pathname: string): string {
   return pathname;
 }
 
-function AnimatedRoutes() {
+function AnimatedRoutes({ guest = false }: { guest?: boolean }) {
   const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
       <Suspense fallback={<RouteFallback />}>
-        <Routes
-          location={location}
-          key={routeKey(location.pathname)}
-        >
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<HomePage />} />
-            <Route path="articulos/nuevo" element={<ArticleEditorPage />} />
-            <Route path="articulos/:articleId" element={<ArticleDetailPage />} />
-            <Route path="articulos/:articleId/editar" element={<ArticleEditorPage />} />
-            <Route path="guias" element={<GuidesPage />} />
-            <Route path="guias/nueva" element={<GuideEditorPage />} />
-            <Route path="guias/:guideId" element={<GuideDetailPage />} />
-            <Route path="guias/:guideId/editar" element={<GuideEditorPage />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="games" element={<GamesPage />} />
-            <Route path="games/:gameId" element={<GameDetailPage />} />
-            <Route path="games/:gameId/armies/:armyId" element={<ArmyDetailPage />} />
-            <Route path="games/:gameId/armies/:armyId/miniatures/:miniatureId" element={<MiniatureDetailPage />} />
-            <Route path="paints" element={<MyPaintsPage />} />
-            <Route path="lists" element={<ArmyListsPage />} />
-            <Route path="lists/:listId" element={<ArmyListDetailPage />} />
-            <Route path="catalogo-puntos" element={<PointsCatalogPage />} />
-            <Route path="catalogo-puntos/:factionSlug" element={<PointsCatalogFactionPage />} />
-            <Route path="descargas" element={<DownloadsPage />} />
-            <Route path="competitivo" element={<CompetitivoPage />} />
-            <Route path="competitivo/listas/:listId" element={<FeaturedListDetailPage />} />
-            <Route path="competitivo/torneos/:tournamentId" element={<TournamentDetailPage />} />
-            <Route path="comunidad" element={<SharedPhotosPage />} />
-            <Route path="comunidad/listas/:listId" element={<CommunityListDetailPage />} />
-            <Route path="perfil" element={<ProfilePage />} />
-            <Route path="perfil/:userId" element={<ProfilePage />} />
-            <Route path="amigos" element={<FriendsPage />} />
-            <Route path="mensajes" element={<MessagesPage />} />
-            <Route path="mensajes/:userId" element={<MessagesPage />} />
-            <Route path="gallery" element={<GalleryPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="admin" element={<AdminLayout />}>
-              <Route index element={<AdminOverviewPage />} />
-              <Route path="usuarios" element={<AdminUsersPage />} />
-              <Route path="articulos" element={<AdminArticlesPage />} />
-              <Route path="miniatura" element={<AdminSpotlightPage />} />
-              <Route path="torneos" element={<AdminTournamentsPage />} />
-              <Route path="listas" element={<AdminListsPage />} />
-              <Route path="publicidad" element={<AdminAdsPage />} />
-              <Route path="catalogo" element={<AdminCatalogPage />} />
-              <Route path="ajustes" element={<AdminSettingsPage />} />
-              <Route path="competitivo" element={<Navigate to="/admin/torneos" replace />} />
+        <Routes location={location} key={routeKey(location.pathname)}>
+          {guest ? (
+            <Route path="/" element={<AppLayout />}>
+              {publicRoutes}
             </Route>
-          </Route>
+          ) : (
+            <Route path="/" element={<AppLayout />}>
+              <Route index element={<HomePage />} />
+              {publicRoutes}
+              <Route path="articulos/nuevo" element={<ArticleEditorPage />} />
+              <Route
+                path="articulos/:articleId/editar"
+                element={<ArticleEditorPage />}
+              />
+              <Route path="guias/nueva" element={<GuideEditorPage />} />
+              <Route
+                path="guias/:guideId/editar"
+                element={<GuideEditorPage />}
+              />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="games" element={<GamesPage />} />
+              <Route path="games/:gameId" element={<GameDetailPage />} />
+              <Route
+                path="games/:gameId/armies/:armyId"
+                element={<ArmyDetailPage />}
+              />
+              <Route
+                path="games/:gameId/armies/:armyId/miniatures/:miniatureId"
+                element={<MiniatureDetailPage />}
+              />
+              <Route path="paints" element={<MyPaintsPage />} />
+              <Route path="lists" element={<ArmyListsPage />} />
+              <Route path="lists/:listId" element={<ArmyListDetailPage />} />
+              <Route path="perfil" element={<ProfilePage />} />
+              <Route path="amigos" element={<FriendsPage />} />
+              <Route path="mensajes" element={<MessagesPage />} />
+              <Route path="mensajes/:userId" element={<MessagesPage />} />
+              <Route path="gallery" element={<GalleryPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="admin" element={<AdminLayout />}>
+                <Route index element={<AdminOverviewPage />} />
+                <Route path="usuarios" element={<AdminUsersPage />} />
+                <Route path="articulos" element={<AdminArticlesPage />} />
+                <Route path="miniatura" element={<AdminSpotlightPage />} />
+                <Route path="torneos" element={<AdminTournamentsPage />} />
+                <Route path="listas" element={<AdminListsPage />} />
+                <Route path="publicidad" element={<AdminAdsPage />} />
+                <Route path="catalogo" element={<AdminCatalogPage />} />
+                <Route path="ajustes" element={<AdminSettingsPage />} />
+                <Route
+                  path="competitivo"
+                  element={<Navigate to="/admin/torneos" replace />}
+                />
+              </Route>
+            </Route>
+          )}
         </Routes>
       </Suspense>
     </AnimatePresence>
@@ -135,12 +303,21 @@ function AnimatedRoutes() {
 
 /** Everything that depends on auth state — loading, password recovery, landing/auth, or the main app. */
 function AppGate() {
-  const { user, initialized, init, recoveryMode } = useAuthStore();
+  const {
+    user,
+    initialized,
+    init,
+    recoveryMode,
+    authPrompt,
+    openAuth,
+    closeAuth,
+  } = useAuthStore();
   const { fetchProfile, clear: clearProfile } = useProfileStore();
   const { start: startSocial, stop: stopSocial } = useSocialStore();
-  const { start: startNotifications, stop: stopNotifications } = useNotificationStore();
-  const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+  const { start: startNotifications, stop: stopNotifications } =
+    useNotificationStore();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   // Confirmation links from emails sent before the callback page existed
   // land on "/" — send their errors (expired / used link) there too.
@@ -202,14 +379,19 @@ function AppGate() {
     );
   }
 
+  // Guests: the landing at "/", public content everywhere it exists, and the
+  // sign-in screen for private pages (after signing in they stay on that URL).
   if (!user) {
+    let screen;
+    if (authPrompt)
+      screen = <AuthPage initialMode={authPrompt} onBack={closeAuth} />;
+    else if (pathname === "/")
+      screen = <LandingPage onEnter={(mode) => openAuth(mode ?? "login")} />;
+    else if (isPublicPath(pathname)) screen = <AnimatedRoutes guest />;
+    else screen = <AuthPage initialMode="login" onBack={() => navigate("/")} />;
     return (
       <>
-        {authMode ? (
-          <AuthPage initialMode={authMode} onBack={() => setAuthMode(null)} />
-        ) : (
-          <LandingPage onEnter={(mode) => setAuthMode(mode ?? "login")} />
-        )}
+        {screen}
         {toaster}
       </>
     );

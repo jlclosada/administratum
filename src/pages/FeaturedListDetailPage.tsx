@@ -1,3 +1,5 @@
+import { Seo } from "@/components/shared/Seo";
+import { metaDescription } from "@/lib/site";
 import { ArmyListCard } from "@/components/shared/ArmyListNode";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -37,7 +39,10 @@ export function FeaturedListDetailPage() {
         icon={<ScrollText className="h-8 w-8" />}
         title="Lista no encontrada"
         description="Puede que se haya eliminado o que el enlace no sea correcto."
-        action={{ label: "Volver a Competitivo", onClick: () => navigate("/competitivo") }}
+        action={{
+          label: "Volver a Competitivo",
+          onClick: () => navigate("/competitivo"),
+        }}
       />
     );
   }
@@ -46,8 +51,21 @@ export function FeaturedListDetailPage() {
 
   return (
     <PageTransition>
+      <Seo
+        title={list.title}
+        description={
+          metaDescription(list.description) ??
+          `Lista de ${list.factionName ?? "Warhammer 40,000"} destacada en Administratum.`
+        }
+        path={`/competitivo/listas/${list.id}`}
+      />
       <div className="mx-auto max-w-3xl space-y-6">
-        <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/competitivo#listas")}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2"
+          onClick={() => navigate("/competitivo#listas")}
+        >
           <ArrowLeft className="h-4 w-4" />
           Listas
         </Button>
@@ -55,24 +73,34 @@ export function FeaturedListDetailPage() {
         <header className="overflow-hidden rounded-2xl border border-border/60">
           {list.coverImage && (
             <div className="relative aspect-[3/1] overflow-hidden">
-              <img src={list.coverImage} alt="" className="h-full w-full object-cover" />
+              <img
+                src={list.coverImage}
+                alt=""
+                className="h-full w-full object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
             </div>
           )}
           <div className="space-y-2 p-5 sm:p-6">
             <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
               {list.factionName && <span>{list.factionName}</span>}
-              {list.totalPoints != null && <span>· {list.totalPoints} pts</span>}
+              {list.totalPoints != null && (
+                <span>· {list.totalPoints} pts</span>
+              )}
               {list.tournamentName && (
                 <span className="flex items-center gap-1">
                   · <Trophy className="h-3 w-3" /> {list.tournamentName}
                 </span>
               )}
             </div>
-            <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">{list.title}</h1>
+            <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">
+              {list.title}
+            </h1>
             <div className="flex flex-wrap items-center gap-3">
               {list.authorName && (
-                <span className="text-sm text-muted-foreground">por {list.authorName}</span>
+                <span className="text-sm text-muted-foreground">
+                  por {list.authorName}
+                </span>
               )}
               {result && (
                 <span className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 font-mono text-xs text-amber-500">
@@ -85,7 +113,11 @@ export function FeaturedListDetailPage() {
         </header>
 
         {list.listData ? (
-          <ArmyListCard data={list.listData} authorName={list.authorName} result={list.result} />
+          <ArmyListCard
+            data={list.listData}
+            authorName={list.authorName}
+            result={list.result}
+          />
         ) : (
           <p className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
             Esta lista se publicó sin el listado de unidades.
@@ -95,7 +127,9 @@ export function FeaturedListDetailPage() {
         {list.description && (
           <section className="rounded-2xl border border-border/60 bg-card/40 p-5 sm:p-6">
             <h2 className="mb-3 font-semibold">Por qué destaca</h2>
-            <p className="whitespace-pre-line leading-relaxed text-foreground/90">{list.description}</p>
+            <p className="whitespace-pre-line leading-relaxed text-foreground/90">
+              {list.description}
+            </p>
           </section>
         )}
       </div>

@@ -140,7 +140,7 @@ export function PhotoViewer({
     <div className="space-y-1.5 border-t border-border/60 px-4 py-3">
       <PostActions
         photo={photo}
-        canInteract={!!currentUserId}
+        canInteract
         onLike={() => onLike(photo)}
         onComment={focusComment}
         onSave={() => onSave(photo)}

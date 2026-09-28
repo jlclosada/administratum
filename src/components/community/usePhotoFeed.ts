@@ -1,6 +1,7 @@
 import { deleteSharedPhoto, getProfilesByIds, setPhotoSaved, toggleLike } from "@/db";
 import type { Profile, SharedPhoto } from "@/types";
-import { useCallback, useEffect, useState } from "react";
+import { useRequireAuth } from "@/lib/useRequireAuth";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 /**
@@ -29,7 +30,10 @@ export function usePhotoFeed(load: () => Promise<SharedPhoto[]>) {
     };
   }, [load]);
 
-  const toggle = useCallback(async (photo: SharedPhoto) => {
+  // Guests get the sign-up screen instead of a failing request.
+  const requireAuth = useRequireAuth();
+
+  const likeNow = useCallback(async (photo: SharedPhoto) => {
     const wasLiked = !!photo.likedByMe;
     const apply = (liked: boolean) =>
       setPhotos((prev) =>
@@ -48,7 +52,7 @@ export function usePhotoFeed(load: () => Promise<SharedPhoto[]>) {
     }
   }, []);
 
-  const toggleSave = useCallback(async (photo: SharedPhoto) => {
+  const saveNow = useCallback(async (photo: SharedPhoto) => {
     const next = !photo.savedByMe;
     const apply = (saved: boolean) =>
       setPhotos((prev) => prev.map((p) => (p.id === photo.id ? { ...p, savedByMe: saved } : p)));
@@ -86,6 +90,9 @@ export function usePhotoFeed(load: () => Promise<SharedPhoto[]>) {
     setPhotos((prev) => [photo, ...prev]);
     if (author) setAuthors((prev) => new Map(prev).set(author.id, author));
   }, []);
+
+  const toggle = useMemo(() => requireAuth(likeNow, "dar me gusta"), [requireAuth, likeNow]);
+  const toggleSave = useMemo(() => requireAuth(saveNow, "guardar publicaciones"), [requireAuth, saveNow]);
 
   return { photos, authors, loading, toggle, toggleSave, setCommentCount, remove, prepend };
 }
