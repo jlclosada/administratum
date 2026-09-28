@@ -30,6 +30,20 @@ export async function getCommunityListsByUser(userId: string): Promise<Community
   return withMyLikes(mapRows<CommunityList>(data));
 }
 
+/** Community lists of a faction, matching any of its names (ES or EN). */
+export async function getCommunityListsByFaction(names: string[], limit = 12): Promise<CommunityList[]> {
+  const terms = names.filter(Boolean).map((n) => `faction_name.ilike."%${n.replace(/["\\]/g, '')}%"`);
+  if (terms.length === 0) return [];
+  const { data, error } = await supabase
+    .from('community_lists')
+    .select('*')
+    .or(terms.join(','))
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return mapRows<CommunityList>(data);
+}
+
 export async function getCommunityListById(id: string): Promise<CommunityList | null> {
   const { data, error } = await supabase.from('community_lists').select('*').eq('id', id).maybeSingle();
   if (error || !data) return null;

@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { seoListTitle } from "@/lib/seoCopy";
 import { metaDescription } from "@/lib/site";
 import { ShareListDialog } from "@/components/community/ShareListDialog";
 import { ArmyListCard } from "@/components/shared/ArmyListNode";
@@ -167,7 +168,7 @@ export function CommunityListDetailPage() {
   return (
     <PageTransition>
       <Seo
-        title={`${list.title} · Lista de ${list.factionName}`}
+        title={seoListTitle(list.title, list.factionName, list.totalPoints)}
         description={metaDescription(list.description)}
         path={`/comunidad/listas/${list.id}`}
       />

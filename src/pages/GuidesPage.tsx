@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { SEO_GUIAS } from "@/lib/seoCopy";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -12,7 +13,10 @@ import { PRESET_GAMES } from "@/types";
 import { motion } from "framer-motion";
 import { BookOpen, Clock, Palette, Plus, Search, Star, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
+// Real links (crawlable, open in a new tab) with the card animations.
+const MotionLink = motion.create(Link);
 
 export function GuidesPage() {
   const navigate = useNavigate();
@@ -53,11 +57,7 @@ export function GuidesPage() {
 
   return (
     <PageTransition>
-      <Seo
-        title="Guías de pintura"
-        description="Guías y tutoriales de pintura de miniaturas publicados por la comunidad: pasos, pinturas usadas y fotos del proceso."
-        path="/guias"
-      />
+      <Seo {...SEO_GUIAS} path="/guias" />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -203,13 +203,12 @@ export function GuidesPage() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {guides.map((g, i) => (
-              <motion.button
+              <MotionLink
                 key={g.id}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
-                type="button"
-                onClick={() => navigate(`/guias/${g.id}`)}
+                to={`/guias/${g.id}`}
                 className="group flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/40 text-left transition-all hover:border-primary/40 hover:shadow-xl"
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/20 to-background">
@@ -263,7 +262,7 @@ export function GuidesPage() {
                     </div>
                   </div>
                 </div>
-              </motion.button>
+              </MotionLink>
             ))}
           </div>
         )}

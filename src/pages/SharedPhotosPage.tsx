@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { SEO_COMUNIDAD } from "@/lib/seoCopy";
 import { CommunityListCard } from "@/components/community/CommunityListCard";
 import { PhotoCard } from "@/components/community/PhotoCard";
 import { PhotoViewer } from "@/components/community/PhotoViewer";
@@ -200,11 +201,7 @@ export function SharedPhotosPage() {
 
   return (
     <PageTransition>
-      <Seo
-        title="Comunidad: fotos y listas"
-        description="Ejércitos pintados, proyectos en curso y listas de ejército compartidas por la comunidad de Administratum."
-        path="/comunidad"
-      />
+      <Seo {...SEO_COMUNIDAD} path="/comunidad" />
       <div className="space-y-8">
         {/* Hero */}
         <section className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/30 px-6 py-10 sm:px-10 sm:py-14">
