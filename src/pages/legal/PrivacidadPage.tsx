@@ -117,9 +117,12 @@ export function PrivacidadPage() {
             Los datos se procesan en la región UE (Frankfurt, Alemania).
           </li>
           <li>
-            <strong className="text-foreground">Google Fonts</strong> (tipografías
-            de la interfaz). Se cargan desde servidores de Google, lo que implica el
-            envío de tu dirección IP a Google en el momento de cargar la página.
+            <strong className="text-foreground">Resend</strong> (envío de los correos
+            de la cuenta: confirmación, recuperación de contraseña, cambio de correo y
+            avisos de seguridad). Recibe tu dirección de correo y el contenido del
+            mensaje únicamente para entregarlo. Empresa con sede en Estados Unidos;
+            la transferencia internacional está amparada por cláusulas contractuales
+            tipo aprobadas por la Comisión Europea.
           </li>
         </List>
         <p>

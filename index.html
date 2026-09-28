@@ -2,10 +2,67 @@
 <html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
     <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin />
-    <title>Administratum</title>
+    <meta name="theme-color" content="#09090b" />
+
+    <title>Administratum · Colección, pintura y listas de Warhammer 40,000</title>
+    <meta
+      name="description"
+      content="Gestiona tu colección de miniaturas y su progreso de pintura, crea listas con los puntos oficiales siempre al día, sigue torneos y comparte con la comunidad. Gratis."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://administratum.site/" />
+
+    <!-- Share previews (WhatsApp, Discord, X, Telegram…) — these crawlers don't run JS. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Administratum" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:url" content="https://administratum.site/" />
+    <meta property="og:title" content="Administratum · Colección, pintura y listas de Warhammer 40,000" />
+    <meta
+      property="og:description"
+      content="Gestiona tu colección de miniaturas y su progreso de pintura, crea listas con los puntos oficiales siempre al día, sigue torneos y comparte con la comunidad. Gratis."
+    />
+    <meta property="og:image" content="https://administratum.site/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Administratum — Cada miniatura merece su crónica." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Administratum · Colección, pintura y listas de Warhammer 40,000" />
+    <meta
+      name="twitter:description"
+      content="Gestiona tu colección de miniaturas y su progreso de pintura, crea listas con los puntos oficiales siempre al día, sigue torneos y comparte con la comunidad. Gratis."
+    />
+    <meta name="twitter:image" content="https://administratum.site/og-image.jpg" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://administratum.site/#website",
+            "name": "Administratum",
+            "url": "https://administratum.site/",
+            "inLanguage": "es"
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Administratum",
+            "url": "https://administratum.site/",
+            "applicationCategory": "LifestyleApplication",
+            "operatingSystem": "Web, macOS, Windows",
+            "inLanguage": "es",
+            "description": "Gestor de colecciones de miniaturas de Warhammer 40,000: progreso de pintura, listas de ejército con puntos oficiales, torneos y comunidad.",
+            "image": "https://administratum.site/og-image.jpg",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body class="bg-background text-foreground antialiased">
     <div id="root"></div>

@@ -15,6 +15,7 @@ import {
   useTransform,
   type MotionValue,
 } from "framer-motion";
+import { Seo } from "@/components/shared/Seo";
 import { ArrowDown, ArrowRight, Newspaper, Palette } from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Link } from "react-router-dom";
@@ -354,6 +355,7 @@ export function LandingPage({ onEnter }: LandingPageProps) {
 
   return (
     <div className="relative min-h-screen w-full overflow-x-clip bg-background text-white">
+      <Seo />
       {/* Page scroll progress */}
       <motion.div
         style={{ scaleX: scrollYProgress }}

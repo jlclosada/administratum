@@ -36,10 +36,9 @@ export function CookiesPage() {
 
       <Section title="2. Recursos de terceros">
         <p>
-          La aplicación carga las tipografías de la interfaz desde los servidores de
-          Google Fonts. Esto implica una conexión a servidores de Google al cargar
-          la página, que recibe tu dirección IP como parte de esa petición técnica.
-          Google Fonts no instala cookies de seguimiento a través de este uso.
+          Las tipografías de la interfaz se sirven desde el propio dominio de la
+          aplicación, sin conexiones a servidores de terceros como Google Fonts. La
+          aplicación no carga scripts de analítica, publicidad ni redes sociales.
         </p>
       </Section>
 
