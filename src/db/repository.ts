@@ -1359,6 +1359,22 @@ export async function getUnitCatalog(
   }
 }
 
+/** One faction's datasheets (by slug) — what a faction points page needs. */
+export async function getFactionUnits(gameName: string, factionSlug: string): Promise<UnitCatalogEntry[]> {
+  try {
+    const { data, error } = await supabase
+      .from('unit_catalog')
+      .select('*')
+      .eq('game_name', gameName)
+      .eq('faction_slug', factionSlug)
+      .order('name', { ascending: true });
+    if (error) throw error;
+    return mapRows<UnitCatalogEntry>(data ?? []);
+  } catch {
+    return [];
+  }
+}
+
 export async function getUnitCatalogCount(): Promise<number> {
   try {
     const { count, error } = await supabase

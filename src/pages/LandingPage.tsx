@@ -1,5 +1,6 @@
 import { MagneticButton, Marquee, RevealText } from "@/components/landing/primitives";
 import { ScrollStory } from "@/components/landing/ScrollStory";
+import { exploreLinks } from "@/components/layout/navItems";
 import { Seo } from "@/components/shared/Seo";
 import { StarRating } from "@/components/shared/StarRating";
 import { getArticles, getGuides, guideRating } from "@/db";
@@ -62,6 +63,17 @@ function Header({ onEnter }: LandingPageProps) {
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
         <img src="/images/logo.png" alt="Administratum" className="h-8 w-auto sm:h-9" />
+        <nav aria-label="Explorar" className="hidden items-center gap-1 lg:flex">
+          {exploreLinks.slice(0, 4).map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-white/60 transition-colors hover:text-white"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -395,9 +407,16 @@ export function LandingPage({ onEnter }: LandingPageProps) {
       <FinalCta onEnter={onEnter} />
 
       <footer className="border-t border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 text-xs text-white/45 sm:flex-row sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 text-xs text-white/45 lg:flex-row sm:px-8">
           <p>© {new Date().getFullYear()} Administratum · Gestión de colecciones de wargaming.</p>
-          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+          <nav aria-label="Explorar" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+            {exploreLinks.map((l) => (
+              <Link key={l.to} to={l.to} className="transition-colors hover:text-white">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
             <Link to="/legal/aviso-legal" className="transition-colors hover:text-white">Aviso legal</Link>
             <Link to="/legal/privacidad" className="transition-colors hover:text-white">Privacidad</Link>
             <Link to="/legal/cookies" className="transition-colors hover:text-white">Cookies</Link>

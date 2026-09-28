@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { CONFIRM_PATH } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
@@ -9,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-export const CONFIRM_PATH = "/auth/confirmar";
+export { CONFIRM_PATH };
 
 /**
  * What brought the user here. `flow=magiclink` is added by our own email

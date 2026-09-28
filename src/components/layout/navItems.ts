@@ -20,3 +20,12 @@ export const profileItems = [
 export function isItemActive(pathname: string, to: string): boolean {
   return to === "/" ? pathname === "/" : pathname.startsWith(to);
 }
+
+/** Public sections a visitor can browse without an account (landing, footers). */
+export const exploreLinks = [
+  { to: "/catalogo-puntos", label: "Catálogo de puntos" },
+  { to: "/competitivo", label: "Competitivo" },
+  { to: "/comunidad", label: "Comunidad" },
+  { to: "/guias", label: "Guías de pintura" },
+  { to: "/descargas", label: "Descargas" },
+];
