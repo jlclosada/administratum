@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Confirma el cambio de correo en Administratum</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;-webkit-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">Confirma tu nueva dirección de correo.&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f4f5;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+          <tr>
+            <td align="center" bgcolor="#0a0a0b" style="background:#0a0a0b;border-radius:12px 12px 0 0;padding:28px 32px;border-bottom:3px solid #c8b88e;">
+              <a href="{{ .SiteURL }}" target="_blank" style="text-decoration:none;">
+                <img src="https://administratum.site/images/logo.png" width="200" alt="ADMINISTRATUM" style="display:block;width:200px;max-width:100%;height:auto;border:0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;font-weight:800;letter-spacing:0.2em;color:#e7e2d6;">
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="background:#ffffff;padding:40px 36px 36px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <h1 style="margin:0 0 20px;font-size:24px;line-height:1.25;font-weight:800;letter-spacing:-0.02em;color:#0a0a0b;">Confirma el cambio de correo</h1>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#3f3f46;">Hola{{ if .Data.display_name }} {{ .Data.display_name }}{{ end }},</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#3f3f46;">Has pedido cambiar el correo de tu cuenta de <strong>{{ .Email }}</strong> a <strong>{{ .NewEmail }}</strong>. Pulsa el botón para confirmarlo.</p>
+              
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 8px;">
+  <tr>
+    <td align="center" bgcolor="#0a0a0b" style="border-radius:8px;">
+      <a href="{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=email_change" target="_blank" style="display:inline-block;padding:14px 28px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:8px;">Confirmar el cambio</a>
+    </td>
+  </tr>
+</table>
+              <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#71717a;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br><a href="{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=email_change" style="color:#52525b;word-break:break-all;">{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=email_change</a></p>
+              <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#71717a;">Si no has pedido este cambio, ignora este correo y escríbenos a <a href="mailto:jlcaclosada@gmail.com" style="color:#52525b;">jlcaclosada@gmail.com</a>.</p>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#fafafa" style="background:#fafafa;border-top:1px solid #e4e4e7;border-radius:0 0 12px 12px;padding:20px 36px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:1.6;color:#71717a;">
+              Has recibido este correo porque se ha usado esta dirección en
+              <a href="https://administratum.site" style="color:#52525b;">administratum.site</a>.
+              ¿Dudas? Escríbenos a <a href="mailto:jlcaclosada@gmail.com" style="color:#52525b;">jlcaclosada@gmail.com</a>.
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:20px 16px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:11px;line-height:1.5;color:#a1a1aa;">
+              Administratum es un proyecto independiente, sin afiliación con Games Workshop.<br>
+              <a href="https://administratum.site/legal/privacidad" style="color:#a1a1aa;">Política de privacidad</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

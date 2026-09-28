@@ -1,6 +1,7 @@
+import { Seo } from "@/components/shared/Seo";
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const LEGAL_LINKS = [
   { to: "/legal/aviso-legal", label: "Aviso legal" },
@@ -16,8 +17,10 @@ interface LegalLayoutProps {
 }
 
 export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
+  const { pathname } = useLocation();
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-background">
+      <Seo title={title} description={`${title} de Administratum.`} path={pathname} />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="aurora" />
         <div className="absolute inset-0 grid-pattern opacity-[0.04]" />

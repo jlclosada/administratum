@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /auth/
+Disallow: /admin
+Disallow: /mensajes
+Disallow: /settings
+
+Sitemap: https://administratum.site/sitemap.xml

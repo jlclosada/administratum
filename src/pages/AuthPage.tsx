@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Seo } from "@/components/shared/Seo";
 import { getAppConfig } from "@/db";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
@@ -213,6 +214,7 @@ export function AuthPage({
 
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-background">
+      <Seo title={mode === "signup" ? "Crear cuenta" : mode === "reset" ? "Recuperar contraseña" : "Iniciar sesión"} />
       {/* Ambient background */}
       <div className="pointer-events-none absolute inset-0 spotlight" />
       <div className="pointer-events-none absolute inset-0 grid-pattern opacity-[0.15]" />
