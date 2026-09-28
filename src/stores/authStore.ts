@@ -13,6 +13,8 @@ interface AuthState {
   recoveryMode: boolean;
   init: () => void;
   signIn: (email: string, password: string) => Promise<void>;
+  /** Redirects to Google; the user comes back to /auth/confirmar signed in. */
+  signInWithGoogle: () => Promise<void>;
   signUp: (
     email: string,
     password: string,
@@ -71,6 +73,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     } finally {
       set({ loading: false });
     }
+  },
+
+  signInWithGoogle: async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/confirmar?flow=oauth`,
+        // Let people with several Google accounts pick one every time.
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+    if (error) throw error;
   },
 
   signUp: async (email, password, displayName) => {

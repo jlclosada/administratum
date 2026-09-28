@@ -23,6 +23,12 @@ export function PrivacidadPage() {
           contraseña la gestiona directamente Supabase Auth: nunca se almacena en
           texto plano ni es accesible por el titular del sitio.
         </p>
+        <SubHeading>Si entras con Google</SubHeading>
+        <p>
+          Google nos facilita tu nombre, tu correo electrónico y tu foto de perfil,
+          que se usan para crear tu cuenta y tu perfil público. No recibimos tu
+          contraseña de Google ni ningún otro dato de tu cuenta de Google.
+        </p>
         <SubHeading>Contenido que introduces voluntariamente</SubHeading>
         <p>
           Todo lo que registras dentro de tu colección: juegos, ejércitos,
@@ -115,6 +121,11 @@ export function PrivacidadPage() {
             y correo electrónico (para poder asociar un error a una persona
             usuaria), junto con datos técnicos del error (mensaje, traza, navegador).
             Los datos se procesan en la región UE (Frankfurt, Alemania).
+          </li>
+          <li>
+            <strong className="text-foreground">Google</strong> (solo si eliges
+            «Continuar con Google» para iniciar sesión). Google verifica tu identidad
+            y nos envía los datos indicados en la sección 2.
           </li>
           <li>
             <strong className="text-foreground">Resend</strong> (envío de los correos

@@ -11,8 +11,11 @@ import { toast } from "sonner";
 
 export const CONFIRM_PATH = "/auth/confirmar";
 
-/** What the email link was for. `flow=magiclink` is added by our own template. */
-type Flow = "signup" | "magiclink" | "recovery" | "invite" | "email_change";
+/**
+ * What brought the user here. `flow=magiclink` is added by our own email
+ * template, `flow=oauth` by the "Continuar con Google" redirect.
+ */
+type Flow = "signup" | "magiclink" | "recovery" | "invite" | "email_change" | "oauth";
 
 type State =
   | { kind: "working" }
@@ -20,7 +23,10 @@ type State =
   | { kind: "resent"; email: string }
   | { kind: "done"; title: string; message: string };
 
-const COPY: Record<Flow, { working: string; success: string; expired: string; resend: string | null }> = {
+const COPY: Record<
+  Flow,
+  { working: string; success: string; expired: string; resend: string | null; failTitle?: string }
+> = {
   signup: {
     working: "Confirmando tu cuenta…",
     success: "¡Cuenta confirmada! Ya has iniciado sesión.",
@@ -45,6 +51,13 @@ const COPY: Record<Flow, { working: string; success: string; expired: string; re
     expired: "La invitación ha caducado o ya se ha utilizado. Pide a quien te invitó que te envíe otra.",
     resend: null,
   },
+  oauth: {
+    working: "Iniciando sesión con Google…",
+    success: "Has iniciado sesión con Google.",
+    failTitle: "No se pudo iniciar sesión con Google",
+    expired: "Vuelve a intentarlo. Si el problema continúa, entra con tu correo y contraseña.",
+    resend: null,
+  },
   email_change: {
     working: "Confirmando tu nuevo correo…",
     success: "Correo electrónico actualizado.",
@@ -59,11 +72,13 @@ function readParams() {
   const get = (k: string) => url.searchParams.get(k) ?? hash.get(k);
   const type = get("type");
   const flow: Flow =
-    get("flow") === "magiclink" || type === "magiclink"
-      ? "magiclink"
-      : type === "recovery" || type === "invite" || type === "email_change"
-        ? type
-        : "signup";
+    get("flow") === "oauth"
+      ? "oauth"
+      : get("flow") === "magiclink" || type === "magiclink"
+        ? "magiclink"
+        : type === "recovery" || type === "invite" || type === "email_change"
+          ? type
+          : "signup";
   // "signup"/"magiclink" are deprecated verifyOtp types; both are "email" now.
   const otpType: EmailOtpType | null =
     type === "signup" || type === "magiclink" ? "email" : (type as EmailOtpType | null);
@@ -99,12 +114,20 @@ export function AuthCallbackPage() {
     started.current = true;
     init();
     const { flow, tokenHash, otpType, code, errorCode, errorDescription } = params;
-    const expiredState: State = { kind: "error", expired: true, message: "El enlace ha caducado o ya se ha utilizado." };
+    const expiredState: State = {
+      kind: "error",
+      expired: true,
+      message: copy.failTitle ?? "El enlace ha caducado o ya se ha utilizado.",
+    };
 
     (async () => {
       if (errorCode || errorDescription) {
         const expired = /expired|invalid|otp/i.test(`${errorCode} ${errorDescription}`);
-        setState(expired ? expiredState : { kind: "error", expired: false, message: "No se pudo completar la acción con este enlace." });
+        setState(
+          expired || flow === "oauth"
+            ? expiredState
+            : { kind: "error", expired: false, message: "No se pudo completar la acción con este enlace." },
+        );
         return;
       }
       try {
@@ -131,6 +154,12 @@ export function AuthCallbackPage() {
           session = (await supabase.auth.getSession()).data.session;
         }
         if (!session) throw new Error("Sin sesión");
+
+        // Signing up with Google skips the terms checkbox; the button's notice
+        // stands in for it, so record the consent the same way.
+        if (flow === "oauth" && !session.user.user_metadata?.terms_accepted_at) {
+          void supabase.auth.updateUser({ data: { terms_accepted_at: new Date().toISOString() } });
+        }
 
         const setPassword = flow === "recovery" || flow === "invite";
         useAuthStore.setState({
