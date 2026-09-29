@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSubject, renderEmail, signUser, verifyUser, type Digest, type TemplateKey } from '../api/email';
+import {
+  campaignKey,
+  defaultSubject,
+  renderEmail,
+  signEmail,
+  signUser,
+  verifyEmail,
+  verifyUser,
+  type Digest,
+  type TemplateKey,
+} from '../api/email';
 
 const digest: Digest = {
   articles: [{ id: 'a1', title: 'Nuevo dataslate', excerpt: 'Cambios importantes' }],
@@ -40,5 +50,34 @@ describe('email api', () => {
     expect(verifyUser(me.id, sig, 'other')).toBe(false);
     expect(verifyUser('22222222-2222-4222-8222-222222222222', sig, 'secret')).toBe(false);
     expect(verifyUser(me.id, 'nope', 'secret')).toBe(false);
+  });
+
+  it('gives external contacts an address-signed unsubscribe link and a sign-up button', () => {
+    const contact = { id: '', email: 'Amigo@Club.es', name: '', external: true };
+    const { html } = renderEmail({ template: 'presentacion' }, contact, digest);
+    expect(html).toContain('Hola.');
+    expect(html).toContain('/api/email?action=unsubscribe&e=amigo%40club.es&t=');
+    expect(html).not.toContain('&u=');
+    expect(html).toContain('/?registro=1');
+    expect(html).toContain('aceptaste recibir novedades');
+    expect(html).not.toContain('tienes una cuenta');
+  });
+
+  it('signs contact addresses case-insensitively and rejects forged ones', () => {
+    const sig = signEmail('amigo@club.es', 'secret');
+    expect(verifyEmail('AMIGO@club.es', sig, 'secret')).toBe(true);
+    expect(verifyEmail('otro@club.es', sig, 'secret')).toBe(false);
+    expect(verifyEmail('amigo@club.es', sig, 'other')).toBe(false);
+    // A user-id signature can't be replayed as an address signature.
+    expect(verifyEmail('amigo@club.es', signUser('amigo@club.es', 'secret'), 'secret')).toBe(false);
+  });
+
+  it('keys campaigns by template, feature and subject', () => {
+    const base = campaignKey({ template: 'presentacion' });
+    expect(campaignKey({ template: 'presentacion', subject: defaultSubject({ template: 'presentacion' }) })).toBe(base);
+    expect(campaignKey({ template: 'presentacion', subject: '  Otro asunto ' })).not.toBe(base);
+    expect(campaignKey({ template: 'destacado', feature: 'puntos', subject: 'X' })).not.toBe(
+      campaignKey({ template: 'destacado', feature: 'torneos', subject: 'X' }),
+    );
   });
 });

@@ -816,6 +816,18 @@ export interface EmailCampaign {
   createdAt: string;
 }
 
+/** External address that agreed to receive Administratum emails. */
+export interface EmailContact {
+  email: string;
+  /** How and when they gave consent (kept as proof, GDPR art. 7.1). */
+  source: string;
+  createdAt: string;
+  /** 'usuario': has since signed up and follows their own preferences. */
+  status: 'activo' | 'baja' | 'usuario';
+}
+
+export type EmailContactAddStatus = 'añadido' | 'existente' | 'usuario' | 'baja' | 'inválido';
+
 // ---------- Community: Articles (admin news) ----------
 /** Rich-text document stored as TipTap JSON. */
 export type RichContent = Record<string, unknown> | null;

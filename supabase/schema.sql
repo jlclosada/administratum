@@ -1937,6 +1937,164 @@ $$;
 revoke all on function public.admin_email_audience_count(integer) from public, anon;
 grant execute on function public.admin_email_audience_count(integer) to authenticated;
 
+-- External contacts: people who are not users but agreed to receive
+-- Administratum emails (LSSI art. 21 requires that prior consent, and the
+-- GDPR requires being able to prove it — hence `source`). Addresses that
+-- unsubscribe go to email_suppressions and are never emailed again, even if
+-- someone adds them back.
+create table if not exists public.email_contacts (
+  email text primary key check (email = lower(email)),
+  source text not null check (char_length(trim(source)) between 3 and 300),
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.email_suppressions (
+  email text primary key check (email = lower(email)),
+  created_at timestamptz not null default now()
+);
+
+alter table public.email_contacts enable row level security;
+alter table public.email_suppressions enable row level security;
+
+drop policy if exists "email_contacts_read" on public.email_contacts;
+drop policy if exists "email_contacts_delete" on public.email_contacts;
+-- Admins read and remove contacts directly; listing with status and adding
+-- go through the RPCs below (they need auth.users to tell contacts and
+-- users apart). Suppressions have no policies: only the server touches them.
+create policy "email_contacts_read" on public.email_contacts
+  for select to authenticated using (public.is_admin());
+create policy "email_contacts_delete" on public.email_contacts
+  for delete to authenticated using (public.is_admin());
+
+-- 'activo' can be emailed; 'baja' unsubscribed; 'usuario' has since signed
+-- up (they get emails through their own preferences instead).
+create or replace function public.email_contact_status(p_email text)
+returns text
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select case
+    when exists (select 1 from public.email_suppressions s where s.email = p_email) then 'baja'
+    when exists (select 1 from auth.users u where lower(u.email) = p_email) then 'usuario'
+    else 'activo'
+  end
+$$;
+
+revoke all on function public.email_contact_status(text) from public, anon, authenticated;
+
+create or replace function public.admin_email_contacts()
+returns table (email text, source text, created_at timestamptz, status text)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Solo administradores';
+  end if;
+  return query
+    select c.email, c.source, c.created_at, public.email_contact_status(c.email)
+    from public.email_contacts c
+    order by c.created_at desc, c.email;
+end;
+$$;
+
+revoke all on function public.admin_email_contacts() from public, anon;
+grant execute on function public.admin_email_contacts() to authenticated;
+
+-- Adds addresses with their consent source and reports what happened to
+-- each one: 'añadido', 'existente', 'usuario', 'baja' or 'inválido'.
+create or replace function public.admin_add_email_contacts(p_emails text[], p_source text)
+returns table (email text, status text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  addr text;
+  st text;
+begin
+  if not public.is_admin() then
+    raise exception 'Solo administradores';
+  end if;
+  if char_length(trim(coalesce(p_source, ''))) < 3 then
+    raise exception 'Indica cómo dieron su consentimiento';
+  end if;
+  if coalesce(array_length(p_emails, 1), 0) > 500 then
+    raise exception 'Máximo 500 direcciones por vez';
+  end if;
+  for addr in select distinct lower(trim(e)) from unnest(p_emails) e where trim(e) <> '' loop
+    if addr !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(addr) > 254 then
+      st := 'inválido';
+    else
+      st := public.email_contact_status(addr);
+      if st = 'activo' then
+        insert into public.email_contacts (email, source, created_by)
+          values (addr, trim(p_source), auth.uid())
+          on conflict on constraint email_contacts_pkey do nothing;
+        st := case when found then 'añadido' else 'existente' end;
+      end if;
+    end if;
+    email := addr;
+    status := st;
+    return next;
+  end loop;
+end;
+$$;
+
+revoke all on function public.admin_add_email_contacts(text[], text) from public, anon;
+grant execute on function public.admin_add_email_contacts(text[], text) to authenticated;
+
+-- Who already got each manual campaign (keyed by template + subject), so
+-- sending it again — e.g. the next day, after hitting the daily limit —
+-- only reaches the people still missing it. Server only.
+create table if not exists public.email_deliveries (
+  campaign_key text not null,
+  email text not null,
+  sent_at timestamptz not null default now(),
+  primary key (campaign_key, email)
+);
+
+alter table public.email_deliveries enable row level security;
+
+create or replace function public.email_undelivered(p_campaign_key text, p_emails text[])
+returns table (email text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select e from unnest(p_emails) with ordinality as t(e, n)
+  where not exists (
+    select 1 from public.email_deliveries d
+    where d.campaign_key = p_campaign_key and d.email = lower(t.e)
+  )
+  order by n
+$$;
+
+revoke all on function public.email_undelivered(text, text[]) from public, anon, authenticated;
+grant execute on function public.email_undelivered(text, text[]) to service_role;
+
+-- Sendable external contacts, for the server only.
+create or replace function public.email_contact_audience()
+returns table (email text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select c.email from public.email_contacts c
+  where public.email_contact_status(c.email) = 'activo'
+  order by c.created_at
+$$;
+
+revoke all on function public.email_contact_audience() from public, anon, authenticated;
+grant execute on function public.email_contact_audience() to service_role;
+
 -- ============================================================
 -- Profile counters (defined last: reads tables from every section)
 -- ============================================================

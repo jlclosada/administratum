@@ -3,6 +3,8 @@ import { isWarhammer40k, normalizeFactionName, puntosEjercito, puntosListaTotal 
 import { getSessionUser, supabase } from '@/lib/supabase';
 import type {
   EmailCampaign,
+  EmailContact,
+  EmailContactAddStatus,
   AppConfig,
   Army,
   ArmyList,
@@ -1305,6 +1307,27 @@ export async function getEmailCampaigns(limit = 30): Promise<EmailCampaign[]> {
     .limit(limit);
   if (error) return [];
   return mapRows<EmailCampaign>(data ?? []);
+}
+
+export async function getEmailContacts(): Promise<EmailContact[]> {
+  const { data, error } = await supabase.rpc('admin_email_contacts');
+  if (error) throw error;
+  return mapRows<EmailContact>(data ?? []);
+}
+
+/** Adds addresses (with their consent source); reports what happened to each. */
+export async function addEmailContacts(
+  emails: string[],
+  source: string,
+): Promise<{ email: string; status: EmailContactAddStatus }[]> {
+  const { data, error } = await supabase.rpc('admin_add_email_contacts', { p_emails: emails, p_source: source });
+  if (error) throw error;
+  return (data ?? []) as { email: string; status: EmailContactAddStatus }[];
+}
+
+export async function deleteEmailContact(email: string): Promise<void> {
+  const { error } = await supabase.from('email_contacts').delete().eq('email', email);
+  if (error) throw error;
 }
 
 /** Marks the signed-in user as active (drives the inactivity reminders). */
