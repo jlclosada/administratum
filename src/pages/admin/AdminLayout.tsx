@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   LayoutDashboard,
   Library,
+  Mail,
   MonitorPlay,
   Newspaper,
   ScrollText,
@@ -64,6 +65,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Plataforma",
     items: [
       { to: "/admin/publicidad", label: "Publicidad", icon: MonitorPlay, badge: (o) => o.ads_active },
+      { to: "/admin/correos", label: "Correos", icon: Mail },
       { to: "/admin/catalogo", label: "Catálogo y facciones", icon: Library },
       { to: "/admin/ajustes", label: "Ajustes", icon: Settings2 },
     ],

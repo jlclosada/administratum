@@ -69,6 +69,17 @@ export function PrivacidadPage() {
             — base legal: interés legítimo (art. 6.1.f RGPD) en mantener la
             aplicación funcionando correctamente.
           </li>
+          <li>
+            <strong className="text-foreground">
+              Enviarte novedades y recordatorios de {SITE_NAME} por correo
+            </strong>{" "}
+            (cambios de puntos, torneos, listas y algún recordatorio si llevas
+            tiempo sin entrar) — base legal: interés legítimo (art. 6.1.f RGPD) y
+            art. 21.2 de la LSSI, al ser comunicaciones sobre el propio servicio
+            que usas. Puedes negarte al registrarte, desactivarlas en Ajustes o
+            darte de baja con un clic desde cualquier correo. Para ello
+            registramos también la fecha de tu última visita.
+          </li>
         </List>
       </Section>
 

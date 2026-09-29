@@ -26,6 +26,7 @@ interface AuthState {
     email: string,
     password: string,
     displayName?: string,
+    emailUpdates?: boolean,
   ) => Promise<{ needsConfirmation: boolean }>;
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (displayName: string) => Promise<void>;
@@ -128,13 +129,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (error) throw error;
   },
 
-  signUp: async (email, password, displayName) => {
+  signUp: async (email, password, displayName, emailUpdates = true) => {
     set({ loading: true });
     try {
       // Called only after the user has checked "acepto los términos" in the
       // signup form, so this timestamp doubles as a record of that consent.
       const metadata: Record<string, string> = {
         terms_accepted_at: new Date().toISOString(),
+        // Read by handle_new_user() into profiles.email_updates.
+        email_updates: String(emailUpdates),
       };
       if (displayName) {
         metadata.display_name = displayName;

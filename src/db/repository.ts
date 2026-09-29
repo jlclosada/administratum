@@ -2,6 +2,7 @@ import { PAINT_CATALOG, PAINT_CATALOG_BY_ID } from '@/data/paints';
 import { isWarhammer40k, normalizeFactionName, puntosEjercito, puntosListaTotal } from '@/lib/mfm';
 import { getSessionUser, supabase } from '@/lib/supabase';
 import type {
+  EmailCampaign,
   AppConfig,
   Army,
   ArmyList,
@@ -187,6 +188,7 @@ export async function updateMyProfile(dto: UpdateProfileDTO): Promise<Profile> {
   if (dto.favoriteFaction !== undefined) payload.favorite_faction = dto.favoriteFaction;
   if (dto.website !== undefined) payload.website = dto.website;
   if (dto.links !== undefined) payload.links = dto.links;
+  if (dto.emailUpdates !== undefined) payload.email_updates = dto.emailUpdates;
 
   const { data, error } = await supabase
     .from('profiles')
@@ -1248,6 +1250,9 @@ const DEFAULT_APP_CONFIG: AppConfig = {
   announcement: '',
   announcementEnabled: false,
   signupsEnabled: true,
+  reengagementEnabled: false,
+  reengagementDays: 14,
+  reengagementCooldownDays: 30,
 };
 
 /**
@@ -1258,7 +1263,7 @@ export async function getAppConfig(): Promise<AppConfig> {
   try {
     const { data, error } = await supabase
       .from('app_config')
-      .select('announcement, announcement_enabled, signups_enabled')
+      .select('announcement, announcement_enabled, signups_enabled, reengagement_enabled, reengagement_days, reengagement_cooldown_days')
       .eq('id', 'global')
       .maybeSingle();
     if (error || !data) return DEFAULT_APP_CONFIG;
@@ -1275,9 +1280,36 @@ export async function updateAppConfig(config: AppConfig): Promise<void> {
     announcement: config.announcement,
     announcement_enabled: config.announcementEnabled,
     signups_enabled: config.signupsEnabled,
+    reengagement_enabled: config.reengagementEnabled,
+    reengagement_days: config.reengagementDays,
+    reengagement_cooldown_days: config.reengagementCooldownDays,
     updated_at: new Date().toISOString(),
   });
   if (error) throw error;
+}
+
+// ======================== EMAIL (ADMIN) ========================
+
+/** How many users would receive a campaign (admins only; no addresses). */
+export async function getEmailAudienceCount(inactiveDays: number | null): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_email_audience_count', { p_inactive_days: inactiveDays });
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
+export async function getEmailCampaigns(limit = 30): Promise<EmailCampaign[]> {
+  const { data, error } = await supabase
+    .from('email_campaigns')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return mapRows<EmailCampaign>(data ?? []);
+}
+
+/** Marks the signed-in user as active (drives the inactivity reminders). */
+export async function touchLastSeen(): Promise<void> {
+  await supabase.rpc('touch_last_seen');
 }
 
 // ======================== ARMY PRESETS (ADMIN) ========================

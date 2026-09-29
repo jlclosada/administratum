@@ -1,44 +1,14 @@
 import { AdminShell } from "@/components/shared/AdminShell";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { ToggleRow } from "@/components/shared/ToggleRow";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getAppConfig, updateAppConfig } from "@/db";
-import { cn } from "@/lib/utils";
 import type { AppConfig } from "@/types";
 import { Loader2, Megaphone, Save, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
-function Toggle({
-  checked,
-  onChange,
-  label,
-  description,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  description?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/40 p-4 text-left transition-colors hover:border-primary/30"
-    >
-      <div className="min-w-0">
-        <p className="text-sm font-medium">{label}</p>
-        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
-      </div>
-      <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", checked ? "bg-emerald-500" : "bg-muted")}>
-        <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", checked ? "left-[22px]" : "left-0.5")} />
-      </span>
-    </button>
-  );
-}
 
 export function AdminSettingsPage() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -93,7 +63,7 @@ export function AdminSettingsPage() {
                 rows={3}
               />
             </div>
-            <Toggle
+            <ToggleRow
               checked={config.announcementEnabled}
               onChange={(v) => setConfig({ ...config, announcementEnabled: v })}
               label="Mostrar anuncio"
@@ -112,7 +82,7 @@ export function AdminSettingsPage() {
             <h2 className="flex items-center gap-2 font-semibold">
               <UserPlus className="h-4 w-4 text-primary" /> Acceso
             </h2>
-            <Toggle
+            <ToggleRow
               checked={config.signupsEnabled}
               onChange={(v) => setConfig({ ...config, signupsEnabled: v })}
               label="Permitir nuevos registros"

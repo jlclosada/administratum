@@ -23,6 +23,8 @@ export interface Profile {
   website: string | null;
   links: ProfileLink[];
   role: UserRole;
+  /** Accepts news and reminder emails (only on the user's own profile). */
+  emailUpdates?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +38,8 @@ export interface ProfileLink {
 
 export interface UpdateProfileDTO {
   displayName?: string;
+  /** News and reminder emails (Ajustes). */
+  emailUpdates?: boolean;
   avatarUrl?: string | null;
   bio?: string;
   location?: string;
@@ -792,6 +796,24 @@ export interface AppConfig {
   announcement: string;
   announcementEnabled: boolean;
   signupsEnabled: boolean;
+  /** Daily "te echamos de menos" email to inactive users (Admin → Correos). */
+  reengagementEnabled: boolean;
+  reengagementDays: number;
+  reengagementCooldownDays: number;
+}
+
+/** A sent email campaign, as logged by /api/email. */
+export interface EmailCampaign {
+  id: string;
+  kind: 'manual' | 'automatic' | 'test';
+  template: string;
+  subject: string;
+  audience: string;
+  recipients: number;
+  sent: number;
+  failed: number;
+  error: string | null;
+  createdAt: string;
 }
 
 // ---------- Community: Articles (admin news) ----------
