@@ -88,7 +88,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-card/60 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <button
           type="button"
@@ -110,17 +110,18 @@ export function Navbar() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                title={item.label}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors xl:whitespace-nowrap",
                   active
                     ? "bg-brand-soft text-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
                 <item.icon
-                  className={cn("h-4 w-4", active && "text-primary")}
+                  className={cn("h-4 w-4 shrink-0", active && "text-primary")}
                 />
-                {item.label}
+                <span className="sr-only xl:not-sr-only">{item.label}</span>
               </NavLink>
             );
           })}
@@ -128,15 +129,16 @@ export function Navbar() {
           {isAdmin && (
             <NavLink
               to="/admin"
+              title="Admin"
               className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors xl:whitespace-nowrap",
                 isItemActive(location.pathname, "/admin")
                   ? "bg-brand-soft text-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
-              <ShieldCheck className="h-4 w-4" />
-              Admin
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              <span className="sr-only xl:not-sr-only">Admin</span>
             </NavLink>
           )}
         </nav>

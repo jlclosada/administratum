@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 
 /**
- * Lets a page place content at the top of the right side rail (above the
- * ads) on wide screens — e.g. the home page's "Miniatura del mes".
+ * Lets a page place content in the right side rail, under "Mi espacio", on
+ * wide screens.
  * `node` must be memoized by the caller: a fresh element on every render
  * would re-set layout state on every render and loop.
  */

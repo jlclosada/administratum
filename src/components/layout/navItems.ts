@@ -1,4 +1,18 @@
-import { ClipboardList, ImageIcon, LayoutDashboard, MessageCircle, Palette, Swords, UserPlus, UserRound } from "lucide-react";
+import {
+  Brush,
+  ClipboardList,
+  Download,
+  ImageIcon,
+  LayoutDashboard,
+  Library,
+  MessageCircle,
+  Palette,
+  Swords,
+  Trophy,
+  UserPlus,
+  UserRound,
+  Users,
+} from "lucide-react";
 
 /** The user's own hobby spaces — in the profile menu and the side rail. */
 export const collectionItems = [
@@ -23,9 +37,9 @@ export function isItemActive(pathname: string, to: string): boolean {
 
 /** Public sections a visitor can browse without an account (landing, footers). */
 export const exploreLinks = [
-  { to: "/catalogo-puntos", label: "Catálogo de puntos" },
-  { to: "/competitivo", label: "Competitivo" },
-  { to: "/comunidad", label: "Comunidad" },
-  { to: "/guias", label: "Guías de pintura" },
-  { to: "/descargas", label: "Descargas" },
+  { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
+  { to: "/competitivo", icon: Trophy, label: "Competitivo" },
+  { to: "/comunidad", icon: Users, label: "Comunidad" },
+  { to: "/guias", icon: Brush, label: "Guías de pintura" },
+  { to: "/descargas", icon: Download, label: "Descargas" },
 ];

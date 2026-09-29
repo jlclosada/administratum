@@ -14,13 +14,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const POSITION_LABEL: Record<AdPosition, string> = {
-  left: "Margen izquierdo",
-  right: "Margen derecho",
+  left: "Banner horizontal",
+  right: "Rectángulo",
 };
 
 const POSITION_HINT: Record<AdPosition, string> = {
-  left: "Recomendado 160 × 600 px. Visible en pantallas muy anchas.",
-  right: "Recomendado 300 × 250 o 300 × 600 px. Aparece bajo la miniatura del mes.",
+  left: "Recomendado 728 × 90 px. Se muestra centrado bajo los rectángulos.",
+  right: "Recomendado 300 × 250 px. Se muestran en fila; en móvil se deslizan.",
 };
 
 function normalizeUrl(raw: string): string | null {
@@ -115,7 +115,7 @@ export function AdminAdsPage() {
   }
 
   return (
-    <AdminShell title="Publicidad" subtitle="Anuncios en los márgenes laterales de la web">
+    <AdminShell title="Publicidad" subtitle="Anuncios en la franja sobre el pie de página">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export function AdminAdsPage() {
               disabled={uploading}
               className={cn(
                 "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:opacity-50",
-                position === "left" ? "h-48 w-20" : "h-40 w-40",
+                position === "left" ? "h-12 w-72 max-w-full" : "h-40 w-48",
               )}
               aria-label="Subir imagen del anuncio"
             >
@@ -172,7 +172,7 @@ export function AdminAdsPage() {
                 <Input id="ad-order" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
               </div>
               <p className="text-xs text-muted-foreground sm:col-span-2">
-                {POSITION_HINT[position]} En móvil los anuncios se muestran en una franja al final de la página.
+                {POSITION_HINT[position]}
               </p>
             </div>
           </div>
