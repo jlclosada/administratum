@@ -144,6 +144,7 @@ export function AuthPage({
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [accepted, setAccepted] = useState(false);
+  const [emailUpdates, setEmailUpdates] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [signupsEnabled, setSignupsEnabled] = useState(true);
@@ -193,7 +194,7 @@ export function AuthPage({
       if (!accepted) return setError("Debes aceptar los términos para continuar.");
 
       try {
-        const { needsConfirmation } = await signUp(email, password, name.trim());
+        const { needsConfirmation } = await signUp(email, password, name.trim(), emailUpdates);
         if (needsConfirmation) {
           setInfo(
             "¡Cuenta creada! Revisa tu correo y pulsa el enlace: entrarás directamente en tu cuenta.",
@@ -562,6 +563,19 @@ export function AuthPage({
                       política de privacidad
                     </Link>
                     .
+                  </span>
+                </label>
+              )}
+              {mode === "signup" && (
+                <label className="flex cursor-pointer items-start gap-2.5 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={emailUpdates}
+                    onChange={(e) => setEmailUpdates(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border accent-[hsl(var(--primary))]"
+                  />
+                  <span>
+                    Quiero recibir novedades y recordatorios por correo. Puedes darte de baja cuando quieras.
                   </span>
                 </label>
               )}

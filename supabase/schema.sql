@@ -344,7 +344,7 @@ as $$
 begin
   -- Email signups send display_name; Google sends full_name/name and a
   -- profile picture (avatar_url/picture).
-  insert into public.profiles (id, display_name, avatar_url)
+  insert into public.profiles (id, display_name, avatar_url, email_updates)
   values (
     new.id,
     coalesce(
@@ -353,7 +353,10 @@ begin
       nullif(new.raw_user_meta_data ->> 'name', ''),
       ''
     ),
-    coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture')
+    coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture'),
+    -- Sign-up form choice; Google sign-ups don't send it (they can opt out
+    -- in Ajustes or from any email).
+    coalesce((new.raw_user_meta_data ->> 'email_updates')::boolean, true)
   )
   on conflict (id) do nothing;
   return new;
@@ -1829,6 +1832,110 @@ begin
     alter publication supabase_realtime add table public.notifications;
   end if;
 end$$;
+
+-- ============================================================
+-- Email: preferences, activity, automations and campaign log
+-- ============================================================
+-- Emails are sent by the /api/email Vercel function with the service role
+-- key; nothing here lets a normal user read other people's addresses.
+alter table public.profiles add column if not exists email_updates boolean not null default true;
+alter table public.profiles add column if not exists last_seen_at timestamptz;
+alter table public.profiles add column if not exists last_reminder_at timestamptz;
+
+alter table public.app_config add column if not exists reengagement_enabled boolean not null default false;
+alter table public.app_config add column if not exists reengagement_days integer not null default 14;
+alter table public.app_config add column if not exists reengagement_cooldown_days integer not null default 30;
+
+-- The app calls this when a signed-in user opens it (throttled client-side).
+create or replace function public.touch_last_seen()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.profiles
+    set last_seen_at = now()
+    where id = auth.uid()
+      and (last_seen_at is null or last_seen_at < now() - interval '1 hour');
+$$;
+
+revoke all on function public.touch_last_seen() from public, anon;
+grant execute on function public.touch_last_seen() to authenticated;
+
+create table if not exists public.email_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('manual', 'automatic', 'test')),
+  template text not null,
+  subject text not null,
+  audience text not null default '',
+  recipients integer not null default 0,
+  sent integer not null default 0,
+  failed integer not null default 0,
+  error text,
+  created_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_email_campaigns_created on public.email_campaigns (created_at desc);
+
+alter table public.email_campaigns enable row level security;
+
+drop policy if exists "email_campaigns_read" on public.email_campaigns;
+-- Admins read the log; only the server (service role) writes it.
+create policy "email_campaigns_read" on public.email_campaigns
+  for select to authenticated using (public.is_admin());
+
+-- Who can receive an email: confirmed address, email_updates on, and
+-- optionally inactive for N days / not reminded in the last M days.
+create or replace function public.email_audience(
+  p_inactive_days integer default null,
+  p_cooldown_days integer default null
+)
+returns table (user_id uuid, email text, display_name text)
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select u.id, u.email::text, coalesce(p.display_name, '')
+  from auth.users u
+  join public.profiles p on p.id = u.id
+  where p.email_updates
+    and u.email is not null
+    and u.email_confirmed_at is not null
+    and (
+      p_inactive_days is null
+      or coalesce(p.last_seen_at, u.last_sign_in_at, u.created_at) < now() - make_interval(days => p_inactive_days)
+    )
+    and (
+      p_cooldown_days is null
+      or p.last_reminder_at is null
+      or p.last_reminder_at < now() - make_interval(days => p_cooldown_days)
+    )
+  order by u.created_at
+$$;
+
+revoke all on function public.email_audience(integer, integer) from public, anon, authenticated;
+grant execute on function public.email_audience(integer, integer) to service_role;
+
+-- Audience size for the admin panel (no addresses leave the database).
+create or replace function public.admin_email_audience_count(p_inactive_days integer default null)
+returns integer
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Solo administradores';
+  end if;
+  return (select count(*)::int from public.email_audience(p_inactive_days, null));
+end;
+$$;
+
+revoke all on function public.admin_email_audience_count(integer) from public, anon;
+grant execute on function public.admin_email_audience_count(integer) to authenticated;
 
 -- ============================================================
 -- Profile counters (defined last: reads tables from every section)

@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
+import { touchLastSeen } from "@/db";
 import { lazyRoute } from "@/lib/chunkReload";
 import { CONFIRM_PATH } from "@/lib/site";
 import { isPublicPath } from "@/lib/publicPaths";
@@ -97,6 +98,9 @@ const AdminCatalogPage = lazyRoute(() =>
   import("@/pages/admin/AdminCatalogPage").then((m) => ({
     default: m.AdminCatalogPage,
   })),
+);
+const AdminEmailPage = lazyRoute(() =>
+  import("@/pages/admin/AdminEmailPage").then((m) => ({ default: m.AdminEmailPage })),
 );
 const AdminSettingsPage = lazyRoute(() =>
   import("@/pages/admin/AdminSettingsPage").then((m) => ({
@@ -250,6 +254,22 @@ function FullScreenFallback() {
   );
 }
 
+/**
+ * Records that the user opened the app (at most every 6 hours), which drives
+ * the "te echamos de menos" reminder emails.
+ */
+function markActive(userId: string) {
+  const key = `last-seen:${userId}`;
+  try {
+    const last = Number(localStorage.getItem(key) ?? 0);
+    if (Date.now() - last < 6 * 3600_000) return;
+    localStorage.setItem(key, String(Date.now()));
+  } catch {
+    // Storage blocked: the server throttles to once an hour anyway.
+  }
+  touchLastSeen().catch(() => {});
+}
+
 /** /games/:gameId/armies/:armyId[/miniatures/:id] → /coleccion/:armyId[/miniaturas/:id] */
 function LegacyArmyRedirect() {
   const { armyId, miniatureId } = useParams();
@@ -337,6 +357,7 @@ function AnimatedRoutes({ guest = false }: { guest?: boolean }) {
                 <Route path="torneos" element={<AdminTournamentsPage />} />
                 <Route path="listas" element={<AdminListsPage />} />
                 <Route path="publicidad" element={<AdminAdsPage />} />
+                <Route path="correos" element={<AdminEmailPage />} />
                 <Route path="catalogo" element={<AdminCatalogPage />} />
                 <Route path="ajustes" element={<AdminSettingsPage />} />
                 <Route
@@ -393,6 +414,7 @@ function AppGate() {
   useEffect(() => {
     if (user) {
       fetchProfile();
+      markActive(user.id);
       startSocial(user.id);
       startNotifications(user.id, navigate);
     } else {

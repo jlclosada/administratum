@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const BIO_MAX_LENGTH = 280;
 const MAX_LINKS = 5;
@@ -105,6 +106,21 @@ export function SettingsPage() {
       .then(setFactions)
       .catch(() => setFactions([]));
   }, []);
+
+  // Email preferences (news and reminder emails)
+  const emailUpdates = profile?.emailUpdates !== false;
+  const [savingEmailPref, setSavingEmailPref] = useState(false);
+  async function toggleEmailUpdates() {
+    setSavingEmailPref(true);
+    try {
+      await updateProfileFields({ emailUpdates: !emailUpdates });
+      toast.success(emailUpdates ? "No te enviaremos más novedades por correo" : "Recibirás novedades por correo");
+    } catch {
+      toast.error("No se pudo guardar la preferencia.");
+    } finally {
+      setSavingEmailPref(false);
+    }
+  }
 
   // Email
   const [email, setEmail] = useState("");
@@ -530,6 +546,41 @@ export function SettingsPage() {
                 </Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Email preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Mail className="h-5 w-5 text-primary" />
+              Correos de Administratum
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={emailUpdates}
+              disabled={!profile || savingEmailPref}
+              onClick={toggleEmailUpdates}
+              className="flex w-full items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/40 p-4 text-left transition-colors hover:border-primary/30 disabled:opacity-60"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">Novedades y recordatorios</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Cambios de puntos, torneos, listas destacadas y algún recordatorio si llevas tiempo sin
+                  entrar. Los correos de tu cuenta (contraseña, seguridad) se envían siempre.
+                </span>
+              </span>
+              <span
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${emailUpdates ? "bg-emerald-500" : "bg-muted"}`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${emailUpdates ? "left-[22px]" : "left-0.5"}`}
+                />
+              </span>
+            </button>
           </CardContent>
         </Card>
 
