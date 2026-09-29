@@ -12,6 +12,3 @@ export function useMediaQuery(query: string): boolean {
     () => false,
   );
 }
-
-/** Matches the breakpoint where AppLayout shows its right side rail (Tailwind `xl`). */
-export const RIGHT_RAIL_QUERY = '(min-width: 1280px)';

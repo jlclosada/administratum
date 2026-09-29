@@ -10,7 +10,7 @@ import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { JoinRail } from "./JoinRail";
 import { ProfileRail } from "./ProfileRail";
-import { AdRail, MobileAdStrip } from "./SideRail";
+import { AdFooter } from "./SideRail";
 import { RightRailContext } from "./rightRail";
 
 export function AppLayout() {
@@ -34,16 +34,14 @@ export function AppLayout() {
       .catch(() => {});
   }, []);
 
+  const signedIn = useAuthStore((s) => !!s.user);
   // The admin area has its own side menu and no ads.
   const inAdmin = pathname.startsWith("/admin");
-  const shownAds = inAdmin ? [] : ads;
-  const leftAds = shownAds.filter((a) => a.position === "left");
-  const rightAds = shownAds.filter((a) => a.position === "right");
-  const hasLeft = leftAds.length > 0;
-  // Outside admin the right rail always carries "Mi espacio" (or, for
-  // guests, the invitation to join).
-  const hasRight = !inAdmin;
-  const signedIn = useAuthStore((s) => !!s.user);
+  // The signed-in home is a three-column social feed with its own margins.
+  const isHome = signedIn && pathname === "/";
+  // Elsewhere the right rail carries "Mi espacio" (or, for guests, the
+  // invitation to join) plus optional page content.
+  const hasRight = !inAdmin && !isHome;
 
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-background">
@@ -80,35 +78,16 @@ export function AppLayout() {
       </AnimatePresence>
 
       <RightRailContext.Provider value={setRightRailContent}>
-        {/* Side margins: left ads from 2xl; from xl the right rail holds the
-            "Mi espacio" shortcuts, optional page content and the right ads. */}
         <div
           className={cn(
             "mx-auto grid w-full flex-1 gap-8 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:px-8",
-            hasLeft || hasRight ? "max-w-[1760px]" : "max-w-7xl",
-            hasLeft && hasRight && "2xl:grid-cols-[160px_minmax(0,1fr)_300px]",
+            inAdmin ? "max-w-7xl" : "max-w-[1440px]",
             hasRight && "xl:grid-cols-[minmax(0,1fr)_300px]",
-            hasLeft && !hasRight && "2xl:grid-cols-[160px_minmax(0,1fr)]",
+            isHome && "sm:py-6",
           )}
         >
-          {hasLeft && (
-            <aside className="hidden 2xl:block" aria-label="Publicidad">
-              <div className="sticky top-24">
-                <AdRail ads={leftAds} />
-              </div>
-            </aside>
-          )}
-
           <main className="min-w-0">
             <Outlet />
-            <div className="xl:hidden">
-              <MobileAdStrip ads={shownAds} />
-            </div>
-            {hasLeft && (
-              <div className="hidden xl:block 2xl:hidden">
-                <MobileAdStrip ads={leftAds} />
-              </div>
-            )}
           </main>
 
           {hasRight && (
@@ -116,13 +95,13 @@ export function AppLayout() {
               <div className="sticky top-24 max-h-[calc(100vh-7rem)] space-y-6 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {signedIn ? <ProfileRail /> : <JoinRail />}
                 {rightRailContent}
-                <AdRail ads={rightAds} />
               </div>
             </aside>
           )}
         </div>
       </RightRailContext.Provider>
 
+      {!inAdmin && <AdFooter ads={ads} />}
       <Footer />
     </div>
   );

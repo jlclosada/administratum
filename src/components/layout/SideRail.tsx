@@ -35,7 +35,7 @@ export function AdSlot({
           loading="lazy"
           className={cn(
             "block transition-transform duration-500 group-hover:scale-[1.02]",
-            compact ? "h-[200px] w-auto max-w-[85vw] object-contain" : "h-auto w-full",
+            compact ? "h-[180px] w-auto max-w-[85vw] object-contain sm:h-[220px]" : "h-auto w-full",
           )}
         />
       </div>
@@ -43,32 +43,44 @@ export function AdSlot({
   );
 }
 
-/** Vertical stack of ads for a desktop side rail. */
-export function AdRail({ ads }: { ads: Ad[] }) {
-  if (ads.length === 0) return null;
-  return (
-    <div className="space-y-4">
-      {ads.map((ad) => (
-        <AdSlot key={ad.id} ad={ad} />
-      ))}
-    </div>
-  );
-}
-
 /**
- * Narrow screens have no side margins, so ads collect into one strip after
- * the page content: a horizontal, swipeable row that never pushes the
- * page wider than the viewport.
+ * Advertising lives in one band above the site footer, never in the side
+ * margins: rectangles ("right" ads) in a swipeable row, wide banners ("left"
+ * ads) centred below it. Neither can push the page wider than the viewport.
  */
-export function MobileAdStrip({ ads }: { ads: Ad[] }) {
+export function AdFooter({ ads }: { ads: Ad[] }) {
   if (ads.length === 0) return null;
+  const rectangles = ads.filter((a) => a.position === "right");
+  const banners = ads.filter((a) => a.position === "left");
   return (
-    <div className="mt-10 border-t border-border/40 pt-4">
-      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6">
-        {ads.map((ad) => (
-          <AdSlot key={ad.id} ad={ad} compact className="shrink-0 snap-start" />
+    <section aria-label="Publicidad" className="border-t border-border/40 bg-card/20">
+      <div className="mx-auto max-w-[1440px] space-y-4 px-4 py-6 sm:px-6 lg:px-8">
+        {rectangles.length > 0 && (
+          <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none] md:justify-center [&::-webkit-scrollbar]:hidden">
+            {rectangles.map((ad) => (
+              <AdSlot key={ad.id} ad={ad} compact className="shrink-0 snap-start" />
+            ))}
+          </div>
+        )}
+        {banners.map((ad) => (
+          <a
+            key={ad.id}
+            href={ad.url}
+            target="_blank"
+            rel="sponsored noopener noreferrer"
+            title={ad.title || undefined}
+            className="group mx-auto block w-fit max-w-full"
+          >
+            <AdLabel />
+            <img
+              src={ad.image}
+              alt={ad.title || "Anuncio"}
+              loading="lazy"
+              className="block max-h-[120px] w-auto max-w-full rounded-xl border border-border/50 object-contain transition-colors group-hover:border-primary/40"
+            />
+          </a>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
