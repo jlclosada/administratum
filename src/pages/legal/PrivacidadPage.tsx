@@ -80,6 +80,17 @@ export function PrivacidadPage() {
             darte de baja con un clic desde cualquier correo. Para ello
             registramos también la fecha de tu última visita.
           </li>
+          <li>
+            <strong className="text-foreground">
+              Enviar información de {SITE_NAME} a personas sin cuenta
+            </strong>{" "}
+            que lo han pedido expresamente (por ejemplo, al inscribirse en un torneo
+            o en un club) — base legal: consentimiento (art. 6.1.a RGPD y art. 21.1
+            LSSI). Solo guardamos la dirección de correo, cómo y cuándo se dio el
+            consentimiento y, si te das de baja, que no quieres recibir más correos,
+            para no volver a escribirte. Puedes darte de baja con un clic desde
+            cualquier correo o escribiendo a {CONTACT_EMAIL}.
+          </li>
         </List>
       </Section>
 
@@ -140,8 +151,8 @@ export function PrivacidadPage() {
           </li>
           <li>
             <strong className="text-foreground">Resend</strong> (envío de los correos
-            de la cuenta: confirmación, recuperación de contraseña, cambio de correo y
-            avisos de seguridad). Recibe tu dirección de correo y el contenido del
+            de la cuenta —confirmación, recuperación de contraseña, cambio de correo y
+            avisos de seguridad— y de las novedades descritas en la sección 3). Recibe tu dirección de correo y el contenido del
             mensaje únicamente para entregarlo. Empresa con sede en Estados Unidos;
             la transferencia internacional está amparada por cláusulas contractuales
             tipo aprobadas por la Comisión Europea.

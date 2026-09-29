@@ -14,7 +14,7 @@
 // Self-contained on purpose: Vercel compiles each function file on its own.
 // The look mirrors scripts/email/templates.mjs (the Supabase Auth emails).
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const SITE = 'https://administratum.site';
 const ASSETS = `${SITE}/email`;
@@ -77,14 +77,29 @@ export function signUser(userId: string, secret = unsubSecret()): string {
   return createHmac('sha256', secret).update(`unsubscribe:${userId}`).digest('base64url');
 }
 
+const safeEqual = (a: string, b: string) => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+
 export function verifyUser(userId: string, signature: string, secret = unsubSecret()): boolean {
-  const expected = Buffer.from(signUser(userId, secret));
-  const given = Buffer.from(signature);
-  return expected.length === given.length && timingSafeEqual(expected, given);
+  return safeEqual(signUser(userId, secret), signature);
 }
 
-const unsubscribeUrl = (userId: string) =>
-  `${SITE}/api/email?action=unsubscribe&u=${encodeURIComponent(userId)}&t=${signUser(userId)}`;
+/** External contacts have no user id: their link signs the address instead. */
+export function signEmail(email: string, secret = unsubSecret()): string {
+  return createHmac('sha256', secret).update(`unsubscribe-email:${email.toLowerCase()}`).digest('base64url');
+}
+
+export function verifyEmail(email: string, signature: string, secret = unsubSecret()): boolean {
+  return safeEqual(signEmail(email, secret), signature);
+}
+
+const unsubscribeUrl = (r: Recipient) =>
+  r.external
+    ? `${SITE}/api/email?action=unsubscribe&e=${encodeURIComponent(r.email.toLowerCase())}&t=${signEmail(r.email)}`
+    : `${SITE}/api/email?action=unsubscribe&u=${encodeURIComponent(r.id)}&t=${signUser(r.id)}`;
 
 // ---------------------------------------------------------------------------
 // Content for the emails (public data)
@@ -305,7 +320,15 @@ function signature(closing: string) {
 </table>`;
 }
 
-function layout(o: { subject: string; preheader: string; eyebrow: string; title: string; body: string; unsubscribe: string }) {
+function layout(o: {
+  subject: string;
+  preheader: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  unsubscribe: string;
+  external?: boolean;
+}) {
   const footerLink = (href: string, label: string) =>
     `<a href="${href}" style="color:${C.muted};text-decoration:none;">${label}</a>`;
   return `<!doctype html>
@@ -350,8 +373,13 @@ function layout(o: { subject: string; preheader: string; eyebrow: string; title:
             ${footerLink(SITE, 'Inicio')}&nbsp;&nbsp;·&nbsp;&nbsp;${footerLink(`${SITE}/comunidad`, 'Comunidad')}&nbsp;&nbsp;·&nbsp;&nbsp;${footerLink(`${SITE}/competitivo`, 'Competitivo')}&nbsp;&nbsp;·&nbsp;&nbsp;${footerLink(`${SITE}/catalogo-puntos`, 'Puntos')}
           </p>
           <p style="margin:0 0 10px;font-size:12px;line-height:1.7;color:${C.faint};">
-            Recibes este correo porque tienes una cuenta en Administratum y aceptas novedades por correo.<br>
-            <a href="${o.unsubscribe}" style="color:${C.muted};">Darme de baja</a> · también puedes desactivarlo en Ajustes.
+            ${
+              o.external
+                ? `Recibes este correo porque aceptaste recibir novedades de Administratum.<br>
+            <a href="${o.unsubscribe}" style="color:${C.muted};">Darme de baja</a> y no volver a recibir ninguno.`
+                : `Recibes este correo porque tienes una cuenta en Administratum y aceptas novedades por correo.<br>
+            <a href="${o.unsubscribe}" style="color:${C.muted};">Darme de baja</a> · también puedes desactivarlo en Ajustes.`
+            }
           </p>
           <p style="margin:0;font-size:11px;line-height:1.7;color:#4a4a52;">
             © ${new Date().getFullYear()} Administratum · Proyecto independiente, sin afiliación con Games Workshop.<br>
@@ -448,9 +476,12 @@ export interface TemplateOptions {
 }
 
 export interface Recipient {
+  /** Profile id; empty for external contacts. */
   id: string;
   email: string;
   name: string;
+  /** Not a user: an address added by an admin in "Contactos externos". */
+  external?: boolean;
 }
 
 export function defaultSubject(o: TemplateOptions): string {
@@ -468,7 +499,7 @@ export function defaultSubject(o: TemplateOptions): string {
 
 export function renderEmail(o: TemplateOptions, r: Recipient, digest: Digest): { subject: string; html: string } {
   const subject = o.subject?.trim() || defaultSubject(o);
-  const unsubscribe = unsubscribeUrl(r.id);
+  const unsubscribe = unsubscribeUrl(r);
   const hasNews = digest.points.length + digest.tournaments.length + digest.lists.length + digest.articles.length > 0;
   let eyebrow: string;
   let title: string;
@@ -482,7 +513,7 @@ export function renderEmail(o: TemplateOptions, r: Recipient, digest: Digest): {
       p(
         `${strong('Administratum')} reúne todo lo que necesitas para Warhammer 40K: tu colección, los puntos oficiales siempre al día, listas, torneos, guías de pintura y una comunidad con la que compartirlo. Gratis y en español.`,
       ),
-      button(SITE, 'Entrar en Administratum'),
+      r.external ? button(`${SITE}/?registro=1`, 'Crear mi cuenta gratis') : button(SITE, 'Entrar en Administratum'),
       ...(['coleccion', 'puntos', 'listas', 'torneos', 'guias', 'comunidad'] as FeatureKey[]).map((k, i) => {
         const f = FEATURES[k];
         return `
@@ -494,7 +525,7 @@ export function renderEmail(o: TemplateOptions, r: Recipient, digest: Digest): {
   </td></tr>
 </table>`;
       }),
-      button(SITE, 'Empezar ahora'),
+      button(r.external ? `${SITE}/?registro=1` : SITE, 'Empezar ahora'),
       signature('Nos vemos en la mesa de juego,'),
     ].join('\n');
   } else if (o.template === 'destacado') {
@@ -541,7 +572,7 @@ export function renderEmail(o: TemplateOptions, r: Recipient, digest: Digest): {
     ].join('\n');
   }
 
-  return { subject, html: layout({ subject, preheader: title, eyebrow, title, body, unsubscribe }) };
+  return { subject, html: layout({ subject, preheader: title, eyebrow, title, body, unsubscribe, external: r.external }) };
 }
 
 // ---------------------------------------------------------------------------
@@ -552,6 +583,7 @@ async function sendBatch(o: TemplateOptions, recipients: Recipient[], digest: Di
   let sent = 0;
   const errors: string[] = [];
   const sentIds: string[] = [];
+  const sentEmails: string[] = [];
   for (let i = 0; i < recipients.length; i += 100) {
     const chunk = recipients.slice(i, i + 100);
     const payload = chunk.map((r) => {
@@ -563,7 +595,7 @@ async function sendBatch(o: TemplateOptions, recipients: Recipient[], digest: Di
         subject,
         html,
         headers: {
-          'List-Unsubscribe': `<${unsubscribeUrl(r.id)}>, <mailto:${CONTACT}?subject=Baja>`,
+          'List-Unsubscribe': `<${unsubscribeUrl(r)}>, <mailto:${CONTACT}?subject=Baja>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       };
@@ -575,12 +607,13 @@ async function sendBatch(o: TemplateOptions, recipients: Recipient[], digest: Di
     });
     if (res.ok) {
       sent += chunk.length;
-      sentIds.push(...chunk.map((r) => r.id));
+      sentIds.push(...chunk.flatMap((r) => (r.external ? [] : [r.id])));
+      sentEmails.push(...chunk.map((r) => r.email.toLowerCase()));
     } else {
       errors.push(`${res.status} ${(await res.text()).slice(0, 300)}`);
     }
   }
-  return { sent, failed: recipients.length - sent, sentIds, error: errors.join(' | ') || null };
+  return { sent, failed: recipients.length - sent, sentIds, sentEmails, error: errors.join(' | ') || null };
 }
 
 async function audience(inactiveDays: number | null, cooldownDays: number | null): Promise<Recipient[]> {
@@ -589,6 +622,37 @@ async function audience(inactiveDays: number | null, cooldownDays: number | null
     body: { p_inactive_days: inactiveDays, p_cooldown_days: cooldownDays },
   });
   return rows.map((r) => ({ id: r.user_id, email: r.email, name: r.display_name ?? '' }));
+}
+
+async function contactAudience(): Promise<Recipient[]> {
+  const rows: Row[] = await rest('/rest/v1/rpc/email_contact_audience', { method: 'POST', body: {} });
+  return rows.map((r) => ({ id: '', email: r.email, name: '', external: true }));
+}
+
+/** Same template, feature and subject = same campaign, for delivery tracking. */
+export function campaignKey(o: TemplateOptions): string {
+  const subject = (o.subject?.trim() || defaultSubject(o)).toLowerCase();
+  const template = o.template === 'destacado' ? `destacado:${o.feature ?? 'puntos'}` : o.template;
+  return createHash('sha256').update(`${template}|${subject}`).digest('hex').slice(0, 32);
+}
+
+async function undelivered(key: string, recipients: Recipient[]): Promise<Recipient[]> {
+  if (recipients.length === 0) return [];
+  const rows: Row[] = await rest('/rest/v1/rpc/email_undelivered', {
+    method: 'POST',
+    body: { p_campaign_key: key, p_emails: recipients.map((r) => r.email.toLowerCase()) },
+  });
+  const pending = new Set(rows.map((r) => String(r.email).toLowerCase()));
+  return recipients.filter((r) => pending.has(r.email.toLowerCase()));
+}
+
+async function recordDeliveries(key: string, emails: string[]) {
+  if (emails.length === 0) return;
+  await rest('/rest/v1/email_deliveries?on_conflict=campaign_key,email', {
+    method: 'POST',
+    body: emails.map((email) => ({ campaign_key: key, email })),
+    prefer: 'resolution=ignore-duplicates,return=minimal',
+  });
 }
 
 async function logCampaign(entry: Row) {
@@ -635,9 +699,11 @@ async function runReminders(createdBy: string | null) {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-function unsubscribePage(ok: boolean) {
+function unsubscribePage(ok: boolean, external = false) {
   const [heading, text] = ok
-    ? ['Te has dado de baja', 'No te enviaremos más correos de novedades ni recordatorios. Puedes volver a activarlos cuando quieras en Ajustes.']
+    ? external
+      ? ['Te has dado de baja', 'No volveremos a enviarte ningún correo de Administratum.']
+      : ['Te has dado de baja', 'No te enviaremos más correos de novedades ni recordatorios. Puedes volver a activarlos cuando quieras en Ajustes.']
     : ['Enlace no válido', 'No hemos podido procesar la baja con este enlace. Desactiva los correos en Ajustes o escríbenos a hola@administratum.site.'];
   return new Response(
     `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${heading} · Administratum</title></head>
@@ -650,8 +716,20 @@ function unsubscribePage(ok: boolean) {
 }
 
 async function handleUnsubscribe(url: URL, method: string): Promise<Response> {
-  const u = url.searchParams.get('u') ?? '';
   const t = url.searchParams.get('t') ?? '';
+  const e = (url.searchParams.get('e') ?? '').toLowerCase();
+  if (e) {
+    const ok = e.includes('@') && e.length <= 254 && verifyEmail(e, t);
+    if (ok) {
+      await rest('/rest/v1/email_suppressions?on_conflict=email', {
+        method: 'POST',
+        body: { email: e },
+        prefer: 'resolution=ignore-duplicates,return=minimal',
+      });
+    }
+    return method === 'POST' ? new Response(ok ? 'OK' : 'Invalid', { status: ok ? 200 : 400 }) : unsubscribePage(ok, true);
+  }
+  const u = url.searchParams.get('u') ?? '';
   const ok = /^[0-9a-f-]{36}$/i.test(u) && verifyUser(u, t);
   if (ok) {
     await rest(`/rest/v1/profiles?id=eq.${u}`, {
@@ -694,7 +772,9 @@ export async function POST(req: Request): Promise<Response> {
     template?: TemplateKey;
     feature?: FeatureKey;
     subject?: string;
-    audience?: { type: 'all' | 'inactive'; days?: number };
+    audience?: { type: 'all' | 'inactive' | 'contacts'; days?: number };
+    /** Preview/test as an external contact sees it. */
+    external?: boolean;
   };
   const templates: TemplateKey[] = ['presentacion', 'destacado', 'novedades', 'recordatorio'];
   const o: TemplateOptions = {
@@ -709,11 +789,17 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     if (body.action === 'preview') {
-      const { subject, html } = renderEmail(o, { ...admin, name: await myName() }, await loadDigest());
+      const me: Recipient = body.external
+        ? { id: '', email: admin.email, name: '', external: true }
+        : { ...admin, name: await myName() };
+      const { subject, html } = renderEmail(o, me, await loadDigest());
       return json({ subject, html });
     }
     if (body.action === 'test') {
-      const result = await sendBatch(o, [{ ...admin, name: await myName() }], await loadDigest());
+      const me: Recipient = body.external
+        ? { id: '', email: admin.email, name: '', external: true }
+        : { ...admin, name: await myName() };
+      const result = await sendBatch(o, [me], await loadDigest());
       await logCampaign({
         kind: 'test',
         template: o.template,
@@ -728,17 +814,24 @@ export async function POST(req: Request): Promise<Response> {
       return result.sent ? json({ sent: 1 }) : json({ error: result.error ?? 'No se pudo enviar' }, 502);
     }
     if (body.action === 'send') {
+      const contacts = body.audience?.type === 'contacts';
+      if (contacts && o.template === 'recordatorio') {
+        return json({ error: 'El recordatorio es solo para usuarios registrados.' }, 400);
+      }
       const inactive = body.audience?.type === 'inactive' ? Math.max(1, Number(body.audience.days) || 14) : null;
-      const all = await audience(inactive, null);
-      const recipients = all.slice(0, SEND_LIMIT);
+      const all = contacts ? await contactAudience() : await audience(inactive, null);
+      const key = campaignKey(o);
+      const pending = await undelivered(key, all);
+      const recipients = pending.slice(0, SEND_LIMIT);
       const result = recipients.length
         ? await sendBatch(o, recipients, await loadDigest())
-        : { sent: 0, failed: 0, sentIds: [] as string[], error: null };
+        : { sent: 0, failed: 0, sentIds: [] as string[], sentEmails: [] as string[], error: null };
+      await recordDeliveries(key, result.sentEmails);
       await logCampaign({
         kind: 'manual',
         template: o.template === 'destacado' ? `destacado:${o.feature}` : o.template,
         subject: o.subject || defaultSubject(o),
-        audience: inactive ? `Inactivos ≥ ${inactive} días` : 'Todos los suscritos',
+        audience: contacts ? 'Contactos externos' : inactive ? `Inactivos ≥ ${inactive} días` : 'Todos los suscritos',
         recipients: all.length,
         sent: result.sent,
         failed: result.failed,
@@ -748,8 +841,10 @@ export async function POST(req: Request): Promise<Response> {
       return json({
         sent: result.sent,
         recipients: all.length,
+        already: all.length - pending.length,
+        remaining: pending.length - result.sent,
         failed: result.failed,
-        limited: all.length > recipients.length,
+        limited: pending.length > recipients.length,
         error: result.error,
       });
     }

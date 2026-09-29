@@ -12,10 +12,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getAppConfig, getEmailAudienceCount, getEmailCampaigns, updateAppConfig } from "@/db";
+import { getAppConfig, getEmailAudienceCount, getEmailCampaigns, getEmailContacts, updateAppConfig } from "@/db";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import type { AppConfig, EmailCampaign } from "@/types";
+import type { AppConfig, EmailCampaign, EmailContact } from "@/types";
 import {
   BellRing,
   History,
@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { EmailContactsPanel } from "./EmailContactsPanel";
 
 type TemplateKey = "presentacion" | "destacado" | "novedades" | "recordatorio";
 type FeatureKey = "puntos" | "torneos" | "listas" | "comunidad" | "guias" | "coleccion";
@@ -86,7 +87,9 @@ export function AdminEmailPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
 
-  const [audienceType, setAudienceType] = useState<"all" | "inactive">("all");
+  const [audienceType, setAudienceType] = useState<"all" | "inactive" | "contacts">("all");
+  const [contacts, setContacts] = useState<EmailContact[] | null>(null);
+  const external = audienceType === "contacts";
   const [inactiveDays, setInactiveDays] = useState(14);
   const [counts, setCounts] = useState<{ all: number | null; inactive: number | null }>({ all: null, inactive: null });
 
@@ -98,14 +101,22 @@ export function AdminEmailPage() {
   const [campaigns, setCampaigns] = useState<EmailCampaign[] | null>(null);
 
   const loadCampaigns = useCallback(() => getEmailCampaigns().then(setCampaigns), []);
+  const loadContacts = useCallback(
+    () =>
+      getEmailContacts()
+        .then(setContacts)
+        .catch(() => setContacts([])),
+    [],
+  );
 
   useEffect(() => {
     getAppConfig().then(setConfig);
     loadCampaigns();
+    loadContacts();
     getEmailAudienceCount(null)
       .then((all) => setCounts((c) => ({ ...c, all })))
       .catch(() => setCounts((c) => ({ ...c, all: null })));
-  }, [loadCampaigns]);
+  }, [loadCampaigns, loadContacts]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -121,21 +132,30 @@ export function AdminEmailPage() {
     let cancelled = false;
     setPreviewLoading(true);
     setPreviewError(null);
-    emailApi<{ subject: string; html: string }>({ action: "preview", template, feature })
+    emailApi<{ subject: string; html: string }>({ action: "preview", template, feature, external })
       .then((p) => !cancelled && setPreview(p))
       .catch((err: Error) => !cancelled && setPreviewError(err.message))
       .finally(() => !cancelled && setPreviewLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [template, feature]);
+  }, [template, feature, external]);
 
-  const recipients = audienceType === "all" ? counts.all : counts.inactive;
+  const contactCount = contacts ? contacts.filter((c) => c.status === "activo").length : null;
+  const recipients = external ? contactCount : audienceType === "all" ? counts.all : counts.inactive;
+  const recipientNoun = external ? (recipients === 1 ? "contacto" : "contactos") : recipients === 1 ? "usuario" : "usuarios";
+
+  function chooseAudience(type: typeof audienceType) {
+    setAudienceType(type);
+    // The reminder only makes sense for people who have an account.
+    if (type === "contacts" && template === "recordatorio") setTemplate("presentacion");
+  }
   const payload = {
     template,
     feature,
     subject: subject.trim() || undefined,
     audience: { type: audienceType, days: inactiveDays },
+    external,
   };
 
   async function sendTest() {
@@ -155,18 +175,27 @@ export function AdminEmailPage() {
     setConfirmOpen(false);
     setBusy("send");
     try {
-      const r = await emailApi<{ sent: number; recipients: number; failed: number; limited: boolean }>({
-        action: "send",
-        ...payload,
-      });
-      if (r.limited) {
+      const r = await emailApi<{
+        sent: number;
+        recipients: number;
+        already: number;
+        remaining: number;
+        failed: number;
+        limited: boolean;
+      }>({ action: "send", ...payload });
+      const noun = external ? "contactos" : "usuarios";
+      if (r.sent === 0 && r.already > 0 && !r.failed) {
+        toast.info(`Todos los ${noun} ya habían recibido esta campaña.`);
+      } else if (r.limited) {
         toast.warning(
-          `Enviados ${r.sent} de ${r.recipients}. El resto no se ha enviado por el límite diario; vuelve a enviar mañana a los que falten.`,
+          `Enviados ${r.sent}; quedan ${r.remaining} por el límite diario. Mañana vuelve a enviar la misma campaña (mismo asunto) y solo les llegará a ellos.`,
         );
       } else if (r.failed) {
         toast.warning(`Enviados ${r.sent}, fallaron ${r.failed}. Revisa el historial.`);
       } else {
-        toast.success(`Campaña enviada a ${r.sent} usuarios.`);
+        toast.success(
+          `Campaña enviada a ${r.sent} ${noun}.${r.already ? ` ${r.already} ya la habían recibido y se han omitido.` : ""}`,
+        );
       }
       loadCampaigns();
     } catch (err) {
@@ -219,8 +248,10 @@ export function AdminEmailPage() {
                   key={t.key}
                   type="button"
                   onClick={() => setTemplate(t.key)}
+                  disabled={external && t.key === "recordatorio"}
+                  title={external && t.key === "recordatorio" ? "Solo para usuarios registrados" : undefined}
                   className={cn(
-                    "flex items-start gap-3 rounded-xl border p-3 text-left transition-colors",
+                    "flex items-start gap-3 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40",
                     template === t.key
                       ? "border-primary/60 bg-brand-soft"
                       : "border-border/60 hover:border-primary/30 hover:bg-accent/40",
@@ -281,7 +312,7 @@ export function AdminEmailPage() {
                 )}
               >
                 <span className="flex items-center gap-2.5">
-                  <input type="radio" checked={audienceType === "all"} onChange={() => setAudienceType("all")} className="accent-[hsl(var(--primary))]" />
+                  <input type="radio" checked={audienceType === "all"} onChange={() => chooseAudience("all")} className="accent-[hsl(var(--primary))]" />
                   Todos los que aceptan correos
                 </span>
                 <span className="font-mono text-xs text-muted-foreground">{counts.all ?? "—"}</span>
@@ -293,7 +324,7 @@ export function AdminEmailPage() {
                 )}
               >
                 <span className="flex flex-wrap items-center gap-2.5">
-                  <input type="radio" checked={audienceType === "inactive"} onChange={() => setAudienceType("inactive")} className="accent-[hsl(var(--primary))]" />
+                  <input type="radio" checked={audienceType === "inactive"} onChange={() => chooseAudience("inactive")} className="accent-[hsl(var(--primary))]" />
                   Sin entrar desde hace más de
                   <Input
                     type="number"
@@ -306,6 +337,21 @@ export function AdminEmailPage() {
                   días
                 </span>
                 <span className="font-mono text-xs text-muted-foreground">{counts.inactive ?? "—"}</span>
+              </label>
+              <label
+                className={cn(
+                  "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm",
+                  external ? "border-primary/60 bg-brand-soft" : "border-border/60",
+                )}
+              >
+                <span className="flex items-center gap-2.5">
+                  <input type="radio" checked={external} onChange={() => chooseAudience("contacts")} className="accent-[hsl(var(--primary))]" />
+                  <span>
+                    Contactos externos
+                    <span className="block text-xs text-muted-foreground">Personas sin cuenta que aceptaron recibir correos</span>
+                  </span>
+                </span>
+                <span className="font-mono text-xs text-muted-foreground">{contactCount ?? "—"}</span>
               </label>
             </div>
           </div>
@@ -322,13 +368,15 @@ export function AdminEmailPage() {
               disabled={busy !== null || !recipients}
             >
               {busy === "send" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Enviar a {recipients ?? 0} usuarios
+              Enviar a {recipients ?? 0} {recipientNoun}
             </Button>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Solo reciben correos los usuarios con el correo confirmado que no se han dado de baja; cada correo lleva
-            un enlace para darse de baja con un clic. El plan gratuito de Resend permite unos 100 correos al día: si la
-            audiencia es mayor, se envía a los primeros y el resto al día siguiente.
+            {external
+              ? "Solo reciben el correo los contactos activos: quien se dio de baja o ya tiene cuenta queda fuera. Cada correo lleva un enlace para darse de baja con un clic y sus botones invitan a crear una cuenta."
+              : "Solo reciben correos los usuarios con el correo confirmado que no se han dado de baja; cada correo lleva un enlace para darse de baja con un clic."} Nadie recibe dos veces la misma campaña
+            (misma plantilla y asunto). El plan gratuito de Resend permite unos 100 correos al día: si la audiencia es
+            mayor, se envía a los primeros y, al repetir el envío otro día, solo a los que faltan.
           </p>
         </section>
 
@@ -385,6 +433,8 @@ export function AdminEmailPage() {
             )}
           </div>
         </section>
+
+        <EmailContactsPanel contacts={contacts} onChange={loadContacts} />
 
         {/* ---------- Automation ---------- */}
         <section className="space-y-4 rounded-2xl border border-border/60 bg-card/30 p-5">
@@ -481,7 +531,8 @@ export function AdminEmailPage() {
           <DialogHeader>
             <DialogTitle>¿Enviar la campaña?</DialogTitle>
             <DialogDescription>
-              Se enviará «{subject.trim() || preview?.subject}» a {recipients ?? 0} usuarios. No se puede deshacer.
+              Se enviará «{subject.trim() || preview?.subject}» a {recipients ?? 0} {recipientNoun}. No se puede
+              deshacer.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
