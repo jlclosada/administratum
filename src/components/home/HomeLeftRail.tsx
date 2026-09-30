@@ -1,6 +1,7 @@
 import { collectionItems, exploreLinks, isItemActive } from "@/components/layout/navItems";
 import { UserAvatar } from "@/components/shared/UserAvatar";
 import { getProfileStats } from "@/db";
+import { profileCompletion } from "@/lib/profileCompletion";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore, useSocialStore } from "@/stores";
 import type { ProfileStats } from "@/types";
@@ -57,6 +58,7 @@ export function HomeLeftRail({ children }: { children?: ReactNode }) {
     (user?.user_metadata?.full_name as string | undefined) ||
     "Tu perfil";
   const subtitle = [profile?.favoriteFaction, profile?.location].filter(Boolean).join(" · ");
+  const completion = profile ? profileCompletion(profile) : null;
 
   return (
     <div className="space-y-5">
@@ -86,6 +88,23 @@ export function HomeLeftRail({ children }: { children?: ReactNode }) {
               </div>
             ))}
           </dl>
+          {completion && completion.percent < 100 && (
+            <Link
+              to="/settings"
+              className="mt-3 block rounded-xl border border-primary/30 bg-brand-soft px-3 py-2.5 transition-colors hover:border-primary/60"
+            >
+              <span className="flex items-center justify-between text-xs">
+                <span className="font-medium">Completa tu perfil</span>
+                <span className="font-mono tabular-nums text-primary">{completion.percent}%</span>
+              </span>
+              <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-muted">
+                <span className="block h-full rounded-full bg-brand-gradient" style={{ width: `${completion.percent}%` }} />
+              </span>
+              <span className="mt-1.5 block truncate text-[11px] text-muted-foreground">
+                Falta: {completion.missing.map((m) => m.label.toLowerCase()).join(", ")}
+              </span>
+            </Link>
+          )}
         </div>
       </section>
 

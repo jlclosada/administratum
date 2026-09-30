@@ -378,6 +378,21 @@ on conflict (id) do nothing;
 -- Instagram-style extra links: [{ "label": "...", "url": "https://..." }].
 alter table public.profiles add column if not exists links jsonb not null default '[]'::jsonb;
 
+-- When the user finished (or skipped) the welcome wizard; null = show it on
+-- their next visit. The first time this runs, everyone who already has an
+-- account is marked as onboarded so only new sign-ups see the wizard.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'onboarded_at'
+  ) then
+    alter table public.profiles add column onboarded_at timestamptz;
+    update public.profiles set onboarded_at = created_at;
+  end if;
+end;
+$$;
+
 -- ============================================================
 -- Roles: superadmin (fixed by email, untouchable) + promotable admins
 -- ============================================================

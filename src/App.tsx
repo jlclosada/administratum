@@ -32,6 +32,9 @@ const LandingPage = lazyRoute(() =>
 const AuthPage = lazyRoute(() =>
   import("@/pages/AuthPage").then((m) => ({ default: m.AuthPage })),
 );
+const OnboardingPage = lazyRoute(() =>
+  import("@/pages/OnboardingPage").then((m) => ({ default: m.OnboardingPage })),
+);
 const AuthCallbackPage = lazyRoute(() =>
   import("@/pages/AuthCallbackPage").then((m) => ({
     default: m.AuthCallbackPage,
@@ -384,7 +387,7 @@ function AppGate() {
     openAuth,
     closeAuth,
   } = useAuthStore();
-  const { fetchProfile, clear: clearProfile } = useProfileStore();
+  const { fetchProfile, clear: clearProfile, profile, fetched: profileFetched } = useProfileStore();
   const { start: startSocial, stop: stopSocial } = useSocialStore();
   const { start: startNotifications, stop: stopNotifications } =
     useNotificationStore();
@@ -473,6 +476,24 @@ function AppGate() {
     return (
       <>
         {screen}
+        {toaster}
+      </>
+    );
+  }
+
+  // Signed in: wait for the profile before deciding whether this is a
+  // brand-new account that still has to go through the welcome wizard.
+  if (!profileFetched) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner size="lg" text="Cargando..." />
+      </div>
+    );
+  }
+  if (profile && !profile.onboardedAt) {
+    return (
+      <>
+        <OnboardingPage />
         {toaster}
       </>
     );

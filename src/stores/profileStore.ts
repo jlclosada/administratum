@@ -5,6 +5,7 @@ import { create } from 'zustand';
 interface ProfileState {
   profile: Profile | null;
   loading: boolean;
+  /** The first load has finished (successfully or not). */
   fetched: boolean;
   fetchProfile: () => Promise<void>;
   updateProfile: (dto: UpdateProfileDTO) => Promise<void>;
@@ -20,12 +21,14 @@ export const useProfileStore = create<ProfileState>((set) => ({
     set({ loading: true });
     try {
       const profile = await getMyProfile();
-      set({ profile, fetched: true });
+      set({ profile });
     } catch {
       // Network hiccup at startup: the app works without the profile row
       // (name falls back to auth metadata); it loads again on the next visit.
     } finally {
-      set({ loading: false });
+      // `fetched` = the attempt finished, even if it failed: the app gate
+      // waits for it before deciding whether to show the welcome wizard.
+      set({ loading: false, fetched: true });
     }
   },
 
