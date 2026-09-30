@@ -25,6 +25,8 @@ export interface Profile {
   role: UserRole;
   /** Accepts news and reminder emails (only on the user's own profile). */
   emailUpdates?: boolean;
+  /** Finished or skipped the welcome wizard; null for a brand-new account. */
+  onboardedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +48,8 @@ export interface UpdateProfileDTO {
   favoriteFaction?: string | null;
   website?: string | null;
   links?: ProfileLink[];
+  /** Marks the welcome wizard as done. */
+  onboarded?: boolean;
 }
 
 export interface ProfileStats {

@@ -191,6 +191,7 @@ export async function updateMyProfile(dto: UpdateProfileDTO): Promise<Profile> {
   if (dto.website !== undefined) payload.website = dto.website;
   if (dto.links !== undefined) payload.links = dto.links;
   if (dto.emailUpdates !== undefined) payload.email_updates = dto.emailUpdates;
+  if (dto.onboarded) payload.onboarded_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('profiles')
