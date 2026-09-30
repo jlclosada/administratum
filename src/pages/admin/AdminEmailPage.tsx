@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { EmailContactsPanel } from "./EmailContactsPanel";
+import { AddContactsForm, EmailContactsPanel } from "./EmailContactsPanel";
 
 type TemplateKey = "presentacion" | "destacado" | "novedades" | "recordatorio";
 type FeatureKey = "puntos" | "torneos" | "listas" | "comunidad" | "guias" | "coleccion";
@@ -79,7 +79,7 @@ const formatDate = (iso: string) =>
   new Date(iso).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function AdminEmailPage() {
-  const [template, setTemplate] = useState<TemplateKey>("novedades");
+  const [template, setTemplate] = useState<TemplateKey>("presentacion");
   const [feature, setFeature] = useState<FeatureKey>("puntos");
   const [subject, setSubject] = useState("");
   const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null);
@@ -87,7 +87,7 @@ export function AdminEmailPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
 
-  const [audienceType, setAudienceType] = useState<"all" | "inactive" | "contacts">("all");
+  const [audienceType, setAudienceType] = useState<"all" | "inactive" | "contacts">("contacts");
   const [contacts, setContacts] = useState<EmailContact[] | null>(null);
   const external = audienceType === "contacts";
   const [inactiveDays, setInactiveDays] = useState(14);
@@ -308,6 +308,34 @@ export function AdminEmailPage() {
               <label
                 className={cn(
                   "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm",
+                  external ? "border-primary/60 bg-brand-soft" : "border-border/60",
+                )}
+              >
+                <span className="flex items-center gap-2.5">
+                  <input type="radio" checked={external} onChange={() => chooseAudience("contacts")} className="accent-[hsl(var(--primary))]" />
+                  <span>
+                    Direcciones sin cuenta (contactos externos)
+                    <span className="block text-xs text-muted-foreground">
+                      Personas que aún no se han registrado y aceptaron recibir correos
+                    </span>
+                  </span>
+                </span>
+                <span className="font-mono text-xs text-muted-foreground">{contactCount ?? "—"}</span>
+              </label>
+              {external && (
+                <div className="space-y-3 rounded-xl border border-primary/30 bg-background/40 p-4">
+                  <p className="text-sm font-medium">Añadir destinatarios</p>
+                  <AddContactsForm onAdded={loadContacts} />
+                  {contacts && contacts.length > 0 && (
+                    <a href="#contactos-externos" className="block text-xs text-primary hover:underline">
+                      Ver los {contacts.length} contactos guardados
+                    </a>
+                  )}
+                </div>
+              )}
+              <label
+                className={cn(
+                  "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm",
                   audienceType === "all" ? "border-primary/60 bg-brand-soft" : "border-border/60",
                 )}
               >
@@ -337,21 +365,6 @@ export function AdminEmailPage() {
                   días
                 </span>
                 <span className="font-mono text-xs text-muted-foreground">{counts.inactive ?? "—"}</span>
-              </label>
-              <label
-                className={cn(
-                  "flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 text-sm",
-                  external ? "border-primary/60 bg-brand-soft" : "border-border/60",
-                )}
-              >
-                <span className="flex items-center gap-2.5">
-                  <input type="radio" checked={external} onChange={() => chooseAudience("contacts")} className="accent-[hsl(var(--primary))]" />
-                  <span>
-                    Contactos externos
-                    <span className="block text-xs text-muted-foreground">Personas sin cuenta que aceptaron recibir correos</span>
-                  </span>
-                </span>
-                <span className="font-mono text-xs text-muted-foreground">{contactCount ?? "—"}</span>
               </label>
             </div>
           </div>
