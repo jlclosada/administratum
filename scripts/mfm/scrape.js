@@ -19,7 +19,8 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export async function scrapeAll({ onProgress } = {}) {
+/** Scrapes every faction. `saveCache` writes the result to .cache/ (not on Vercel: read-only disk). */
+export async function scrapeAll({ onProgress, saveCache = false } = {}) {
   const indexHtml = await fetchText(`${BASE}/en`);
   const index = parseIndex(indexHtml);
   const known = new Set(index.factions.map((f) => f.name.toLowerCase()));
@@ -48,8 +49,10 @@ export async function scrapeAll({ onProgress } = {}) {
     factions: factions.sort((a, b) => a.name.localeCompare(b.name)),
   };
 
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(CACHE_PATH, JSON.stringify(payload, null, 2), "utf8");
+  if (saveCache) {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(CACHE_PATH, JSON.stringify(payload, null, 2), "utf8");
+  }
   return payload;
 }
 
@@ -65,6 +68,7 @@ export async function loadCache() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const data = await scrapeAll({
     onProgress: ({ current, total, name }) => console.log(`[${current}/${total}] ${name}`),
+    saveCache: true,
   });
   console.log(`Guardado ${data.factionCount} ejércitos (MFM v${data.version}) → ${CACHE_PATH}`);
 }

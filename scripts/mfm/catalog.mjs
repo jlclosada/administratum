@@ -38,6 +38,26 @@ export function flattenCatalog(scraped) {
   return units;
 }
 
+/**
+ * JSON with object keys sorted. Postgres jsonb does not keep key order, so a
+ * plain JSON.stringify of a stored row never matches a freshly scraped one.
+ */
+export function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .filter((k) => value[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(value[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+export function sameJson(a, b) {
+  return canonicalJson(a) === canonicalJson(b);
+}
+
 export function catalogKey(unit) {
   return `${unit.gameName}\0${unit.factionSlug}\0${unit.name}`;
 }

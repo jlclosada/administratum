@@ -107,5 +107,10 @@
       "path": "/api/email?action=cron",
       "schedule": "0 9 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/mfm-sync.ts": {
+      "maxDuration": 300
+    }
+  }
 }

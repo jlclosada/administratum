@@ -2,7 +2,10 @@ name: Sync MFM catalog
 
 on:
   schedule:
-    - cron: "0 5 * * *"
+    # Every 4 hours (minute 17: GitHub delays jobs queued on the hour), so a
+    # new Munitorum Field Manual shows up the same day. Only real changes are
+    # written, so most runs are a no-op.
+    - cron: "17 */4 * * *"
   workflow_dispatch:
 
 jobs:
