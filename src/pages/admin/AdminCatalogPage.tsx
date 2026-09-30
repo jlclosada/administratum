@@ -9,13 +9,13 @@ import {
   createArmyPreset,
   deleteArmyPreset,
   getArmyPresets,
+  getCatalogVersion,
   getUnitCatalogCount,
-  upsertFactionCatalog,
-  upsertUnitCatalog,
 } from "@/db";
 import { pickFiles, uploadFile } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import type { ArmyPreset, FactionCatalogEntry, UnitCatalogEntry } from "@/types";
+import type { ArmyPreset } from "@/types";
 import { AnimatePresence, motion } from "framer-motion";
 import { ImageIcon, Loader2, Plus, RefreshCw, Shield, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -33,10 +33,13 @@ export function AdminCatalogPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [creatingFaction, setCreatingFaction] = useState(false);
   const [catalogCount, setCatalogCount] = useState<number | null>(null);
+  const [catalogVersion, setCatalogVersion] = useState<string | null>(null);
   const [syncingCatalog, setSyncingCatalog] = useState(false);
+  const [lastChanges, setLastChanges] = useState<string[] | null>(null);
 
   useEffect(() => {
     getUnitCatalogCount().then(setCatalogCount);
+    getCatalogVersion().then(setCatalogVersion);
   }, []);
 
   // ---- Faction management ----
@@ -90,30 +93,31 @@ export function AdminCatalogPage() {
     }
   }
 
+  /** Reads the official MFM now (api/mfm-sync.ts) instead of waiting for the daily run. */
   async function handleSyncCatalog() {
     setSyncingCatalog(true);
+    setLastChanges(null);
     try {
-      const res = await fetch("/data/mfm-catalog.json");
-      if (!res.ok) throw new Error("No se pudo leer el catálogo MFM");
-      const file = (await res.json()) as {
-        version?: string;
-        unitCount?: number;
-        units: Omit<UnitCatalogEntry, "id" | "createdAt" | "updatedAt">[];
-        factions?: Omit<FactionCatalogEntry, "id" | "createdAt" | "updatedAt">[];
-      };
-      if (!file.units?.length) throw new Error("El catálogo está vacío");
-      await upsertUnitCatalog(file.units);
-      if (file.factions?.length) await upsertFactionCatalog(file.factions);
-      const n = await getUnitCatalogCount();
-      setCatalogCount(n);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch("/api/mfm-sync", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+      });
+      const r = await res.json().catch(() => ({ error: `Error ${res.status}` }));
+      if (!res.ok) throw new Error(r.error ?? `Error ${res.status}`);
+      setCatalogCount(await getUnitCatalogCount());
+      setCatalogVersion(r.version ?? null);
+      setLastChanges(r.changes ?? []);
       toast.success(
-        `Catálogo sincronizado: ${n} unidades${file.factions?.length ? `, ${file.factions.length} facciones` : ""} (MFM ${file.version ?? ""})`,
+        r.repriced || r.added
+          ? `MFM v${r.version}: ${r.repriced} unidades con puntos nuevos, ${r.added} nuevas, ${r.miniaturesUpdated} miniaturas de usuarios actualizadas.`
+          : `MFM v${r.version}: todo estaba al día.`,
       );
     } catch (err) {
       console.error("Failed to sync catalog:", err);
-      toast.error(
-        "No se pudo sincronizar. Ejecuta supabase/unit_catalog.sql en Supabase y vuelve a intentar.",
-      );
+      toast.error(`No se pudo sincronizar: ${(err as Error).message}`);
     } finally {
       setSyncingCatalog(false);
     }
@@ -139,21 +143,34 @@ export function AdminCatalogPage() {
             <RefreshCw className="h-4 w-4 text-primary" /> Catálogo Munitorum (Warhammer 40,000)
           </h2>
           <p className="max-w-xl text-sm text-muted-foreground">
-            Un cron relee el Munitorum Field Manual cada día y actualiza puntos del catálogo y de las miniaturas
-            enlazadas. Puedes forzar una sincronización manual desde el fichero incluido.
+            Cada pocas horas se relee el Munitorum Field Manual oficial y se actualizan los puntos del catálogo y de
+            las miniaturas enlazadas. Si acaba de salir una actualización, pulsa «Sincronizar ahora» (tarda cerca de
+            un minuto).
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-4">
           <div className="text-right">
             <p className="font-display text-2xl font-black tabular-nums">{catalogCount ?? "—"}</p>
-            <p className="text-xs text-muted-foreground">unidades</p>
+            <p className="text-xs text-muted-foreground">
+              unidades{catalogVersion ? ` · MFM v${catalogVersion}` : ""}
+            </p>
           </div>
           <Button onClick={handleSyncCatalog} disabled={syncingCatalog} className="gap-2">
             <RefreshCw className={cn("h-4 w-4", syncingCatalog && "animate-spin")} />
-            {syncingCatalog ? "Sincronizando…" : "Sincronizar"}
+            {syncingCatalog ? "Sincronizando…" : "Sincronizar ahora"}
           </Button>
         </div>
       </section>
+      {lastChanges && lastChanges.length > 0 && (
+        <section className="rounded-2xl border border-border/60 bg-card/30 p-5">
+          <h3 className="mb-2 text-sm font-semibold">Cambios aplicados</h3>
+          <ul className="max-h-64 space-y-1 overflow-y-auto font-mono text-xs text-muted-foreground">
+            {lastChanges.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="space-y-5 rounded-2xl border border-border/60 bg-card/30 p-5">
         <div>

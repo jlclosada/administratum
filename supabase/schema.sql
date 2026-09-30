@@ -935,6 +935,14 @@ alter table public.catalog_updates add column if not exists points_before intege
 alter table public.catalog_updates add column if not exists points_after integer;
 alter table public.catalog_updates add column if not exists points_delta integer;
 
+-- One-off cleanup (safe to re-run): until 30 Sep 2026 the MFM sync compared
+-- stored jsonb with freshly scraped JSON as text, so every run logged every
+-- unit as "changed" without any points delta. None of those rows is real.
+delete from public.catalog_updates
+  where type = 'points'
+    and points_delta is null
+    and occurred_at < '2026-10-01';
+
 alter table public.catalog_updates enable row level security;
 
 drop policy if exists "catalog_updates_read" on public.catalog_updates;
