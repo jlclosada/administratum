@@ -11,4 +11,12 @@ describe('vercel.json', () => {
     expect(fromVercelApp.map((r) => r.source)).toEqual(expect.arrayContaining(['/', '/:path+']));
     expect(fromVercelApp.every((r) => r.permanent && r.destination.startsWith('https://administratum.site/'))).toBe(true);
   });
+
+  it('prerenders the home page: "/" goes to api/render and the SPA shell is app.html on Vercel', async () => {
+    const pkg = (await import('../package.json')).default as { scripts: Record<string, string> };
+    expect(config.rewrites[0]).toEqual({ source: '/', destination: '/api/render?path=/' });
+    expect(config.rewrites.at(-1)?.destination).toBe('/app.html');
+    expect(config.rewrites.some((r) => r.source === '/catalogo-puntos/:slug/:unit')).toBe(true);
+    expect(pkg.scripts.build).toContain('scripts/vercel-postbuild.mjs');
+  });
 });

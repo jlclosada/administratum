@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { CommunityListCard } from "@/components/community/CommunityListCard";
 import { getCommunityListsByFaction, getFactionCatalog, getFactionUnits, getUnitCatalog } from "@/db";
 import { factionSpanishName } from "@/lib/factionNames";
-import { SEO_CATALOG, seoFaction } from "@/lib/seoCopy";
+import { SEO_CATALOG, seoFaction, unitSlug } from "@/lib/seoCopy";
 import { cn } from "@/lib/utils";
 import type {
   CommunityList,
@@ -436,7 +436,7 @@ function DetachmentRow({ detachment }: { detachment: Detachment }) {
   );
 }
 
-function UnitRow({ unit }: { unit: UnitCatalogEntry }) {
+function UnitRow({ unit, factionSlug }: { unit: UnitCatalogEntry; factionSlug: string }) {
   return (
     <div
       className={cn(
@@ -446,7 +446,12 @@ function UnitRow({ unit }: { unit: UnitCatalogEntry }) {
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-medium leading-tight">{unit.name}</p>
+          <Link
+            to={`/catalogo-puntos/${factionSlug}/${unitSlug(unit.name)}`}
+            className="font-medium leading-tight underline-offset-4 hover:text-primary hover:underline"
+          >
+            {unit.name}
+          </Link>
           {unit.legends && (
             <Badge variant="outline" className="shrink-0 text-[10px]">
               Legends
@@ -708,7 +713,7 @@ export function PointsCatalogFactionPage() {
                   )}
                   <div>
                     {list.map((unit) => (
-                      <UnitRow key={unit.id} unit={unit} />
+                      <UnitRow key={unit.id} unit={unit} factionSlug={factionSlug ?? ""} />
                     ))}
                   </div>
                 </div>

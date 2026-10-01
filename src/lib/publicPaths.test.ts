@@ -6,6 +6,7 @@ describe('isPublicPath', () => {
     for (const p of [
       '/catalogo-puntos',
       '/catalogo-puntos/thousand-sons',
+      '/catalogo-puntos/thousand-sons/rubric-marines',
       '/guias',
       '/guias/0b6f',
       '/articulos/9a1c',

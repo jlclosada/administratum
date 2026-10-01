@@ -3,6 +3,7 @@ import * as server from '../api/render';
 import { inject, pricingText, renderPath, richText, summarize, type Query } from '../api/render';
 import { FACTION_ES } from '../src/lib/factionNames';
 import * as app from '../src/lib/seoCopy';
+import * as sitemap from '../api/sitemap';
 
 // ?raw: import.meta.url isn't a file URL under happy-dom.
 import template from '../index.html?raw';
@@ -137,5 +138,82 @@ describe('tournament Event data', () => {
     expect(closed.organizer).toBeUndefined();
     const full = server.tournamentJsonLd({ ...base, max_players: 2, attendee_count: 2 }, url);
     expect(full.offers).toMatchObject({ availability: 'https://schema.org/SoldOut' });
+  });
+});
+
+describe('unit pages and home', () => {
+  const units = [
+    {
+      name: 'Sorcerer In Terminator Armour', category: 'character', faction_slug: 'thousand-sons', faction_name: 'Thousand Sons', legends: false, mfm_version: '1.5', updated_at: '2026-09-30T10:00:00Z',
+      pricing: [
+        { label: 'Your 1st To 2nd Units Cost', costs: [{ models: 1, points: 110 }] },
+        { label: 'Your 3rd + Unit Costs', costs: [{ models: 1, points: 120 }] },
+      ],
+      wargear: [{ item: 'Familiar', points: 5 }], leader_to: ['Scarab Occult Terminators'], support_to: [],
+    },
+    { name: 'Scarab Occult Terminators', category: 'squad', faction_slug: 'thousand-sons', faction_name: 'Thousand Sons', legends: false, mfm_version: '1.5', pricing: [{ label: 'Your Unit Costs', costs: [{ models: 5, points: 200 }] }], leader_to: [] },
+    { name: 'Tactical Squad', category: 'squad', faction_slug: 'thousand-sons', faction_name: 'Thousand Sons', legends: false, mfm_version: '1.4', pricing: [{ label: '', costs: [{ models: 10, points: 140 }] }], leader_to: [] },
+  ];
+  const data: Record<string, Record<string, unknown>[]> = {
+    faction_catalog: [{ faction_slug: 'thousand-sons', faction_name: 'Thousand Sons', mfm_version: '1.5', image: null }],
+    unit_catalog: units,
+    catalog_updates: [{ title: 'Sorcerer In Terminator Armour - Thousand Sons', description: '+10 pts (100 → 110, 1 miniatura)', link: '/catalogo-puntos/thousand-sons', occurred_at: '2026-09-30T10:00:00Z', points_delta: 10 }],
+    tournaments: [{ id: '33333333-3333-4333-8333-333333333333', name: 'GT Talavera', location: 'Talavera', start_date: '2026-10-30' }],
+  };
+  const dq: Query = async (table, query) => {
+    const rows = data[table] ?? [];
+    const m = query.match(/faction_slug=eq\.([^&]+)/);
+    return m ? rows.filter((r) => r.faction_slug === decodeURIComponent(m[1])) : rows;
+  };
+
+  it('keeps unit slugs and SEO copy identical in the app, the server and the sitemap', () => {
+    for (const n of ["Sorcerer In Terminator Armour", "Lord Of Change", "T'au Commander", "Ætherstorm Café"]) {
+      expect(server.unitSlug(n)).toBe(app.unitSlug(n));
+      expect(sitemap.unitSlug(n)).toBe(app.unitSlug(n));
+    }
+    expect(app.unitSlug("Sorcerer In Terminator Armour")).toBe('sorcerer-in-terminator-armour');
+    expect(app.unitSlug("T'au Commander")).toBe('tau-commander');
+    const cost = app.baseCost(units[0].pricing);
+    expect(cost).toEqual({ models: 1, points: 110 });
+    expect(server.seoUnit('Sorcerer In Terminator Armour', 'thousand-sons', 'Thousand Sons', cost)).toEqual(
+      app.seoUnit('Sorcerer In Terminator Armour', 'thousand-sons', 'Thousand Sons', cost),
+    );
+  });
+
+  it('renders a unit page with costs, leaders, history and links', async () => {
+    const page = (await renderPath('/catalogo-puntos/thousand-sons/sorcerer-in-terminator-armour', dq))!;
+    expect(page.status).toBe(200);
+    expect(page.title).toBe('Puntos de Sorcerer In Terminator Armour (Mil Hijos) · Warhammer 40K');
+    expect(page.body).toContain('<h1>Puntos de Sorcerer In Terminator Armour</h1>');
+    expect(page.body).toContain('Cuesta 110 puntos por 1 miniatura');
+    expect(page.body).toContain('<td>Desde la 3.ª copia</td><td>1 miniatura</td><td>120 pts</td>');
+    expect(page.body).toContain('Familiar: +5 pts');
+    expect(page.body).toContain('<a href="/catalogo-puntos/thousand-sons/scarab-occult-terminators">Scarab Occult Terminators</a>');
+    expect(page.body).toContain('+10 pts (100 → 110, 1 miniatura)');
+    expect(page.breadcrumbs?.map(([, p]) => p)).toEqual(['/catalogo-puntos', '/catalogo-puntos/thousand-sons', '/catalogo-puntos/thousand-sons/sorcerer-in-terminator-armour']);
+
+    const led = (await renderPath('/catalogo-puntos/thousand-sons/scarab-occult-terminators', dq))!;
+    expect(led.body).toContain('Personajes que pueden liderar esta unidad');
+    const retired = (await renderPath('/catalogo-puntos/thousand-sons/tactical-squad', dq))!;
+    expect(retired.body).toContain('ya no aparece en el Munitorum Field Manual 1.5');
+    expect((await renderPath('/catalogo-puntos/thousand-sons/nope', dq))?.status).toBe(404);
+  });
+
+  it('links every unit from the faction page', async () => {
+    const page = (await renderPath('/catalogo-puntos/thousand-sons', dq))!;
+    expect(page.body).toContain('<a href="/catalogo-puntos/thousand-sons/sorcerer-in-terminator-armour">Sorcerer In Terminator Armour</a>');
+  });
+
+  it('renders a home page Google can read', async () => {
+    const page = (await renderPath('/', dq))!;
+    expect(page.status).toBe(200);
+    expect(page.body).toContain('<h1>Warhammer 40K en español</h1>');
+    expect(page.body).toContain('<a href="/catalogo-puntos/thousand-sons">Puntos de Mil Hijos (Thousand Sons)</a>');
+    expect(page.body).toContain('<a href="/catalogo-puntos/thousand-sons/sorcerer-in-terminator-armour">Sorcerer In Terminator Armour - Thousand Sons</a>');
+    expect(page.body).toContain('GT Talavera');
+    expect(page.jsonLd?.map((n) => n['@type'])).toEqual(['WebApplication', 'FAQPage']);
+    const html = inject(template, page);
+    expect(html).toContain(`<title>${server.SEO_HOME_TITLE}</title>`);
+    expect(html).toContain('<link rel="canonical" href="https://administratum.site/" />');
   });
 });

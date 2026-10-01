@@ -22,4 +22,23 @@ describe('sitemap', () => {
     expect(xml.match(/<url>/g)).toHaveLength(1);
     expect(xml).toContain('&amp;c=2');
   });
+
+  it('lists every unit page, paging through the API limit', async () => {
+    const calls: string[] = [];
+    const entries = await collectEntries(async (table, query) => {
+      if (table !== 'unit_catalog') return [];
+      calls.push(query);
+      const offset = Number(query.match(/offset=(\d+)/)?.[1] ?? 0);
+      const total = 1400;
+      return Array.from({ length: Math.max(0, Math.min(1000, total - offset)) }, (_, i) => ({
+        faction_slug: 'thousand-sons',
+        name: i === 0 && offset === 0 ? 'Sorcerer In Terminator Armour' : `Unit ${offset + i}`,
+        updated_at: '2026-09-30T10:00:00Z',
+      }));
+    });
+    expect(calls).toHaveLength(2);
+    const units = entries.filter((e) => e.path.split('/').length === 4);
+    expect(units).toHaveLength(1400);
+    expect(units[0].path).toBe('/catalogo-puntos/thousand-sons/sorcerer-in-terminator-armour');
+  });
 });

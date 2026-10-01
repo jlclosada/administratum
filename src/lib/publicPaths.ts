@@ -6,7 +6,7 @@
 const PUBLIC_PATHS = [
   /^\/articulos\/(?!nuevo$)[^/]+$/,
   /^\/guias(\/(?!nueva$)[^/]+)?$/,
-  /^\/catalogo-puntos(\/[^/]+)?$/,
+  /^\/catalogo-puntos(\/[^/]+){0,2}$/,
   /^\/descargas$/,
   /^\/competitivo(\/(listas|torneos)\/[^/]+)?$/,
   /^\/comunidad(\/listas\/[^/]+)?$/,

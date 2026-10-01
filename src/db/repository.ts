@@ -1528,6 +1528,20 @@ export async function getDownloads(gameName?: string): Promise<DownloadEntry[]> 
  * crons — powers the "Últimos updates" section on the home page.
  * Degrades to an empty list if the `catalog_updates` table does not exist yet.
  */
+/** Real points changes of one unit (catalog_updates title is "Name - Faction"), newest first. */
+export async function getUnitPointsHistory(unitName: string, factionName: string): Promise<CatalogUpdate[]> {
+  const { data, error } = await supabase
+    .from('catalog_updates')
+    .select('*')
+    .eq('type', 'points')
+    .eq('title', `${unitName} - ${factionName}`)
+    .not('points_delta', 'is', null)
+    .order('occurred_at', { ascending: false })
+    .limit(20);
+  if (error || !data) return [];
+  return mapRows<CatalogUpdate>(data);
+}
+
 export async function getRecentUpdates(
   gameName?: string,
   limit = 8,
