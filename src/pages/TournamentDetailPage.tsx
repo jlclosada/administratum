@@ -1,5 +1,6 @@
 import { Seo } from "@/components/shared/Seo";
 import { seoTournamentTitle } from "@/lib/seoCopy";
+import { normalizeUrl } from "@/lib/profileLinks";
 import { metaDescription } from "@/lib/site";
 import { Attendance } from "@/components/competitive/Attendance";
 import { FeaturedListCard, StatusPill } from "@/components/competitive/cards";
@@ -26,9 +27,11 @@ import type { CommunityList, FeaturedList, Profile, Tournament } from "@/types";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  Building2,
   CalendarDays,
   ExternalLink,
   FileText,
+  Lock,
   MapPin,
   Pencil,
   Plus,
@@ -134,6 +137,8 @@ export function TournamentDetailPage() {
 
   const t = tournament;
   const countdown = countdownLabel(t);
+  // Older rows may hold free text in the link field; only real URLs become a button.
+  const signUpUrl = t.externalLink ? normalizeUrl(t.externalLink) : null;
   const facts = [
     {
       icon: <CalendarDays className="h-4 w-4" />,
@@ -157,10 +162,17 @@ export function TournamentDetailPage() {
         ? `${t.attendeeCount} / ${t.maxPlayers}`
         : t.attendeeCount,
     },
-    t.entryFee && {
+    (t.entryFee || t.registrationClosed) && {
       icon: <Ticket className="h-4 w-4" />,
       label: "Inscripción",
-      value: t.entryFee,
+      value: [t.entryFee && (/^\d+([.,]\d+)?$/.test(t.entryFee.trim()) ? `${t.entryFee.trim()} €` : t.entryFee), t.registrationClosed && "cerrada"]
+        .filter(Boolean)
+        .join(" · "),
+    },
+    t.organizer && {
+      icon: <Building2 className="h-4 w-4" />,
+      label: "Organiza",
+      value: t.organizer,
     },
   ].filter(Boolean) as { icon: ReactNode; label: string; value: ReactNode }[];
 
@@ -231,9 +243,13 @@ export function TournamentDetailPage() {
             {t.description && (
               <p className="mt-4 max-w-2xl text-white/75">{t.description}</p>
             )}
-            {t.externalLink && (
+            {t.registrationClosed && t.status !== "finished" ? (
+              <span className="mt-6 inline-flex w-fit items-center gap-2 rounded-full border border-white/25 bg-black/40 px-5 py-2.5 text-sm font-semibold text-white/80 backdrop-blur">
+                <Lock className="h-4 w-4" /> Inscripción cerrada
+              </span>
+            ) : signUpUrl && (
               <a
-                href={t.externalLink}
+                href={signUpUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-shadow hover:shadow-[0_0_40px_rgba(255,255,255,0.35)]"

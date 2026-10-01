@@ -1864,6 +1864,8 @@ export async function createTournament(dto: CreateTournamentDTO): Promise<Tourna
       points_limit: dto.pointsLimit ?? null,
       max_players: dto.maxPlayers ?? null,
       entry_fee: dto.entryFee ?? null,
+      organizer: dto.organizer ?? null,
+      registration_closed: dto.registrationClosed ?? false,
     })
     .select()
     .single();
@@ -1893,6 +1895,8 @@ export async function updateTournament(dto: UpdateTournamentDTO): Promise<Tourna
   if (dto.pointsLimit !== undefined) payload.points_limit = dto.pointsLimit;
   if (dto.maxPlayers !== undefined) payload.max_players = dto.maxPlayers;
   if (dto.entryFee !== undefined) payload.entry_fee = dto.entryFee;
+  if (dto.organizer !== undefined) payload.organizer = dto.organizer;
+  if (dto.registrationClosed !== undefined) payload.registration_closed = dto.registrationClosed;
 
   const { data, error } = await supabase
     .from('tournaments')

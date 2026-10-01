@@ -1057,6 +1057,20 @@ alter table public.tournaments add column if not exists points_limit integer;
 alter table public.tournaments add column if not exists max_players integer;
 alter table public.tournaments add column if not exists entry_fee text;
 
+-- Who runs the tournament (club, shop, association) and whether sign-ups
+-- are closed. Both feed the page and Google's Event data (organizer, offers).
+alter table public.tournaments add column if not exists organizer text;
+alter table public.tournaments add column if not exists registration_closed boolean not null default false;
+
+-- external_link must be a URL. Notes typed there by hand ("Inscripción
+-- cerrada") become the flag; bare domains get https://. Safe to re-run.
+update public.tournaments
+  set registration_closed = true, external_link = null
+  where external_link is not null and external_link !~* '^https?://' and external_link ilike '%cerrad%';
+update public.tournaments
+  set external_link = 'https://' || external_link
+  where external_link is not null and external_link !~* '^https?://' and external_link ~ '^[^\s/]+\.[a-z]{2,}(/\S*)?$';
+
 -- ============================================================
 -- Competitive: featured lists (admin-curated showcase army lists)
 -- ============================================================

@@ -515,12 +515,64 @@ async function competitivo(q: Query): Promise<Page> {
   };
 }
 
+/** "85", "20 €", "12,50€" → number; "Gratis" → 0; anything else → null. */
+export function parseEntryFee(fee: string | null | undefined): number | null {
+  const t = String(fee ?? '').trim().toLowerCase();
+  if (!t) return null;
+  if (/^(gratis|gratuit[oa]|libre|free)\b/.test(t)) return 0;
+  const m = t.match(/^(?:€\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:€|eur|euros?)?$/);
+  return m ? Number(m[1].replace(',', '.')) : null;
+}
+
+const httpUrl = (v: unknown): string | null => {
+  const t = String(v ?? '').trim();
+  return /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(t) ? t : null;
+};
+
+/** schema.org Event for a tournament page (Google event rich results). */
+export function tournamentJsonLd(t: Row, url: string): Row {
+  const signUp = httpUrl(t.external_link);
+  const price = parseEntryFee(t.entry_fee);
+  const full = t.max_players != null && Number(t.attendee_count ?? 0) >= Number(t.max_players);
+  // Only when known (admin field "Organiza"): Google penalises inaccurate data.
+  const organizer = t.organizer
+    ? { '@type': 'Organization', name: t.organizer, ...(signUp ? { url: signUp } : {}) }
+    : undefined;
+  return {
+    '@type': 'Event',
+    name: t.name,
+    description: summarize(t.description, 300) || `Torneo de ${t.game_name || GAME}${t.location ? ` en ${t.location}` : ''}.`,
+    startDate: t.start_date,
+    endDate: t.end_date || t.start_date,
+    eventStatus: 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    location: t.location
+      ? { '@type': 'Place', name: t.location, address: { '@type': 'PostalAddress', addressLocality: t.location, addressCountry: 'ES' } }
+      : undefined,
+    image: t.cover_image ? [t.cover_image] : [DEFAULT_IMAGE],
+    url,
+    organizer,
+    // A tournament has no artists on stage: the performers are the players.
+    performer: { '@type': 'PerformingGroup', name: `Jugadores del ${t.name}` },
+    offers: {
+      '@type': 'Offer',
+      url: signUp ?? url,
+      ...(price !== null ? { price, priceCurrency: 'EUR' } : {}),
+      availability:
+        t.registration_closed || full || t.status === 'finished'
+          ? 'https://schema.org/SoldOut'
+          : 'https://schema.org/InStock',
+      ...(t.created_at ? { validFrom: t.created_at } : {}),
+    },
+  };
+}
+
 async function tournament(q: Query, id: string): Promise<Page> {
   const path = `/competitivo/torneos/${id}`;
   if (!uuid.test(id)) return notFound(path);
   const [t] = await q(
     'tournaments',
-    `select=id,name,description,rules,cover_image,location,start_date,end_date,status,points_limit,max_players,entry_fee,attendee_count,external_link,game_name&id=${eq(id)}&published=eq.true`,
+    `select=id,name,description,rules,cover_image,location,start_date,end_date,status,points_limit,max_players,entry_fee,attendee_count,external_link,game_name,organizer,registration_closed,created_at&id=${eq(id)}&published=eq.true`,
   );
   if (!t) return notFound(path);
   const facts = [
@@ -528,7 +580,9 @@ async function tournament(q: Query, id: string): Promise<Page> {
     t.location && `Lugar: ${t.location}`,
     t.points_limit && `Puntos: ${t.points_limit}`,
     t.max_players && `Plazas: ${t.attendee_count ?? 0} de ${t.max_players}`,
-    t.entry_fee && `Inscripción: ${t.entry_fee}`,
+    (t.entry_fee || t.registration_closed) &&
+      `Inscripción: ${[t.entry_fee && (/^\d+([.,]\d+)?$/.test(String(t.entry_fee).trim()) ? `${t.entry_fee} €` : t.entry_fee), t.registration_closed && 'cerrada'].filter(Boolean).join(' · ')}`,
+    t.organizer && `Organiza: ${t.organizer}`,
   ].filter(Boolean) as string[];
   return {
     status: 200,
@@ -540,23 +594,7 @@ async function tournament(q: Query, id: string): Promise<Page> {
       ['Competitivo', '/competitivo'],
       [t.name, path],
     ],
-    jsonLd: t.start_date
-      ? [
-          {
-            '@type': 'Event',
-            name: t.name,
-            description: summarize(t.description, 300),
-            startDate: t.start_date,
-            endDate: t.end_date || t.start_date,
-            eventStatus: 'https://schema.org/EventScheduled',
-            eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-            location: t.location ? { '@type': 'Place', name: t.location, address: t.location } : undefined,
-            image: t.cover_image ? [t.cover_image] : [DEFAULT_IMAGE],
-            url: `${SITE}${path}`,
-            organizer: t.external_link ? { '@type': 'Organization', name: t.name, url: t.external_link } : undefined,
-          },
-        ]
-      : [],
+    jsonLd: t.start_date ? [tournamentJsonLd(t, `${SITE}${path}`)] : [],
     body: `<article><h1>${esc(t.name)}</h1>
 ${facts.length ? `<ul>${facts.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
 ${t.cover_image ? `<img src="${esc(t.cover_image)}" alt="${esc(t.name)}">` : ''}

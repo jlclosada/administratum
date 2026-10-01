@@ -526,6 +526,10 @@ export interface Tournament extends BaseEntity {
   pointsLimit: number | null;
   maxPlayers: number | null;
   entryFee: string | null;
+  /** Club, shop or association running it. */
+  organizer: string | null;
+  /** Sign-ups closed (shown instead of the "Inscribirse" button). */
+  registrationClosed: boolean;
   /** Users who pressed "Asistiré" (kept in sync by a trigger). */
   attendeeCount: number;
 }
@@ -890,6 +894,8 @@ export interface CreateTournamentDTO {
   pointsLimit?: number | null;
   maxPlayers?: number | null;
   entryFee?: string | null;
+  organizer?: string | null;
+  registrationClosed?: boolean;
 }
 
 export interface UpdateTournamentDTO extends Partial<CreateTournamentDTO> {
