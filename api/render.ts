@@ -108,6 +108,33 @@ export function seoTournamentTitle(name: string, location: string | null): strin
   return `${name}: torneo de Warhammer 40K${location ? ` en ${location}` : ""}`;
 }
 
+/** URL segment for a unit: "Sorcerer In Terminator Armour" → "sorcerer-in-terminator-armour". */
+export function unitSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Cheapest base option of a unit ("5 miniaturas, 100 pts"), for titles and summaries. */
+export function baseCost(pricing: { costs?: { models: number; points: number; addon?: boolean }[] }[] | null | undefined): { models: number; points: number } | null {
+  const c = (pricing ?? []).flatMap((t) => t.costs ?? []).find((x) => !x.addon);
+  return c ? { models: c.models, points: c.points } : null;
+}
+
+export function seoUnit(unitName: string, factionSlug: string, factionEnglish: string, cost: { models: number; points: number } | null): SeoCopy {
+  const faction = factionDisplayName(factionSlug, factionEnglish);
+  const short = FACTION_ES[factionSlug] ?? factionEnglish;
+  const price = cost ? `${cost.points} pts (${cost.models} ${cost.models === 1 ? "miniatura" : "miniaturas"})` : null;
+  return {
+    title: `Puntos de ${unitName} (${short}) · Warhammer 40K`,
+    description: `${unitName} de ${faction} en Warhammer 40K${price ? `: ${price}` : ""}. Coste oficial actualizado del Munitorum Field Manual, opciones de equipo, a quién puede liderar e historial de cambios de puntos.`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // HTML helpers
 // ---------------------------------------------------------------------------
@@ -234,6 +261,8 @@ export interface Page {
   noindex?: boolean;
   breadcrumbs?: [string, string][];
   jsonLd?: Record<string, unknown>[];
+  /** Use `title` as the full <title> (home page), without " · Administratum". */
+  exactTitle?: boolean;
   body: string;
 }
 
@@ -360,6 +389,7 @@ async function catalogFaction(q: Query, slug: string): Promise<Page> {
           '@type': 'ListItem',
           position: i + 1,
           name: u.name,
+          url: `${SITE}/catalogo-puntos/${slug}/${unitSlug(u.name)}`,
           description: pricingText(u.pricing),
         })),
       },
@@ -368,7 +398,7 @@ async function catalogFaction(q: Query, slug: string): Promise<Page> {
 <p>Puntos oficiales de ${esc(display)} para ${GAME}${version ? ` (${esc(version)})` : ''}, actualizados el ${esc(fmtDate(faction?.updated_at ?? units[0]?.updated_at))}.</p>
 <h2>Unidades</h2>
 <table><thead><tr><th>Unidad</th><th>Puntos</th></tr></thead><tbody>${units
-      .map((u) => `<tr><td>${esc(u.name)}${u.legends ? ' <small>(Legends)</small>' : ''}</td><td>${esc(pricingText(u.pricing))}</td></tr>`)
+      .map((u) => `<tr><td>${link(`/catalogo-puntos/${slug}/${unitSlug(u.name)}`, u.name)}${u.legends ? ' <small>(Legends)</small>' : ''}</td><td>${esc(pricingText(u.pricing))}</td></tr>`)
       .join('')}</tbody></table>
 ${
   detachments.length
@@ -739,12 +769,163 @@ ${[...byCategory]
   };
 }
 
+
+const CATEGORY_ES: Record<string, string> = { character: 'un personaje', squad: 'una escuadra', vehicle: 'un vehículo' };
+const sameName = (a: unknown, b: unknown) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+
+async function catalogUnit(q: Query, slug: string, unitSegment: string): Promise<Page> {
+  const path = `/catalogo-puntos/${slug}/${unitSegment}`;
+  const [factions, units] = await Promise.all([
+    q('faction_catalog', `select=faction_name,image,mfm_version&faction_slug=${eq(slug)}&game_name=${eq(GAME)}`),
+    q('unit_catalog', `select=name,category,group_title,pricing,wargear,leader_to,support_to,legends,faction_name,mfm_version,updated_at&faction_slug=${eq(slug)}&game_name=${eq(GAME)}&order=name`),
+  ]);
+  const unit = units.find((u) => unitSlug(u.name) === unitSegment);
+  if (!unit) return notFound(path);
+  const factionName = factions[0]?.faction_name ?? unit.faction_name;
+  const display = factionDisplayName(slug, factionName);
+  const currentVersion = factions[0]?.mfm_version ?? null;
+  const retired = currentVersion && unit.mfm_version && unit.mfm_version !== currentVersion;
+  const history = await q(
+    'catalog_updates',
+    `select=description,occurred_at,points_delta&type=eq.points&points_delta=not.is.null&title=${eq(`${unit.name} - ${factionName}`)}&order=occurred_at.desc&limit=20`,
+  ).catch(() => [] as Row[]);
+  const unitHref = (name: string) => {
+    const target = units.find((u) => sameName(u.name, name));
+    return target ? link(`/catalogo-puntos/${slug}/${unitSlug(target.name)}`, target.name) : esc(name);
+  };
+  const leadsTo: string[] = unit.leader_to ?? [];
+  const ledBy = units.filter((u) => (u.leader_to ?? []).some((n: string) => sameName(n, unit.name)));
+  const others = units.filter((u) => u.name !== unit.name && !u.legends).sort((a, b) => Number(b.category === unit.category) - Number(a.category === unit.category));
+  const tiers: Row[] = unit.pricing ?? [];
+  const cost = baseCost(unit.pricing);
+  const seo = seoUnit(unit.name, slug, factionName, cost);
+  return {
+    status: 200,
+    ...seo,
+    path,
+    image: factions[0]?.image,
+    breadcrumbs: [
+      ['Catálogo de puntos', '/catalogo-puntos'],
+      [display, `/catalogo-puntos/${slug}`],
+      [unit.name, path],
+    ],
+    body: `<h1>Puntos de ${esc(unit.name)}</h1>
+<p class="lead">${esc(unit.name)} es ${CATEGORY_ES[unit.category] ?? 'una unidad'} de ${link(`/catalogo-puntos/${slug}`, display)} en ${GAME}${unit.legends ? ' (Legends)' : ''}. ${
+      cost ? `Cuesta ${esc(cost.points)} puntos por ${esc(cost.models)} ${cost.models === 1 ? 'miniatura' : 'miniaturas'}` : 'Coste'
+    } según el Munitorum Field Manual${unit.mfm_version ? ` ${esc(unit.mfm_version)}` : ''}, actualizado el ${esc(fmtDate(unit.updated_at))}.</p>
+${retired ? `<p><strong>Esta unidad ya no aparece en el Munitorum Field Manual ${esc(currentVersion)}.</strong> Se muestran los últimos puntos publicados (${esc(unit.mfm_version)}).</p>` : ''}
+<h2>Coste en puntos</h2>
+<table><thead><tr><th>Copias</th><th>Tamaño</th><th>Puntos</th></tr></thead><tbody>${tiers
+      .flatMap((t) =>
+        (t.costs ?? []).map(
+          (c: Row) =>
+            `<tr><td>${esc(tierLabel(t.label) ?? 'Todas')}</td><td>${c.addon ? `+ ${esc(c.desc ?? `${c.models} miniaturas`)}` : `${esc(c.models)} ${c.models === 1 ? 'miniatura' : 'miniaturas'}${c.desc ? ` (${esc(c.desc)})` : ''}`}</td><td>${esc(c.points)} pts</td></tr>`,
+        ),
+      )
+      .join('')}</tbody></table>
+${unit.wargear?.length ? `<h2>Equipo con coste adicional</h2><ul>${unit.wargear.map((w: Row) => `<li>${esc(w.item)}: +${esc(w.points)} pts</li>`).join('')}</ul>` : ''}
+${leadsTo.length ? `<h2>Puede liderar a</h2><ul>${leadsTo.map((n) => `<li>${unitHref(n)}</li>`).join('')}</ul>` : ''}
+${ledBy.length ? `<h2>Personajes que pueden liderar esta unidad</h2><ul>${ledBy.map((u) => `<li>${unitHref(u.name)} — ${esc(pricingText(u.pricing))}</li>`).join('')}</ul>` : ''}
+${unit.support_to?.length ? `<h2>Puede apoyar a</h2><ul>${unit.support_to.map((n: string) => `<li>${unitHref(n)}</li>`).join('')}</ul>` : ''}
+<h2>Historial de cambios de puntos</h2>
+${history.length ? `<ul>${history.map((h) => `<li>${esc(fmtDate(h.occurred_at))}: ${esc(h.description)}</li>`).join('')}</ul>` : `<p>Sin cambios de puntos registrados desde que seguimos el Munitorum Field Manual.</p>`}
+<h2>Más unidades de ${esc(display)}</h2>
+<ul class="grid">${others.slice(0, 40).map((u) => `<li>${link(`/catalogo-puntos/${slug}/${unitSlug(u.name)}`, u.name)}</li>`).join('')}</ul>
+<p>${link(`/catalogo-puntos/${slug}`, `Todos los puntos de ${display}`)}</p>`,
+  };
+}
+
+export const SEO_HOME_TITLE = 'Administratum · Warhammer 40K en español: puntos, listas, torneos y comunidad';
+export const SEO_HOME_DESCRIPTION =
+  'Puntos de Warhammer 40K actualizados cada día, listas de ejército, torneos en España, guías de pintura y tu colección de miniaturas en un solo lugar. Gratis y en español.';
+
+const HOME_FAQ: [string, string][] = [
+  ['¿Qué es Administratum?', 'Una comunidad gratuita y en español para jugadores de Warhammer 40.000: puntos oficiales actualizados, listas de ejército, torneos en España, guías de pintura y un gestor para tu colección de miniaturas.'],
+  ['¿Cada cuánto se actualizan los puntos de Warhammer 40K?', 'Revisamos el Munitorum Field Manual oficial varias veces al día. Cuando Games Workshop publica un cambio de puntos, aparece en Administratum en pocas horas junto con lo que ha subido y bajado.'],
+  ['¿Dónde encuentro torneos de Warhammer 40K en España?', 'En la sección Competitivo: torneos con fechas, lugar, plazas, precio de inscripción y bases completas. Puedes apuntarte y ver quién más va.'],
+  ['¿Puedo compartir mis listas de ejército?', 'Sí. Pega la lista exportada de la app oficial y se publica con todas sus unidades y puntos para que la comunidad la comente.'],
+  ['¿Cuánto cuesta?', 'Nada. Administratum es gratis. Es un proyecto independiente, sin afiliación con Games Workshop.'],
+];
+
+/** Unit name and faction slug out of a "Name - Faction" points update. */
+function updateTarget(u: Row): { name: string; slug: string } | null {
+  const slug = String(u.link ?? '').match(/^\/catalogo-puntos\/([a-z0-9-]+)/)?.[1];
+  const i = String(u.title ?? '').lastIndexOf(' - ');
+  return slug && i > 0 ? { name: u.title.slice(0, i), slug } : null;
+}
+
+async function home(q: Query): Promise<Page> {
+  const today = new Date().toISOString().slice(0, 10);
+  const [factions, updates, tournaments, lists, guides, articles] = await Promise.all([
+    q('faction_catalog', `select=faction_slug,faction_name&game_name=${eq(GAME)}&order=faction_name`),
+    q('catalog_updates', `select=title,description,link,occurred_at&type=eq.points&points_delta=not.is.null&order=occurred_at.desc&limit=12`).catch(() => [] as Row[]),
+    q('tournaments', `select=id,name,location,start_date&published=eq.true&start_date=gte.${today}&order=start_date.asc&limit=8`).catch(() => [] as Row[]),
+    q('community_lists', 'select=id,title,faction_name,total_points&order=created_at.desc&limit=8').catch(() => [] as Row[]),
+    q('painting_guides', `select=id,title&published=eq.true&${ONLY_40K}&order=created_at.desc&limit=6`).catch(() => [] as Row[]),
+    q('articles', 'select=id,title&published=eq.true&order=created_at.desc&limit=5').catch(() => [] as Row[]),
+  ]);
+  const section = (title: string, items: string[], more?: [string, string]) =>
+    items.length ? `<h2>${esc(title)}</h2><ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>${more ? `<p>${link(more[1], more[0])}</p>` : ''}` : '';
+  return {
+    status: 200,
+    title: SEO_HOME_TITLE,
+    exactTitle: true,
+    description: SEO_HOME_DESCRIPTION,
+    path: '/',
+    jsonLd: [
+      {
+        '@type': 'WebApplication',
+        name: NAME,
+        url: `${SITE}/`,
+        applicationCategory: 'LifestyleApplication',
+        operatingSystem: 'Web, macOS, Windows',
+        inLanguage: 'es',
+        description: 'Comunidad y gestor de colecciones de Warhammer 40.000 en español: puntos oficiales, listas de ejército, torneos en España y guías de pintura.',
+        image: DEFAULT_IMAGE,
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: HOME_FAQ.map(([question, answer]) => ({ '@type': 'Question', name: question, acceptedAnswer: { '@type': 'Answer', text: answer } })),
+      },
+    ],
+    body: `<h1>Warhammer 40K en español</h1>
+<p class="lead">Administratum es la comunidad de Warhammer 40.000 en español: puntos oficiales actualizados cada día, listas de ejército, torneos en España, guías de pintura y un gestor para tu colección de miniaturas. Gratis.</p>
+<h2>Puntos de Warhammer 40K por facción</h2>
+<ul class="grid">${factions.map((f) => `<li>${link(`/catalogo-puntos/${f.faction_slug}`, `Puntos de ${factionDisplayName(f.faction_slug, f.faction_name)}`)}</li>`).join('')}</ul>
+${section(
+  'Últimos cambios de puntos',
+  updates.map((u) => {
+    const t = updateTarget(u);
+    return `${t ? link(`/catalogo-puntos/${t.slug}/${unitSlug(t.name)}`, u.title) : esc(u.title)}: ${esc(u.description)} <small>(${esc(fmtDate(u.occurred_at))})</small>`;
+  }),
+  ['Ver el catálogo completo de puntos', '/catalogo-puntos'],
+)}
+${section(
+  'Próximos torneos de Warhammer 40K en España',
+  tournaments.map((t) => `${link(`/competitivo/torneos/${t.id}`, t.name)}${t.start_date ? ` — ${esc(fmtDate(t.start_date))}` : ''}${t.location ? ` · ${esc(t.location)}` : ''}`),
+  ['Todos los torneos', '/competitivo'],
+)}
+${section(
+  'Listas de ejército de la comunidad',
+  lists.map((l) => `${link(`/comunidad/listas/${l.id}`, l.title)} — ${esc(l.faction_name ?? '')}${l.total_points ? ` · ${esc(l.total_points)} pts` : ''}`),
+  ['Más listas', '/comunidad'],
+)}
+${section('Guías de pintura', guides.map((g) => link(`/guias/${g.id}`, g.title)), ['Todas las guías', '/guias'])}
+${section('Noticias', articles.map((a) => link(`/articulos/${a.id}`, a.title)))}
+<h2>Preguntas frecuentes</h2>
+${HOME_FAQ.map(([question, answer]) => `<h3>${esc(question)}</h3><p>${esc(answer)}</p>`).join('\n')}`,
+  };
+}
+
 /** Maps a public URL path to its page, or null to serve the plain shell. */
 export async function renderPath(path: string, q: Query): Promise<Page | null> {
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
   const [a, b, c] = parts;
   if (a === 'catalogo-puntos' && parts.length === 1) return catalogIndex(q);
+  if (parts.length === 0) return home(q);
   if (a === 'catalogo-puntos' && parts.length === 2) return catalogFaction(q, b);
+  if (a === 'catalogo-puntos' && parts.length === 3) return catalogUnit(q, b, c);
   if (a === 'articulos' && parts.length === 2) return article(q, b);
   if (a === 'guias' && parts.length === 1) return guidesIndex(q);
   if (a === 'guias' && parts.length === 2) return guide(q, b);
@@ -786,7 +967,7 @@ function breadcrumbHtml(crumbs: [string, string][]): string {
 }
 
 export function inject(template: string, page: Page): string {
-  const fullTitle = page.title === NAME ? NAME : `${page.title} · ${NAME}`;
+  const fullTitle = page.exactTitle || page.title === NAME ? page.title : `${page.title} · ${NAME}`;
   const url = `${SITE}${page.path}`;
   const image = page.image && /^https?:\/\//.test(page.image) ? page.image : DEFAULT_IMAGE;
   const graph: Record<string, unknown>[] = [
@@ -855,9 +1036,10 @@ ${page.breadcrumbs?.length ? breadcrumbHtml(page.breadcrumbs) : ''}
 let templateCache: { html: string; at: number } | null = null;
 
 async function loadTemplate(origin: string): Promise<string> {
-  // index.html only changes on deploy; a warm instance keeps it for a minute.
+  // The template only changes on deploy; a warm instance keeps it for a minute.
   if (templateCache && Date.now() - templateCache.at < 60_000) return templateCache.html;
-  const res = await fetch(`${origin}/index.html`, { headers: { 'x-prerender-template': '1' } });
+  // Built as app.html on Vercel (scripts/vercel-postbuild.mjs) so "/" can be prerendered.
+  const res = await fetch(`${origin}/app.html`, { headers: { 'x-prerender-template': '1' } });
   if (!res.ok) throw new Error(`template: ${res.status}`);
   const html = await res.text();
   templateCache = { html, at: Date.now() };

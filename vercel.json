@@ -26,6 +26,10 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/api/render?path=/"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "/api/sitemap"
     },
@@ -36,6 +40,10 @@
     {
       "source": "/catalogo-puntos/:slug",
       "destination": "/api/render?path=/catalogo-puntos/:slug"
+    },
+    {
+      "source": "/catalogo-puntos/:slug/:unit",
+      "destination": "/api/render?path=/catalogo-puntos/:slug/:unit"
     },
     {
       "source": "/articulos/:id",
@@ -79,7 +87,7 @@
     },
     {
       "source": "/((?!assets/|api/).*)",
-      "destination": "/index.html"
+      "destination": "/app.html"
     }
   ],
   "headers": [

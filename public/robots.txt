@@ -4,5 +4,6 @@ Disallow: /auth/
 Disallow: /admin
 Disallow: /mensajes
 Disallow: /settings
+Disallow: /app.html
 
 Sitemap: https://administratum.site/sitemap.xml

@@ -5,7 +5,7 @@
  * same — it keeps its own copy (Vercel builds each function on its own) and
  * a test checks both agree.
  */
-import { factionDisplayName } from "./factionNames";
+import { FACTION_ES, factionDisplayName } from "./factionNames";
 
 export interface SeoCopy {
   title: string;
@@ -56,4 +56,31 @@ export function seoListTitle(title: string, faction: string | null, points: numb
 
 export function seoTournamentTitle(name: string, location: string | null): string {
   return `${name}: torneo de Warhammer 40K${location ? ` en ${location}` : ""}`;
+}
+
+/** URL segment for a unit: "Sorcerer In Terminator Armour" → "sorcerer-in-terminator-armour". */
+export function unitSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Cheapest base option of a unit ("5 miniaturas, 100 pts"), for titles and summaries. */
+export function baseCost(pricing: { costs?: { models: number; points: number; addon?: boolean }[] }[] | null | undefined): { models: number; points: number } | null {
+  const c = (pricing ?? []).flatMap((t) => t.costs ?? []).find((x) => !x.addon);
+  return c ? { models: c.models, points: c.points } : null;
+}
+
+export function seoUnit(unitName: string, factionSlug: string, factionEnglish: string, cost: { models: number; points: number } | null): SeoCopy {
+  const faction = factionDisplayName(factionSlug, factionEnglish);
+  const short = FACTION_ES[factionSlug] ?? factionEnglish;
+  const price = cost ? `${cost.points} pts (${cost.models} ${cost.models === 1 ? "miniatura" : "miniaturas"})` : null;
+  return {
+    title: `Puntos de ${unitName} (${short}) · Warhammer 40K`,
+    description: `${unitName} de ${faction} en Warhammer 40K${price ? `: ${price}` : ""}. Coste oficial actualizado del Munitorum Field Manual, opciones de equipo, a quién puede liderar e historial de cambios de puntos.`,
+  };
 }

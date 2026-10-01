@@ -74,6 +74,7 @@ export {
   getMyProfile,
   getProfile,
   getRecentUpdates,
+  getUnitPointsHistory,
   getSavedPhotos,
   getSharedPhotos,
   getTournamentById,
