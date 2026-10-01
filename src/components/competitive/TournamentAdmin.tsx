@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createTournament, deleteTournament, updateTournament } from "@/db";
+import { normalizeUrl } from "@/lib/profileLinks";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import type { RichContent, Tournament, TournamentStatus } from "@/types";
@@ -31,6 +32,8 @@ interface Form {
   pointsLimit: string;
   maxPlayers: string;
   entryFee: string;
+  organizer: string;
+  registrationClosed: boolean;
 }
 
 const EMPTY: Form = {
@@ -46,6 +49,8 @@ const EMPTY: Form = {
   pointsLimit: "",
   maxPlayers: "",
   entryFee: "",
+  organizer: "",
+  registrationClosed: false,
 };
 
 function toForm(t: Tournament): Form {
@@ -62,6 +67,8 @@ function toForm(t: Tournament): Form {
     pointsLimit: t.pointsLimit?.toString() ?? "",
     maxPlayers: t.maxPlayers?.toString() ?? "",
     entryFee: t.entryFee ?? "",
+    organizer: t.organizer ?? "",
+    registrationClosed: t.registrationClosed ?? false,
   };
 }
 
@@ -113,6 +120,11 @@ export function TournamentAdmin({
 
   async function handleSave() {
     if (!form.name.trim()) return;
+    const link = form.link.trim() ? normalizeUrl(form.link) : null;
+    if (form.link.trim() && !link) {
+      toast.error("El enlace debe ser una dirección web (p. ej. https://club.es/torneo). Para indicar que no hay plazas, marca «Inscripción cerrada».");
+      return;
+    }
     setSaving(true);
     const dto = {
       name: form.name.trim(),
@@ -120,13 +132,15 @@ export function TournamentAdmin({
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       status: form.status,
-      externalLink: form.link.trim() || null,
+      externalLink: link,
       description: form.description.trim(),
       coverImage: form.image,
       rules: form.rules,
       pointsLimit: optionalInt(form.pointsLimit),
       maxPlayers: optionalInt(form.maxPlayers),
       entryFee: form.entryFee.trim() || null,
+      organizer: form.organizer.trim() || null,
+      registrationClosed: form.registrationClosed,
     };
     try {
       if (editingId) {
@@ -275,7 +289,19 @@ export function TournamentAdmin({
             <Input type="number" min={0} value={form.maxPlayers} onChange={(e) => set("maxPlayers", e.target.value)} placeholder="Plazas" />
             <Input value={form.entryFee} onChange={(e) => set("entryFee", e.target.value)} placeholder="Inscripción (p. ej. 20 €)" />
           </div>
-          <Input value={form.link} onChange={(e) => set("link", e.target.value)} placeholder="Enlace de inscripción o información (opcional)" />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input value={form.organizer} onChange={(e) => set("organizer", e.target.value)} placeholder="Organiza (club, tienda o asociación)" />
+            <Input value={form.link} onChange={(e) => set("link", e.target.value)} placeholder="Enlace de inscripción (https://…)" />
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.registrationClosed}
+              onChange={(e) => set("registrationClosed", e.target.checked)}
+              className="accent-[hsl(var(--primary))]"
+            />
+            Inscripción cerrada
+          </label>
           <Textarea
             value={form.description}
             onChange={(e) => set("description", e.target.value)}

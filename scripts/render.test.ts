@@ -90,3 +90,52 @@ describe('prerender', () => {
     expect(server.seoTournamentTitle('GT', 'Talavera')).toBe(app.seoTournamentTitle('GT', 'Talavera'));
   });
 });
+
+describe('tournament Event data', () => {
+  const base = {
+    id: '22222222-2222-4222-8222-222222222222',
+    name: 'GT La Letanía del Oso',
+    location: 'Alcorcón, Madrid',
+    start_date: '2026-10-10',
+    end_date: '2026-10-11',
+    status: 'upcoming',
+    created_at: '2026-09-20T10:00:00Z',
+  };
+  const url = 'https://administratum.site/competitivo/torneos/x';
+
+  it('parses entry fees', () => {
+    expect(server.parseEntryFee('85')).toBe(85);
+    expect(server.parseEntryFee('20 €')).toBe(20);
+    expect(server.parseEntryFee('12,50€')).toBe(12.5);
+    expect(server.parseEntryFee('Gratis')).toBe(0);
+    expect(server.parseEntryFee('Consultar')).toBeNull();
+    expect(server.parseEntryFee(null)).toBeNull();
+  });
+
+  it('includes offers, organizer and performer', () => {
+    const ld = server.tournamentJsonLd(
+      { ...base, entry_fee: '85', organizer: 'Club La Letanía', external_link: 'https://letania.es/gt', max_players: 50, attendee_count: 12 },
+      url,
+    );
+    expect(ld.organizer).toEqual({ '@type': 'Organization', name: 'Club La Letanía', url: 'https://letania.es/gt' });
+    expect(ld.performer).toMatchObject({ '@type': 'PerformingGroup' });
+    expect(ld.offers).toEqual({
+      '@type': 'Offer',
+      url: 'https://letania.es/gt',
+      price: 85,
+      priceCurrency: 'EUR',
+      availability: 'https://schema.org/InStock',
+      validFrom: '2026-09-20T10:00:00Z',
+    });
+    expect(ld.location).toMatchObject({ address: { addressLocality: 'Alcorcón, Madrid', addressCountry: 'ES' } });
+  });
+
+  it('marks closed or full tournaments as sold out and never uses free text as a URL', () => {
+    const closed = server.tournamentJsonLd({ ...base, registration_closed: true, external_link: 'Inscripción cerrada' }, url);
+    expect(closed.offers).toMatchObject({ url, availability: 'https://schema.org/SoldOut' });
+    expect(closed.offers).not.toHaveProperty('price');
+    expect(closed.organizer).toBeUndefined();
+    const full = server.tournamentJsonLd({ ...base, max_players: 2, attendee_count: 2 }, url);
+    expect(full.offers).toMatchObject({ availability: 'https://schema.org/SoldOut' });
+  });
+});
