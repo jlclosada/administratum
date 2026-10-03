@@ -115,3 +115,5 @@ export * from './admin';
 export * from './communityLists';
 export * from './tournaments';
 export * from './notifications';
+export * from './teams';
+export * from './matches';

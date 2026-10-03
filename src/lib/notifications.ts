@@ -5,6 +5,8 @@ const TARGET_NOUN: Record<NonNullable<AppNotification['targetType']>, string> = 
   list: 'tu lista',
   guide: 'tu guía',
   article: 'tu artículo',
+  team: 'tu equipo',
+  match: 'tu partida',
 };
 
 /** Sentence after the actor's name, e.g. "ha comentado en tu foto". */
@@ -21,6 +23,16 @@ export function notificationText(n: AppNotification): string {
       return `ha comentado en ${noun}`;
     case 'comment_like':
       return 'ha dado me gusta a tu comentario';
+    case 'team_invite':
+      return `te ha invitado a unirte al equipo ${n.excerpt}`;
+    case 'team_joined':
+      return `se ha unido al equipo ${n.excerpt}`;
+    case 'match_joined':
+      return `se ha apuntado a tu partida del ${n.excerpt}`;
+    case 'match_left':
+      return `ha abandonado tu partida del ${n.excerpt}`;
+    case 'match_cancelled':
+      return `ha cancelado la partida del ${n.excerpt}`;
   }
 }
 
@@ -31,6 +43,14 @@ export function notificationLink(n: AppNotification): string {
       return '/amigos';
     case 'friend_accepted':
       return n.actorId ? `/perfil/${n.actorId}` : '/amigos';
+    case 'team_invite':
+      return '/equipos';
+    case 'team_joined':
+      return n.targetId ? `/equipos/${n.targetId}` : '/equipos';
+    case 'match_joined':
+    case 'match_left':
+    case 'match_cancelled':
+      return n.targetId ? `/partidas/${n.targetId}` : '/partidas';
   }
   if (!n.targetId) return '/comunidad';
   switch (n.targetType) {

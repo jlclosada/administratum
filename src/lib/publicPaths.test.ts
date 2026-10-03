@@ -17,6 +17,8 @@ describe('isPublicPath', () => {
       '/comunidad',
       '/comunidad/listas/3',
       '/perfil/4181c82b',
+      '/partidas',
+      '/partidas/abc',
     ]) {
       expect(isPublicPath(p), p).toBe(true);
     }
@@ -40,6 +42,9 @@ describe('isPublicPath', () => {
       '/mensajes/u1',
       '/admin',
       '/guias/nueva',
+      '/partidas/nueva',
+      '/equipos',
+      '/equipos/abc',
       '/guias/1/editar',
       '/articulos/nuevo',
       '/articulos/1/editar',

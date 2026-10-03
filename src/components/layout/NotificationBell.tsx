@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/stores";
 import type { AppNotification } from "@/types";
 import { motion } from "framer-motion";
-import { Bell, CheckCheck, Heart, MessageSquare, UserCheck, UserPlus, X } from "lucide-react";
+import { Bell, CalendarX, CheckCheck, Dices, Heart, LogOut, MessageSquare, Shield, ShieldCheck, UserCheck, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -15,6 +15,11 @@ const TYPE_ICON = {
   like: { Icon: Heart, className: "bg-rose-500" },
   comment_like: { Icon: Heart, className: "bg-rose-500" },
   comment: { Icon: MessageSquare, className: "bg-violet-500" },
+  team_invite: { Icon: Shield, className: "bg-amber-500" },
+  team_joined: { Icon: ShieldCheck, className: "bg-emerald-500" },
+  match_joined: { Icon: Dices, className: "bg-emerald-500" },
+  match_left: { Icon: LogOut, className: "bg-zinc-500" },
+  match_cancelled: { Icon: CalendarX, className: "bg-rose-500" },
 } as const;
 
 function NotificationRow({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {
@@ -41,7 +46,8 @@ function NotificationRow({ n, onOpen }: { n: AppNotification; onOpen: () => void
           <span className="block text-sm leading-snug">
             <span className="font-semibold">{name}</span> {notificationText(n)}
           </span>
-          {n.excerpt && <span className="mt-0.5 block truncate text-xs text-muted-foreground">«{n.excerpt}»</span>}
+          {/* Team and game notifications already name it in the sentence. */}
+          {n.excerpt && !n.type.startsWith("team_") && !n.type.startsWith("match_") && <span className="mt-0.5 block truncate text-xs text-muted-foreground">«{n.excerpt}»</span>}
           <span className="mt-0.5 block text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</span>
         </span>
       </button>

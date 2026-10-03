@@ -2133,6 +2133,669 @@ revoke all on function public.email_contact_audience() from public, anon, authen
 grant execute on function public.email_contact_audience() to service_role;
 
 -- ============================================================
+-- Teams: invite-only groups with a board, list sharing and group chat
+-- ============================================================
+-- Anyone can see that a team exists and who is in it; joining needs an
+-- invitation from the owner or an admin of the team. The board, comments
+-- and chat are visible only to members.
+create table if not exists public.teams (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(trim(name)) between 3 and 60),
+  description text not null default '' check (char_length(description) <= 1000),
+  emblem text,
+  banner text,
+  location text not null default '' check (char_length(location) <= 80),
+  created_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  member_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists set_updated_at on public.teams;
+create trigger set_updated_at before update on public.teams
+  for each row execute function public.set_updated_at();
+
+create table if not exists public.team_members (
+  team_id uuid not null references public.teams (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  role text not null default 'member' check (role in ('owner', 'admin', 'member')),
+  joined_at timestamptz not null default now(),
+  primary key (team_id, user_id)
+);
+
+create index if not exists idx_team_members_user on public.team_members (user_id);
+
+create table if not exists public.team_invitations (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  invited_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (team_id, user_id)
+);
+
+create index if not exists idx_team_invitations_user on public.team_invitations (user_id);
+
+create table if not exists public.team_posts (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams (id) on delete cascade,
+  author_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind text not null default 'post' check (kind in ('post', 'list')),
+  body text not null default '' check (char_length(body) <= 4000),
+  image text,
+  -- kind = 'list': an army list shared with the team for feedback.
+  list_title text,
+  list_data jsonb,
+  pinned boolean not null default false,
+  comment_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  check (kind <> 'list' or list_data is not null),
+  check (kind <> 'post' or char_length(trim(body)) > 0 or image is not null)
+);
+
+create index if not exists idx_team_posts_team on public.team_posts (team_id, pinned desc, created_at desc);
+
+create table if not exists public.team_post_comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.team_posts (id) on delete cascade,
+  team_id uuid not null references public.teams (id) on delete cascade,
+  author_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  body text not null check (char_length(trim(body)) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_team_post_comments_post on public.team_post_comments (post_id, created_at);
+
+create table if not exists public.team_messages (
+  id uuid primary key default gen_random_uuid(),
+  team_id uuid not null references public.teams (id) on delete cascade,
+  author_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  body text not null check (char_length(trim(body)) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_team_messages_team on public.team_messages (team_id, created_at desc);
+
+-- Role of the current user in a team (null if not a member).
+create or replace function public.team_role(p_team uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.team_members where team_id = p_team and user_id = auth.uid()
+$$;
+
+create or replace function public.is_team_member(p_team uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.team_role(p_team) is not null
+$$;
+
+create or replace function public.is_team_manager(p_team uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(public.team_role(p_team) in ('owner', 'admin'), false)
+$$;
+
+revoke all on function public.team_role(uuid) from public, anon;
+revoke all on function public.is_team_member(uuid) from public, anon;
+revoke all on function public.is_team_manager(uuid) from public, anon;
+grant execute on function public.team_role(uuid) to authenticated;
+grant execute on function public.is_team_member(uuid) to authenticated;
+grant execute on function public.is_team_manager(uuid) to authenticated;
+
+-- The creator becomes the owner; member_count follows the roster.
+create or replace function public.team_add_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.team_members (team_id, user_id, role) values (new.id, new.created_by, 'owner');
+  return null;
+end;
+$$;
+
+drop trigger if exists teams_add_owner on public.teams;
+create trigger teams_add_owner after insert on public.teams
+  for each row execute function public.team_add_owner();
+
+create or replace function public.team_recount()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  t uuid := coalesce(new.team_id, old.team_id);
+begin
+  update public.teams set member_count = (select count(*) from public.team_members where team_id = t) where id = t;
+  return null;
+end;
+$$;
+
+drop trigger if exists team_members_recount on public.team_members;
+create trigger team_members_recount after insert or delete on public.team_members
+  for each row execute function public.team_recount();
+
+create or replace function public.team_post_recount()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  p uuid := coalesce(new.post_id, old.post_id);
+begin
+  update public.team_posts set comment_count = (select count(*) from public.team_post_comments where post_id = p) where id = p;
+  return null;
+end;
+$$;
+
+drop trigger if exists team_post_comments_recount on public.team_post_comments;
+create trigger team_post_comments_recount after insert or delete on public.team_post_comments
+  for each row execute function public.team_post_recount();
+
+alter table public.teams enable row level security;
+alter table public.team_members enable row level security;
+alter table public.team_invitations enable row level security;
+alter table public.team_posts enable row level security;
+alter table public.team_post_comments enable row level security;
+alter table public.team_messages enable row level security;
+
+drop policy if exists "teams_read" on public.teams;
+drop policy if exists "teams_insert" on public.teams;
+drop policy if exists "teams_update" on public.teams;
+drop policy if exists "teams_delete" on public.teams;
+create policy "teams_read" on public.teams for select to anon, authenticated using (true);
+create policy "teams_insert" on public.teams for insert to authenticated with check (created_by = auth.uid());
+create policy "teams_update" on public.teams for update to authenticated
+  using (public.is_team_manager(id)) with check (public.is_team_manager(id));
+create policy "teams_delete" on public.teams for delete to authenticated
+  using (public.team_role(id) = 'owner' or public.is_admin());
+
+drop policy if exists "team_members_read" on public.team_members;
+drop policy if exists "team_members_delete" on public.team_members;
+create policy "team_members_read" on public.team_members for select to anon, authenticated using (true);
+-- Leave the team, or a manager removes someone; the owner can't be removed
+-- (they delete the team instead). Joining and role changes go through RPCs.
+create policy "team_members_delete" on public.team_members for delete to authenticated
+  using (role <> 'owner' and (user_id = auth.uid() or public.is_team_manager(team_id)));
+
+drop policy if exists "team_invitations_read" on public.team_invitations;
+drop policy if exists "team_invitations_insert" on public.team_invitations;
+drop policy if exists "team_invitations_delete" on public.team_invitations;
+create policy "team_invitations_read" on public.team_invitations for select to authenticated
+  using (user_id = auth.uid() or public.is_team_manager(team_id));
+create policy "team_invitations_insert" on public.team_invitations for insert to authenticated
+  with check (
+    invited_by = auth.uid()
+    and public.is_team_manager(team_id)
+    and not exists (select 1 from public.team_members m where m.team_id = team_invitations.team_id and m.user_id = team_invitations.user_id)
+  );
+-- The invitee declines, or a manager withdraws it.
+create policy "team_invitations_delete" on public.team_invitations for delete to authenticated
+  using (user_id = auth.uid() or public.is_team_manager(team_id));
+
+drop policy if exists "team_posts_read" on public.team_posts;
+drop policy if exists "team_posts_insert" on public.team_posts;
+drop policy if exists "team_posts_update" on public.team_posts;
+drop policy if exists "team_posts_delete" on public.team_posts;
+create policy "team_posts_read" on public.team_posts for select to authenticated using (public.is_team_member(team_id));
+create policy "team_posts_insert" on public.team_posts for insert to authenticated
+  with check (author_id = auth.uid() and public.is_team_member(team_id) and (not pinned or public.is_team_manager(team_id)));
+create policy "team_posts_update" on public.team_posts for update to authenticated
+  using (author_id = auth.uid() or public.is_team_manager(team_id))
+  with check (public.is_team_member(team_id) and (not pinned or public.is_team_manager(team_id)));
+create policy "team_posts_delete" on public.team_posts for delete to authenticated
+  using (author_id = auth.uid() or public.is_team_manager(team_id));
+
+drop policy if exists "team_post_comments_read" on public.team_post_comments;
+drop policy if exists "team_post_comments_insert" on public.team_post_comments;
+drop policy if exists "team_post_comments_delete" on public.team_post_comments;
+create policy "team_post_comments_read" on public.team_post_comments for select to authenticated using (public.is_team_member(team_id));
+create policy "team_post_comments_insert" on public.team_post_comments for insert to authenticated
+  with check (
+    author_id = auth.uid()
+    and public.is_team_member(team_id)
+    and exists (select 1 from public.team_posts p where p.id = post_id and p.team_id = team_post_comments.team_id)
+  );
+create policy "team_post_comments_delete" on public.team_post_comments for delete to authenticated
+  using (author_id = auth.uid() or public.is_team_manager(team_id));
+
+drop policy if exists "team_messages_read" on public.team_messages;
+drop policy if exists "team_messages_insert" on public.team_messages;
+create policy "team_messages_read" on public.team_messages for select to authenticated using (public.is_team_member(team_id));
+create policy "team_messages_insert" on public.team_messages for insert to authenticated
+  with check (author_id = auth.uid() and public.is_team_member(team_id));
+
+-- Accepting an invitation is the only way into a team.
+create or replace function public.accept_team_invitation(p_invitation uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inv public.team_invitations;
+begin
+  select * into inv from public.team_invitations where id = p_invitation and user_id = auth.uid();
+  if inv.id is null then
+    raise exception 'Invitación no encontrada';
+  end if;
+  insert into public.team_members (team_id, user_id) values (inv.team_id, inv.user_id)
+    on conflict do nothing;
+  delete from public.team_invitations where id = inv.id;
+  return inv.team_id;
+end;
+$$;
+
+revoke all on function public.accept_team_invitation(uuid) from public, anon;
+grant execute on function public.accept_team_invitation(uuid) to authenticated;
+
+-- Only the owner promotes/demotes admins, or hands the team over.
+create or replace function public.set_team_role(p_team uuid, p_user uuid, p_role text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.team_role(p_team) is distinct from 'owner' then
+    raise exception 'Solo el creador del equipo puede cambiar los roles';
+  end if;
+  if p_role not in ('owner', 'admin', 'member') or p_user = auth.uid() then
+    raise exception 'Cambio de rol no válido';
+  end if;
+  if not exists (select 1 from public.team_members where team_id = p_team and user_id = p_user) then
+    raise exception 'No es miembro del equipo';
+  end if;
+  if p_role = 'owner' then
+    update public.team_members set role = 'admin' where team_id = p_team and user_id = auth.uid();
+    update public.teams set created_by = p_user where id = p_team;
+  end if;
+  update public.team_members set role = p_role where team_id = p_team and user_id = p_user;
+end;
+$$;
+
+revoke all on function public.set_team_role(uuid, uuid, text) from public, anon;
+grant execute on function public.set_team_role(uuid, uuid, text) to authenticated;
+
+-- Live team chat (RLS still applies).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'team_messages'
+  ) then
+    alter publication supabase_realtime add table public.team_messages;
+  end if;
+end$$;
+
+-- ============================================================
+-- Open games ("partidas"): find an opponent nearby
+-- ============================================================
+-- A host publishes a game (where, when, army, level) and others join until
+-- it is full. Listings are public; the exact address of a home game and the
+-- game chat are only for the players.
+create table if not exists public.matches (
+  id uuid primary key default gen_random_uuid(),
+  host_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  title text not null default '' check (char_length(title) <= 80),
+  description text not null default '' check (char_length(description) <= 1000),
+  format text not null default 'equilibrado'
+    check (format in ('equilibrado', 'cruzada', 'narrativo', 'patrulla', 'incursion', 'otro')),
+  points_limit integer check (points_limit between 0 and 10000),
+  host_faction text,
+  level text not null default 'casual' check (level in ('iniciacion', 'casual', 'intermedio', 'competitivo')),
+  venue_type text not null check (venue_type in ('online', 'tienda', 'club', 'casa', 'otro')),
+  venue_name text not null default '' check (char_length(venue_name) <= 120),
+  city text not null default '' check (char_length(city) <= 80),
+  lat double precision check (lat between -90 and 90),
+  lng double precision check (lng between -180 and 180),
+  starts_on date not null,
+  time_mode text not null default 'fixed' check (time_mode in ('fixed', 'flexible')),
+  start_time time,
+  end_time time,
+  time_note text not null default '' check (char_length(time_note) <= 80),
+  max_players integer not null default 2 check (max_players between 2 and 8),
+  player_count integer not null default 0,
+  status text not null default 'open' check (status in ('open', 'cancelled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (time_mode <> 'fixed' or start_time is not null),
+  check (venue_type = 'online' or (lat is not null and lng is not null))
+);
+
+create index if not exists idx_matches_upcoming on public.matches (starts_on) where status = 'open';
+create index if not exists idx_matches_host on public.matches (host_id);
+
+drop trigger if exists set_updated_at on public.matches;
+create trigger set_updated_at before update on public.matches
+  for each row execute function public.set_updated_at();
+
+create table if not exists public.match_players (
+  match_id uuid not null references public.matches (id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  faction text,
+  joined_at timestamptz not null default now(),
+  primary key (match_id, user_id)
+);
+
+create index if not exists idx_match_players_user on public.match_players (user_id);
+
+-- Exact address (a home game, a club's street), for the players only.
+create table if not exists public.match_private (
+  match_id uuid primary key references public.matches (id) on delete cascade,
+  address text not null default '' check (char_length(address) <= 300)
+);
+
+create table if not exists public.match_messages (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references public.matches (id) on delete cascade,
+  author_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  body text not null check (char_length(trim(body)) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_match_messages_match on public.match_messages (match_id, created_at);
+
+create or replace function public.is_match_player(p_match uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.match_players where match_id = p_match and user_id = auth.uid())
+$$;
+
+revoke all on function public.is_match_player(uuid) from public, anon;
+grant execute on function public.is_match_player(uuid) to authenticated;
+
+-- Home games never publish a precise point: ~1 km is enough to list them
+-- by distance without giving away where someone lives.
+create or replace function public.match_blur_location()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.venue_type = 'casa' and new.lat is not null then
+    new.lat := round(new.lat::numeric, 2)::double precision;
+    new.lng := round(new.lng::numeric, 2)::double precision;
+  end if;
+  if new.venue_type = 'online' then
+    new.lat := null;
+    new.lng := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists matches_blur_location on public.matches;
+create trigger matches_blur_location before insert or update on public.matches
+  for each row execute function public.match_blur_location();
+
+create or replace function public.match_add_host()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.match_players (match_id, user_id, faction) values (new.id, new.host_id, new.host_faction);
+  return null;
+end;
+$$;
+
+drop trigger if exists matches_add_host on public.matches;
+create trigger matches_add_host after insert on public.matches
+  for each row execute function public.match_add_host();
+
+create or replace function public.match_recount()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m uuid := coalesce(new.match_id, old.match_id);
+begin
+  update public.matches set player_count = (select count(*) from public.match_players where match_id = m) where id = m;
+  return null;
+end;
+$$;
+
+drop trigger if exists match_players_recount on public.match_players;
+create trigger match_players_recount after insert or delete on public.match_players
+  for each row execute function public.match_recount();
+
+-- Can the current user take a seat? Open, not full, not in the past.
+create or replace function public.can_join_match(p_match uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.matches m
+    where m.id = p_match and m.status = 'open' and m.starts_on >= current_date and m.player_count < m.max_players
+  )
+$$;
+
+revoke all on function public.can_join_match(uuid) from public, anon;
+grant execute on function public.can_join_match(uuid) to authenticated;
+
+alter table public.matches enable row level security;
+alter table public.match_players enable row level security;
+alter table public.match_private enable row level security;
+alter table public.match_messages enable row level security;
+
+drop policy if exists "matches_read" on public.matches;
+drop policy if exists "matches_insert" on public.matches;
+drop policy if exists "matches_update" on public.matches;
+drop policy if exists "matches_delete" on public.matches;
+create policy "matches_read" on public.matches for select to anon, authenticated using (true);
+create policy "matches_insert" on public.matches for insert to authenticated
+  with check (host_id = auth.uid() and starts_on >= current_date);
+create policy "matches_update" on public.matches for update to authenticated
+  using (host_id = auth.uid()) with check (host_id = auth.uid());
+create policy "matches_delete" on public.matches for delete to authenticated using (host_id = auth.uid() or public.is_admin());
+
+drop policy if exists "match_players_read" on public.match_players;
+drop policy if exists "match_players_insert" on public.match_players;
+drop policy if exists "match_players_update" on public.match_players;
+drop policy if exists "match_players_delete" on public.match_players;
+create policy "match_players_read" on public.match_players for select to anon, authenticated using (true);
+create policy "match_players_insert" on public.match_players for insert to authenticated
+  with check (user_id = auth.uid() and public.can_join_match(match_id));
+create policy "match_players_update" on public.match_players for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- Leave (not the host: they cancel instead), or the host removes someone.
+create policy "match_players_delete" on public.match_players for delete to authenticated
+  using (
+    (user_id = auth.uid() and not exists (select 1 from public.matches m where m.id = match_id and m.host_id = auth.uid()))
+    or exists (select 1 from public.matches m where m.id = match_id and m.host_id = auth.uid() and m.host_id <> match_players.user_id)
+  );
+
+drop policy if exists "match_private_read" on public.match_private;
+drop policy if exists "match_private_write" on public.match_private;
+create policy "match_private_read" on public.match_private for select to authenticated using (public.is_match_player(match_id));
+create policy "match_private_write" on public.match_private for all to authenticated
+  using (exists (select 1 from public.matches m where m.id = match_id and m.host_id = auth.uid()))
+  with check (exists (select 1 from public.matches m where m.id = match_id and m.host_id = auth.uid()));
+
+drop policy if exists "match_messages_read" on public.match_messages;
+drop policy if exists "match_messages_insert" on public.match_messages;
+create policy "match_messages_read" on public.match_messages for select to authenticated using (public.is_match_player(match_id));
+create policy "match_messages_insert" on public.match_messages for insert to authenticated
+  with check (author_id = auth.uid() and public.is_match_player(match_id));
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'match_messages'
+  ) then
+    alter publication supabase_realtime add table public.match_messages;
+  end if;
+end$$;
+
+-- Upcoming open games by distance (km) from a point. Online games are
+-- always included (distance null) unless p_include_online is false.
+create or replace function public.nearby_matches(
+  p_lat double precision default null,
+  p_lng double precision default null,
+  p_radius_km double precision default null,
+  p_include_online boolean default true
+)
+returns table (id uuid, distance_km double precision)
+language sql
+stable
+set search_path = public
+as $$
+  select m.id,
+    case when p_lat is null or m.lat is null then null
+      else 6371 * 2 * asin(sqrt(
+        power(sin(radians(m.lat - p_lat) / 2), 2)
+        + cos(radians(p_lat)) * cos(radians(m.lat)) * power(sin(radians(m.lng - p_lng) / 2), 2)
+      ))
+    end as distance_km
+  from public.matches m
+  where m.status = 'open'
+    and m.starts_on >= current_date
+    and (
+      (m.venue_type = 'online' and p_include_online)
+      or (m.venue_type <> 'online' and (
+        p_lat is null or p_radius_km is null
+        or 6371 * 2 * asin(sqrt(
+          power(sin(radians(m.lat - p_lat) / 2), 2)
+          + cos(radians(p_lat)) * cos(radians(m.lat)) * power(sin(radians(m.lng - p_lng) / 2), 2)
+        )) <= p_radius_km
+      ))
+    )
+  order by m.starts_on, distance_km nulls last
+  limit 200
+$$;
+
+grant execute on function public.nearby_matches(double precision, double precision, double precision, boolean) to anon, authenticated;
+
+-- ============================================================
+-- Notifications for teams and games
+-- ============================================================
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications add constraint notifications_type_check
+  check (type in (
+    'friend_request', 'friend_accepted', 'like', 'comment', 'comment_like',
+    'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled'
+  ));
+
+create or replace function public.notify_team_invitation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.notifications (user_id, actor_id, type, target_type, target_id, entity_id, excerpt)
+      select new.user_id, new.invited_by, 'team_invite', 'team', new.team_id, new.id, t.name
+      from public.teams t where t.id = new.team_id;
+  else
+    delete from public.notifications where entity_id = old.id and type = 'team_invite';
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists team_invitations_notify on public.team_invitations;
+create trigger team_invitations_notify after insert or delete on public.team_invitations
+  for each row execute function public.notify_team_invitation();
+
+-- Tell the team's managers when someone joins (not the owner on creation).
+create or replace function public.notify_team_member()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.role = 'owner' then
+    return null;
+  end if;
+  insert into public.notifications (user_id, actor_id, type, target_type, target_id, excerpt)
+    select m.user_id, new.user_id, 'team_joined', 'team', new.team_id, t.name
+    from public.team_members m join public.teams t on t.id = m.team_id
+    where m.team_id = new.team_id and m.role in ('owner', 'admin') and m.user_id <> new.user_id;
+  return null;
+end;
+$$;
+
+drop trigger if exists team_members_notify on public.team_members;
+create trigger team_members_notify after insert on public.team_members
+  for each row execute function public.notify_team_member();
+
+create or replace function public.notify_match_player()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m public.matches;
+begin
+  select * into m from public.matches where id = coalesce(new.match_id, old.match_id);
+  if m.id is null then
+    return null;
+  end if;
+  if tg_op = 'INSERT' and new.user_id <> m.host_id then
+    insert into public.notifications (user_id, actor_id, type, target_type, target_id, excerpt)
+      values (m.host_id, new.user_id, 'match_joined', 'match', m.id, to_char(m.starts_on, 'DD/MM'));
+  elsif tg_op = 'DELETE' and old.user_id <> m.host_id and old.user_id = auth.uid() then
+    insert into public.notifications (user_id, actor_id, type, target_type, target_id, excerpt)
+      values (m.host_id, old.user_id, 'match_left', 'match', m.id, to_char(m.starts_on, 'DD/MM'));
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists match_players_notify on public.match_players;
+create trigger match_players_notify after insert or delete on public.match_players
+  for each row execute function public.notify_match_player();
+
+create or replace function public.notify_match_cancelled()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.status = 'open' and new.status = 'cancelled' then
+    insert into public.notifications (user_id, actor_id, type, target_type, target_id, excerpt)
+      select p.user_id, new.host_id, 'match_cancelled', 'match', new.id, to_char(new.starts_on, 'DD/MM')
+      from public.match_players p where p.match_id = new.id and p.user_id <> new.host_id;
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists matches_notify_cancelled on public.matches;
+create trigger matches_notify_cancelled after update on public.matches
+  for each row execute function public.notify_match_cancelled();
+
+-- ============================================================
 -- Profile counters (defined last: reads tables from every section)
 -- ============================================================
 -- Friendships are private to the two people involved, so the public

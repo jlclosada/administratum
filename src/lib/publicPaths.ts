@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   /^\/competitivo(\/(listas|torneos)\/[^/]+)?$/,
   /^\/comunidad(\/listas\/[^/]+)?$/,
   /^\/perfil\/[^/]+$/,
+  /^\/partidas(\/(?!nueva$)[^/]+)?$/,
 ];
 
 export function isPublicPath(pathname: string): boolean {

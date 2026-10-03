@@ -16,6 +16,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Brush,
   ChevronDown,
+  Dices,
   Download,
   Home,
   Library,
@@ -34,9 +35,10 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 // Primary: content the user comes to browse or reference.
 const primaryItems = [
   { to: "/", icon: Home, label: "Inicio" },
+  { to: "/partidas", icon: Dices, label: "Partidas" },
   { to: "/comunidad", icon: Users, label: "Comunidad" },
   { to: "/competitivo", icon: Trophy, label: "Competitivo" },
-  { to: "/catalogo-puntos", icon: Library, label: "Catálogo de puntos" },
+  { to: "/catalogo-puntos", icon: Library, label: "Puntos" },
   { to: "/guias", icon: Brush, label: "Pintura" },
   { to: "/descargas", icon: Download, label: "Descargas" },
 ];

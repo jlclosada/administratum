@@ -150,6 +150,14 @@ export function PrivacidadPage() {
             y nos envía los datos indicados en la sección 2.
           </li>
           <li>
+            <strong className="text-foreground">OpenStreetMap</strong> (buscador de
+            partidas: búsqueda de ciudades y direcciones y mapas). Solo recibe el texto
+            que escribes en el buscador de ubicaciones o, si pulsas «Mi ubicación», tu
+            posición aproximada para saber en qué ciudad estás; no recibe tu cuenta.
+            En las partidas «en casa» solo publicamos una ubicación aproximada (unos
+            1 km) y la dirección exacta la ven únicamente los jugadores apuntados.
+          </li>
+          <li>
             <strong className="text-foreground">Resend</strong> (envío de los correos
             de la cuenta —confirmación, recuperación de contraseña, cambio de correo y
             avisos de seguridad— y de las novedades descritas en la sección 3). Recibe tu dirección de correo y el contenido del
