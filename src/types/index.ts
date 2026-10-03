@@ -137,7 +137,17 @@ export interface Friendship extends BaseEntity {
   status: FriendshipStatus;
 }
 
-export type NotificationType = 'friend_request' | 'friend_accepted' | 'like' | 'comment' | 'comment_like';
+export type NotificationType =
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'like'
+  | 'comment'
+  | 'comment_like'
+  | 'team_invite'
+  | 'team_joined'
+  | 'match_joined'
+  | 'match_left'
+  | 'match_cancelled';
 
 /** In-app notification, written by database triggers for the recipient. */
 export interface AppNotification {
@@ -145,8 +155,8 @@ export interface AppNotification {
   userId: string;
   actorId: string | null;
   type: NotificationType;
-  /** What the notification links to: article | guide | photo | list. */
-  targetType: 'article' | 'guide' | 'photo' | 'list' | null;
+  /** What the notification links to. */
+  targetType: 'article' | 'guide' | 'photo' | 'list' | 'team' | 'match' | null;
   targetId: string | null;
   /** Title of the liked item, or the text of the comment. */
   excerpt: string;
@@ -1071,3 +1081,111 @@ export const PRESET_ARMIES: Record<string, PresetArmy[]> = {
     },
   ],
 };
+
+// ---------- Teams ----------
+export type TeamRole = 'owner' | 'admin' | 'member';
+
+export interface Team {
+  id: string;
+  name: string;
+  description: string;
+  emblem: string | null;
+  banner: string | null;
+  location: string;
+  createdBy: string;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamMember {
+  teamId: string;
+  userId: string;
+  role: TeamRole;
+  joinedAt: string;
+}
+
+export interface TeamInvitation {
+  id: string;
+  teamId: string;
+  userId: string;
+  invitedBy: string;
+  createdAt: string;
+}
+
+export interface TeamPost {
+  id: string;
+  teamId: string;
+  authorId: string;
+  kind: 'post' | 'list';
+  body: string;
+  image: string | null;
+  listTitle: string | null;
+  listData: ParsedArmyList | null;
+  pinned: boolean;
+  commentCount: number;
+  createdAt: string;
+}
+
+export interface TeamPostComment {
+  id: string;
+  postId: string;
+  teamId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+}
+
+/** A line in a group chat (team or game). */
+export interface ChatMessage {
+  id: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+}
+
+// ---------- Open games ("partidas") ----------
+export type MatchFormat = 'equilibrado' | 'cruzada' | 'narrativo' | 'patrulla' | 'incursion' | 'otro';
+export type MatchLevel = 'iniciacion' | 'casual' | 'intermedio' | 'competitivo';
+export type VenueType = 'online' | 'tienda' | 'club' | 'casa' | 'otro';
+
+export interface Match {
+  id: string;
+  hostId: string;
+  title: string;
+  description: string;
+  format: MatchFormat;
+  pointsLimit: number | null;
+  hostFaction: string | null;
+  level: MatchLevel;
+  venueType: VenueType;
+  venueName: string;
+  city: string;
+  lat: number | null;
+  lng: number | null;
+  startsOn: string;
+  timeMode: 'fixed' | 'flexible';
+  startTime: string | null;
+  endTime: string | null;
+  timeNote: string;
+  maxPlayers: number;
+  playerCount: number;
+  status: 'open' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+  /** From the searcher's position; null for online games or with no position. */
+  distanceKm?: number | null;
+}
+
+export interface MatchPlayer {
+  matchId: string;
+  userId: string;
+  faction: string | null;
+  joinedAt: string;
+}
+
+export type CreateMatchDTO = Omit<Match, 'id' | 'hostId' | 'playerCount' | 'status' | 'createdAt' | 'updatedAt' | 'distanceKm'> & {
+  /** Exact address, shown to the players only. */
+  address?: string;
+};
+

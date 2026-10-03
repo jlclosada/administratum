@@ -21,6 +21,7 @@ export const STATIC_ENTRIES: SitemapEntry[] = [
   { path: '/comunidad', changefreq: 'daily', priority: 0.8 },
   { path: '/guias', changefreq: 'weekly', priority: 0.8 },
   { path: '/descargas', changefreq: 'weekly', priority: 0.6 },
+  { path: '/partidas', changefreq: 'daily', priority: 0.8 },
   { path: '/legal/aviso-legal', changefreq: 'yearly', priority: 0.1 },
   { path: '/legal/privacidad', changefreq: 'yearly', priority: 0.1 },
   { path: '/legal/cookies', changefreq: 'yearly', priority: 0.1 },

@@ -171,6 +171,21 @@ const GuideEditorPage = lazyRoute(() =>
 const UnitPointsPage = lazyRoute(() =>
   import("@/pages/UnitPointsPage").then((m) => ({ default: m.UnitPointsPage })),
 );
+const TeamsPage = lazyRoute(() =>
+  import("@/pages/TeamsPage").then((m) => ({ default: m.TeamsPage })),
+);
+const TeamPage = lazyRoute(() =>
+  import("@/pages/TeamPage").then((m) => ({ default: m.TeamPage })),
+);
+const MatchesPage = lazyRoute(() =>
+  import("@/pages/MatchesPage").then((m) => ({ default: m.MatchesPage })),
+);
+const MatchDetailPage = lazyRoute(() =>
+  import("@/pages/MatchDetailPage").then((m) => ({ default: m.MatchDetailPage })),
+);
+const MatchFormPage = lazyRoute(() =>
+  import("@/pages/MatchFormPage").then((m) => ({ default: m.MatchFormPage })),
+);
 const GuidesPage = lazyRoute(() =>
   import("@/pages/GuidesPage").then((m) => ({ default: m.GuidesPage })),
 );
@@ -250,6 +265,8 @@ const publicRoutes = (
       element={<CommunityListDetailPage />}
     />
     <Route path="perfil/:userId" element={<ProfilePage />} />
+    <Route path="partidas" element={<MatchesPage />} />
+    <Route path="partidas/:matchId" element={<MatchDetailPage />} />
   </>
 );
 
@@ -352,6 +369,10 @@ function AnimatedRoutes({ guest = false }: { guest?: boolean }) {
               <Route path="lists/:listId" element={<ArmyListDetailPage />} />
               <Route path="perfil" element={<ProfilePage />} />
               <Route path="amigos" element={<FriendsPage />} />
+              <Route path="equipos" element={<TeamsPage />} />
+              <Route path="equipos/:teamId" element={<TeamPage />} />
+              <Route path="partidas/nueva" element={<MatchFormPage />} />
+              <Route path="partidas/:matchId/editar" element={<MatchFormPage />} />
               <Route path="mensajes" element={<MessagesPage />} />
               <Route path="mensajes/:userId" element={<MessagesPage />} />
               <Route path="gallery" element={<GalleryPage />} />

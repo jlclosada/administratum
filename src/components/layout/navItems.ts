@@ -7,6 +7,7 @@ import {
   Library,
   MessageCircle,
   Palette,
+  Shield,
   Swords,
   Trophy,
   UserPlus,
@@ -17,6 +18,7 @@ import {
 /** The user's own hobby spaces — in the profile menu and the side rail. */
 export const collectionItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/equipos", icon: Shield, label: "Mis Equipos" },
   { to: "/coleccion", icon: Swords, label: "Mi Colección" },
   { to: "/lists", icon: ClipboardList, label: "Mis Listas" },
   { to: "/paints", icon: Palette, label: "Mis Pinturas" },
