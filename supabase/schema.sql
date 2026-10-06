@@ -3063,6 +3063,52 @@ create trigger match_invitations_notify after insert or update or delete on publ
   for each row execute function public.notify_match_invitation();
 
 -- ============================================================
+-- Automatic email when the official points change
+-- ============================================================
+-- The MFM sync logs each change in catalog_updates (with the unit, since
+-- this version). /api/email groups the not-yet-announced ones into a digest
+-- (digest_key) and emails every subscribed user, personalised with the
+-- units of their own collection.
+alter table public.catalog_updates add column if not exists unit_name text;
+alter table public.catalog_updates add column if not exists faction_slug text;
+alter table public.app_config add column if not exists points_email_enabled boolean not null default true;
+
+-- The first time this runs, changes logged earlier are marked as already
+-- announced, so turning this on doesn't email old news.
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'catalog_updates' and column_name = 'digest_key'
+  ) then
+    alter table public.catalog_updates add column digest_key text;
+    update public.catalog_updates set digest_key = 'historico' where type = 'points';
+  end if;
+end;
+$$;
+
+create index if not exists idx_catalog_updates_digest on public.catalog_updates (digest_key) where digest_key is not null;
+
+-- Which users own miniatures of the units in a digest (server only).
+create or replace function public.points_digest_owners(p_key text)
+returns table (user_id uuid, update_id uuid, quantity integer)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select m.user_id, cu.id, sum(m.quantity)::int
+  from public.catalog_updates cu
+  join public.unit_catalog u on u.faction_slug = cu.faction_slug and u.name = cu.unit_name
+  join public.miniatures m on m.catalog_unit_id = u.id
+  where cu.digest_key = p_key
+  group by m.user_id, cu.id
+$$;
+
+revoke all on function public.points_digest_owners(text) from public, anon, authenticated;
+grant execute on function public.points_digest_owners(text) to service_role;
+
+-- ============================================================
 -- Profile counters (defined last: reads tables from every section)
 -- ============================================================
 -- Friendships are private to the two people involved, so the public

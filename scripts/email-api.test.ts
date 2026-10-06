@@ -4,6 +4,9 @@ import {
   defaultSubject,
   renderEmail,
   renderMatchInvite,
+  renderPointsDigest,
+  toPointsChange,
+  unitSlug,
   signEmail,
   signUser,
   verifyEmail,
@@ -11,6 +14,7 @@ import {
   type Digest,
   type TemplateKey,
 } from '../api/email';
+import { unitSlug as appUnitSlug } from '../src/lib/seoCopy';
 
 const digest: Digest = {
   articles: [{ id: 'a1', title: 'Nuevo dataslate', excerpt: 'Cambios importantes' }],
@@ -116,6 +120,59 @@ describe('email api', () => {
     expect(user.html).toContain('En casa · Madrid');
     expect(user.html).not.toContain('Calle Falsa');
     expect(user.html).not.toContain('action=unsubscribe');
+  });
+
+  describe('points digest', () => {
+    const row = (id: string, unit: string, faction: string, slug: string, before: number, after: number, models = 1) => ({
+      id,
+      title: `${unit} - ${faction}`,
+      link: `/catalogo-puntos/${slug}`,
+      unit_name: unit,
+      faction_slug: slug,
+      points_before: before,
+      points_after: after,
+      points_delta: after - before,
+      description: `${after > before ? '+' : ''}${after - before} pts (${before} → ${after}, ${models} ${models === 1 ? 'miniatura' : 'miniaturas'})`,
+    });
+    const changes = [
+      row('u1', 'Sorcerer In Terminator Armour', 'Thousand Sons', 'thousand-sons', 100, 110),
+      row('u2', 'Rubric Marines', 'Thousand Sons', 'thousand-sons', 100, 115, 5),
+      row('u3', 'Boyz', 'Orks', 'orks', 85, 80, 10),
+      row('u4', 'Wraithguard', 'Aeldari', 'aeldari', 170, 185, 5),
+    ].map((r) => toPointsChange(r)!);
+
+    it('parses stored changes, also old rows without unit columns', () => {
+      expect(changes[2]).toMatchObject({ unit: 'Boyz', faction: 'Orks', slug: 'orks', before: 85, after: 80, delta: -5, models: 10 });
+      const old = toPointsChange({ id: 'x', title: 'Ahriman - Thousand Sons', link: '/catalogo-puntos/thousand-sons', points_before: 100, points_after: 105, points_delta: 5, description: '+5 pts (100 → 105, 1 miniatura)' });
+      expect(old).toMatchObject({ unit: 'Ahriman', faction: 'Thousand Sons', slug: 'thousand-sons', delta: 5 });
+      expect(toPointsChange({ id: 'y', title: 'X - Y', points_delta: null })).toBeNull();
+      for (const n of ["Sorcerer In Terminator Armour", "T'au Commander", "Ætherstorm Café"]) expect(unitSlug(n)).toBe(appUnitSlug(n));
+    });
+
+    it('puts the reader\'s own miniatures and faction first, with up/down and links', () => {
+      const { subject, html } = renderPointsDigest(changes, { ...me, favoriteFaction: 'Thousand Sons' }, new Map([['u3', 30]]), '1.6');
+      expect(subject).toBe('Cambian los puntos de 1 unidad de tu colección');
+      expect(html).toContain('Nuevos puntos: Munitorum Field Manual 1.6');
+      expect(html).toContain('Tus miniaturas');
+      expect(html).toContain('Orks · tienes 30');
+      expect(html).toContain('Tu facción · Thousand Sons');
+      expect(html).toContain('href="https://administratum.site/catalogo-puntos/thousand-sons/sorcerer-in-terminator-armour"');
+      expect(html).toContain('&#9650; +10 pts');
+      expect(html).toContain('&#9660; -5 pts');
+      expect(html).toContain('100 &rarr; 110');
+      expect(html).toContain('3 suben');
+      expect(html).toContain('1 baja');
+      expect(html.indexOf('Tus miniaturas')).toBeLessThan(html.indexOf('Tu facción'));
+      expect(html).toContain(`/api/email?action=unsubscribe&u=${me.id}&t=`);
+    });
+
+    it('has a general subject when none of the reader\'s units changed', () => {
+      const { subject, html } = renderPointsDigest(changes, me);
+      expect(subject).toBe('Cambios de puntos en Warhammer 40K: 4 unidades');
+      expect(html).not.toContain('Tus miniaturas');
+      expect(html).toContain('Los mayores cambios');
+      expect(html).toContain('Por facción');
+    });
   });
 });
 

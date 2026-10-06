@@ -61,6 +61,8 @@ export function updateEntry(existing, row) {
       ? `${sign}${change.delta} pts (${change.before} → ${change.after}${change.models ? `, ${change.models} ${change.models === 1 ? 'miniatura' : 'miniaturas'}` : ''})`
       : 'Cambio en las opciones de puntos',
     link: `/catalogo-puntos/${row.faction_slug}`,
+    unit_name: row.name,
+    faction_slug: row.faction_slug,
     points_before: change?.before ?? null,
     points_after: change?.after ?? null,
     points_delta: change?.delta ?? null,
@@ -159,7 +161,12 @@ export async function syncMfm(supabase, { log = console.log, dryRun = false, scr
   }
 
   if (updates.length) {
-    const { error } = await supabase.from('catalog_updates').insert(updates);
+    let { error } = await supabase.from('catalog_updates').insert(updates);
+    if (error && /unit_name|faction_slug/.test(error.message ?? '')) {
+      // Database without the newer columns (schema.sql not re-run yet): keep
+      // logging the change; it just won't be linked to users' miniatures.
+      ({ error } = await supabase.from('catalog_updates').insert(updates.map(({ unit_name, faction_slug, ...rest }) => rest)));
+    }
     if (error) throw error;
   }
   log(`Miniaturas de usuarios actualizadas: ${summary.miniaturesUpdated}. Cambios registrados: ${updates.length}.`);

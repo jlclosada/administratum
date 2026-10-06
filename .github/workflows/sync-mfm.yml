@@ -12,6 +12,9 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Optional: lets the last step trigger the points email at once.
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,3 +30,12 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # Points changed? Email everyone right away (api/email.ts dedupes, so
+      # calling it when nothing changed is harmless). Needs the CRON_SECRET
+      # repository secret (same value as in Vercel); without it the daily
+      # Vercel cron sends the email at 09:00 UTC instead.
+      - name: Announce points changes by email
+        if: ${{ env.CRON_SECRET != '' }}
+        run: |
+          curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://administratum.site/api/email?action=points"

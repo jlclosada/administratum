@@ -1256,6 +1256,7 @@ const DEFAULT_APP_CONFIG: AppConfig = {
   reengagementEnabled: false,
   reengagementDays: 14,
   reengagementCooldownDays: 30,
+  pointsEmailEnabled: true,
 };
 
 /**
@@ -1266,11 +1267,21 @@ export async function getAppConfig(): Promise<AppConfig> {
   try {
     const { data, error } = await supabase
       .from('app_config')
-      .select('announcement, announcement_enabled, signups_enabled, reengagement_enabled, reengagement_days, reengagement_cooldown_days')
+      // '*': a column added by a newer schema.sql must not break older databases.
+      .select('*')
       .eq('id', 'global')
       .maybeSingle();
     if (error || !data) return DEFAULT_APP_CONFIG;
-    return { ...DEFAULT_APP_CONFIG, ...mapRow<AppConfig>(data) };
+    const row = mapRow<AppConfig & { id?: string; updatedAt?: string }>(data);
+    return {
+      announcement: row.announcement ?? DEFAULT_APP_CONFIG.announcement,
+      announcementEnabled: row.announcementEnabled ?? DEFAULT_APP_CONFIG.announcementEnabled,
+      signupsEnabled: row.signupsEnabled ?? DEFAULT_APP_CONFIG.signupsEnabled,
+      reengagementEnabled: row.reengagementEnabled ?? DEFAULT_APP_CONFIG.reengagementEnabled,
+      reengagementDays: row.reengagementDays ?? DEFAULT_APP_CONFIG.reengagementDays,
+      reengagementCooldownDays: row.reengagementCooldownDays ?? DEFAULT_APP_CONFIG.reengagementCooldownDays,
+      pointsEmailEnabled: row.pointsEmailEnabled ?? DEFAULT_APP_CONFIG.pointsEmailEnabled,
+    };
   } catch {
     return DEFAULT_APP_CONFIG;
   }
@@ -1286,6 +1297,7 @@ export async function updateAppConfig(config: AppConfig): Promise<void> {
     reengagement_enabled: config.reengagementEnabled,
     reengagement_days: config.reengagementDays,
     reengagement_cooldown_days: config.reengagementCooldownDays,
+    points_email_enabled: config.pointsEmailEnabled,
     updated_at: new Date().toISOString(),
   });
   if (error) throw error;

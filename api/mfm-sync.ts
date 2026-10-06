@@ -31,7 +31,16 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const summary = await syncMfm(supabase, { log: () => {} });
-    return json(summary);
+    // Points moved: email everyone now (api/email.ts, same CRON_SECRET).
+    let emailed: unknown = null;
+    if (summary.repriced > 0 && process.env.CRON_SECRET) {
+      emailed = await fetch(`${new URL(req.url).origin}/api/email?action=points`, {
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+      })
+        .then((r) => r.json())
+        .catch(() => null);
+    }
+    return json({ ...summary, emailed });
   } catch (err) {
     return json({ error: (err as Error).message || 'No se pudo sincronizar' }, 500);
   }

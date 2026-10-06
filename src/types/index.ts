@@ -819,6 +819,8 @@ export interface AppConfig {
   reengagementEnabled: boolean;
   reengagementDays: number;
   reengagementCooldownDays: number;
+  /** Email everyone automatically when the official points change. */
+  pointsEmailEnabled: boolean;
 }
 
 /** A sent email campaign, as logged by /api/email. */
