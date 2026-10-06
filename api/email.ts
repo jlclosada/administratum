@@ -328,6 +328,8 @@ function layout(o: {
   body: string;
   unsubscribe: string;
   external?: boolean;
+  /** Replaces the subscription notice (personal emails such as invitations). */
+  footer?: string;
 }) {
   const footerLink = (href: string, label: string) =>
     `<a href="${href}" style="color:${C.muted};text-decoration:none;">${label}</a>`;
@@ -374,7 +376,9 @@ function layout(o: {
           </p>
           <p style="margin:0 0 10px;font-size:12px;line-height:1.7;color:${C.faint};">
             ${
-              o.external
+              o.footer
+                ? o.footer
+                : o.external
                 ? `Recibes este correo porque aceptaste recibir novedades de Administratum.<br>
             <a href="${o.unsubscribe}" style="color:${C.muted};">Darme de baja</a> y no volver a recibir ninguno.`
                 : `Recibes este correo porque tienes una cuenta en Administratum y aceptas novedades por correo.<br>
@@ -467,12 +471,14 @@ const bulletList = (items: string[]) =>
       .join(''),
   );
 
-export type TemplateKey = 'presentacion' | 'destacado' | 'novedades' | 'recordatorio';
+export type TemplateKey = 'presentacion' | 'destacado' | 'novedades' | 'recordatorio' | 'noticia';
 
 export interface TemplateOptions {
   template: TemplateKey;
   feature?: FeatureKey;
   subject?: string;
+  /** 'noticia': the article it announces (id, title, excerpt, cover_image). */
+  article?: Row | null;
 }
 
 export interface Recipient {
@@ -494,6 +500,8 @@ export function defaultSubject(o: TemplateOptions): string {
       return 'Lo último en Administratum: puntos, torneos y listas';
     case 'recordatorio':
       return 'Te echamos de menos: esto es lo que te has perdido';
+    case 'noticia':
+      return o.article?.title ? `Nueva noticia: ${o.article.title}` : 'Nueva noticia en Administratum';
   }
 }
 
@@ -550,6 +558,21 @@ export function renderEmail(o: TemplateOptions, r: Recipient, digest: Digest): {
       button(`${SITE}${f.cta[0]}`, f.cta[1]),
       signature('Un saludo,'),
     ].join('\n');
+  } else if (o.template === 'noticia') {
+    const a = o.article;
+    eyebrow = 'Nueva noticia';
+    title = a?.title ?? 'Lo último en Administratum';
+    const href = a ? `${SITE}/articulos/${a.id}` : SITE;
+    body = [
+      greeting(r.name),
+      a?.cover_image
+        ? `<a href="${href}" style="display:block;margin:0 0 22px;"><img src="${esc(a.cover_image)}" alt="" width="504" style="display:block;width:100%;max-width:504px;height:auto;border:0;border-radius:14px;"></a>`
+        : '',
+      p(esc(a?.excerpt || 'Hay una noticia nueva en Administratum que te puede interesar.')),
+      button(href, 'Leer la noticia'),
+      articlesBlock(digest.articles.filter((x) => x.id !== a?.id).slice(0, 3)),
+      signature('Un saludo,'),
+    ].join('\n');
   } else {
     const reminder = o.template === 'recordatorio';
     eyebrow = reminder ? 'Te echamos de menos' : 'Novedades';
@@ -573,6 +596,119 @@ export function renderEmail(o: TemplateOptions, r: Recipient, digest: Digest): {
   }
 
   return { subject, html: layout({ subject, preheader: title, eyebrow, title, body, unsubscribe, external: r.external }) };
+}
+
+// ---------------------------------------------------------------------------
+// Game invitation ("Has sido invitado a una partida")
+// ---------------------------------------------------------------------------
+
+const MATCH_FORMAT: Record<string, string> = {
+  equilibrado: 'Juego equilibrado',
+  cruzada: 'Cruzada',
+  narrativo: 'Narrativo',
+  patrulla: 'Patrulla de combate',
+  incursion: 'Incursión',
+  otro: 'Partida',
+};
+const MATCH_LEVEL: Record<string, string> = { iniciacion: 'Iniciación', casual: 'Casual', intermedio: 'Intermedio', competitivo: 'Competitivo' };
+const MATCH_VENUE: Record<string, string> = { tienda: 'Tienda', club: 'Club', casa: 'En casa', online: 'Online', otro: 'Otro lugar' };
+
+export interface MatchInvite {
+  /** Invitation token: external invitees accept through the link. */
+  token: string;
+  email: string;
+  name: string;
+  external: boolean;
+  hostName: string;
+  match: Row;
+}
+
+export function renderMatchInvite(inv: MatchInvite): { subject: string; html: string } {
+  const m = inv.match;
+  const host = inv.hostName || 'Un jugador';
+  const subject = `${host} te ha invitado a una partida de Warhammer 40K`;
+  const when = [
+    new Date(`${m.starts_on}T12:00:00Z`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }),
+    m.time_mode === 'fixed' && m.start_time ? `a las ${String(m.start_time).slice(0, 5)}` : m.time_note || 'horario flexible',
+  ].join(', ');
+  const where =
+    m.venue_type === 'online'
+      ? `Online${m.venue_name ? ` · ${m.venue_name}` : ''}`
+      : [m.venue_type === 'casa' ? 'En casa' : m.venue_name || MATCH_VENUE[m.venue_type], m.city].filter(Boolean).join(' · ');
+  const href = inv.external ? `${SITE}/partidas/${m.id}?invitacion=${encodeURIComponent(inv.token)}` : `${SITE}/partidas/${m.id}`;
+  const rows = [
+    ['Cuándo', when],
+    ['Dónde', where],
+    ['Formato', `${MATCH_FORMAT[m.format] ?? 'Partida'}${m.points_limit ? ` · ${m.points_limit} puntos` : ''}`],
+    ['Nivel', MATCH_LEVEL[m.level] ?? ''],
+    ['Ejército de tu rival', m.host_faction || 'Por decidir'],
+  ];
+  const details = panel(
+    rows
+      .map(
+        ([k, v], i) => `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+  <td style="padding:12px 0;${i < rows.length - 1 ? `border-bottom:1px solid ${C.line};` : ''}font-size:13px;color:${C.muted};width:42%;">${esc(k)}</td>
+  <td style="padding:12px 0;${i < rows.length - 1 ? `border-bottom:1px solid ${C.line};` : ''}font-size:15px;font-weight:600;color:${C.white};">${esc(v)}</td>
+</tr></table>`,
+      )
+      .join(''),
+  );
+  const body = [
+    greeting(inv.name),
+    p(`${strong(esc(host))} te ha invitado a jugar una partida de Warhammer 40K y te ha reservado una plaza.`),
+    details,
+    m.description ? p(`<em style="color:${C.muted};">«${esc(String(m.description).slice(0, 400))}»</em>`) : '',
+    button(href, inv.external ? 'Aceptar la invitación' : 'Ver la partida y aceptar'),
+    inv.external
+      ? p(`Para aceptar necesitas una cuenta en ${strong('Administratum')}: es gratis y se crea en un minuto. Allí podrás hablar con ${esc(host)} en el chat de la partida y ver la dirección exacta.`)
+      : p('Al aceptar podrás hablar con tu rival en el chat de la partida y ver la dirección exacta.'),
+    signature('¡Que los dados te sean propicios!'),
+  ].join('\n');
+  const unsubscribe = inv.external ? unsubscribeUrl({ id: '', email: inv.email, name: '', external: true }) : `${SITE}/settings`;
+  const footer = inv.external
+    ? `Recibes este correo porque ${esc(host)} te ha invitado a una partida en Administratum.<br>
+            <a href="${unsubscribe}" style="color:${C.muted};">No quiero recibir más correos de Administratum</a>.`
+    : `Recibes este correo porque ${esc(host)} te ha invitado a una partida en Administratum.`;
+  return {
+    subject,
+    html: layout({ subject, preheader: `${when} · ${where}`, eyebrow: 'Invitación a una partida', title: `${host} te reta a una partida`, body, unsubscribe, external: inv.external, footer }),
+  };
+}
+
+/** Emails the pending invitations of a game the caller hosts. */
+async function sendMatchInvites(req: Request, matchId: string): Promise<Response> {
+  const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  const user = token ? await rest('/auth/v1/user', { key: ANON_KEY, token }).catch(() => null) : null;
+  if (!user?.id || !/^[0-9a-f-]{36}$/i.test(matchId)) return json({ error: 'No autorizado' }, 401);
+  const [match] = await rest(`/rest/v1/matches?select=*&id=eq.${matchId}`);
+  if (!match || match.host_id !== user.id) return json({ error: 'Solo el organizador puede enviar invitaciones' }, 403);
+  const [host] = await rest(`/rest/v1/profiles?select=display_name&id=eq.${user.id}`);
+  const recipients: Row[] = await rest('/rest/v1/rpc/match_invitation_recipients', { method: 'POST', body: { p_match: matchId } });
+  if (recipients.length === 0) return json({ sent: 0 });
+  const payload = recipients.map((r) => {
+    const { subject, html } = renderMatchInvite({
+      token: r.token,
+      email: r.email,
+      name: r.name,
+      external: r.external,
+      hostName: host?.display_name ?? '',
+      match,
+    });
+    return { from: FROM, to: [r.email], reply_to: CONTACT, subject, html };
+  });
+  const res = await fetch('https://api.resend.com/emails/batch', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) return json({ error: `No se pudieron enviar las invitaciones (${res.status})` }, 502);
+  await rest(`/rest/v1/match_invitations?id=in.(${recipients.map((r) => r.id).join(',')})`, {
+    method: 'PATCH',
+    body: { emailed_at: new Date().toISOString() },
+    prefer: 'return=minimal',
+  });
+  return json({ sent: recipients.length });
 }
 
 // ---------------------------------------------------------------------------
@@ -632,7 +768,8 @@ async function contactAudience(): Promise<Recipient[]> {
 /** Same template, feature and subject = same campaign, for delivery tracking. */
 export function campaignKey(o: TemplateOptions): string {
   const subject = (o.subject?.trim() || defaultSubject(o)).toLowerCase();
-  const template = o.template === 'destacado' ? `destacado:${o.feature ?? 'puntos'}` : o.template;
+  const template =
+    o.template === 'destacado' ? `destacado:${o.feature ?? 'puntos'}` : o.template === 'noticia' ? `noticia:${o.article?.id ?? ''}` : o.template;
   return createHash('sha256').update(`${template}|${subject}`).digest('hex').slice(0, 32);
 }
 
@@ -764,11 +901,12 @@ export async function POST(req: Request): Promise<Response> {
   if (!SERVICE_KEY || !process.env.RESEND_API_KEY) {
     return json({ error: 'Faltan SUPABASE_SERVICE_ROLE_KEY o RESEND_API_KEY en Vercel.' }, 500);
   }
-  const admin = await adminFromRequest(req);
-  if (!admin) return json({ error: 'Solo administradores' }, 403);
-
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
+    /** 'match-invite': the game whose invitations to email (any signed-in host). */
+    matchId?: string;
+    /** 'noticia': the article to announce (latest published when missing). */
+    articleId?: string;
     template?: TemplateKey;
     feature?: FeatureKey;
     subject?: string;
@@ -776,12 +914,30 @@ export async function POST(req: Request): Promise<Response> {
     /** Preview/test as an external contact sees it. */
     external?: boolean;
   };
-  const templates: TemplateKey[] = ['presentacion', 'destacado', 'novedades', 'recordatorio'];
+  if (body.action === 'match-invite') {
+    try {
+      return await sendMatchInvites(req, String(body.matchId ?? ''));
+    } catch (err) {
+      return json({ error: (err as Error).message }, 500);
+    }
+  }
+
+  const admin = await adminFromRequest(req);
+  if (!admin) return json({ error: 'Solo administradores' }, 403);
+
+  const templates: TemplateKey[] = ['presentacion', 'destacado', 'novedades', 'recordatorio', 'noticia'];
   const o: TemplateOptions = {
     template: templates.includes(body.template as TemplateKey) ? (body.template as TemplateKey) : 'novedades',
     feature: body.feature && body.feature in FEATURES ? body.feature : 'puntos',
     subject: body.subject,
   };
+  if (o.template === 'noticia') {
+    const id = body.articleId && /^[0-9a-f-]{36}$/i.test(body.articleId) ? `&id=eq.${body.articleId}` : '';
+    const [article] = await rest(`/rest/v1/articles?select=id,title,excerpt,cover_image&published=eq.true${id}&order=created_at.desc&limit=1`);
+    if (!article) return json({ error: 'No hay ninguna noticia publicada.' }, 400);
+    o.article = article;
+  }
+  const templateName = o.template === 'destacado' ? `destacado:${o.feature}` : o.template === 'noticia' ? `noticia:${o.article?.id}` : o.template;
   const myName = async () => {
     const [profile] = await rest(`/rest/v1/profiles?select=display_name&id=eq.${admin.id}`);
     return (profile?.display_name as string) ?? '';
@@ -802,7 +958,7 @@ export async function POST(req: Request): Promise<Response> {
       const result = await sendBatch(o, [me], await loadDigest());
       await logCampaign({
         kind: 'test',
-        template: o.template,
+        template: templateName,
         subject: o.subject || defaultSubject(o),
         audience: `Prueba a ${admin.email}`,
         recipients: 1,
@@ -829,7 +985,7 @@ export async function POST(req: Request): Promise<Response> {
       await recordDeliveries(key, result.sentEmails);
       await logCampaign({
         kind: 'manual',
-        template: o.template === 'destacado' ? `destacado:${o.feature}` : o.template,
+        template: templateName,
         subject: o.subject || defaultSubject(o),
         audience: contacts ? 'Contactos externos' : inactive ? `Inactivos ≥ ${inactive} días` : 'Todos los suscritos',
         recipients: all.length,

@@ -150,6 +150,12 @@ export function PrivacidadPage() {
             y nos envía los datos indicados en la sección 2.
           </li>
           <li>
+            <strong className="text-foreground">Invitaciones a partidas</strong>: si
+            alguien te invita a una partida con tu correo y aún no tienes cuenta, lo
+            usamos solo para enviarte esa invitación (un único correo) y lo guardamos
+            junto a ella. Puedes pedir no recibir más correos desde el enlace del pie.
+          </li>
+          <li>
             <strong className="text-foreground">OpenStreetMap</strong> (buscador de
             partidas: búsqueda de ciudades y direcciones y mapas). Solo recibe el texto
             que escribes en el buscador de ubicaciones o, si pulsas «Mi ubicación», tu

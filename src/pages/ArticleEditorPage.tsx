@@ -12,6 +12,7 @@ import {
     updateArticle,
 } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
+import { announceArticle } from "@/lib/emailApi";
 import { pickFiles, uploadFile } from "@/lib/storage";
 import type { RichContent } from "@/types";
 import { ArrowLeft, ImageIcon, Loader2, ShieldAlert, X } from "lucide-react";
@@ -35,6 +36,9 @@ export function ArticleEditorPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [content, setContent] = useState<RichContent>(null);
   const [published, setPublished] = useState(true);
+  // Was it already public before this edit? (then no new announcement)
+  const [wasPublished, setWasPublished] = useState(false);
+  const [notify, setNotify] = useState(false);
 
   useEffect(() => {
     if (!isEdit || !articleId) return;
@@ -47,6 +51,7 @@ export function ArticleEditorPage() {
         setTags(a.tags);
         setContent(a.content);
         setPublished(a.published);
+        setWasPublished(a.published);
       })
       .catch((err) => console.error("Failed to load article:", err))
       .finally(() => setLoading(false));
@@ -64,6 +69,16 @@ export function ArticleEditorPage() {
       toast.error("No se pudo subir la imagen.");
     } finally {
       setUploadingCover(false);
+    }
+  }
+
+  async function notifySubscribers(id: string) {
+    try {
+      const r = await announceArticle(id);
+      if (r.limited) toast.warning(`Aviso enviado a ${r.sent}; ${r.remaining} quedan por el límite diario (envíalo mañana desde Admin → Correos).`);
+      else toast.success(`Aviso por correo enviado a ${r.sent} ${r.sent === 1 ? "usuario" : "usuarios"}.`);
+    } catch (err) {
+      toast.error(`El artículo se ha publicado, pero el aviso por correo falló: ${(err as Error).message}`);
     }
   }
 
@@ -85,6 +100,7 @@ export function ArticleEditorPage() {
           published: publish,
         });
         toast.success("Artículo actualizado");
+        if (publish && notify && !wasPublished) await notifySubscribers(articleId);
         navigate(`/articulos/${articleId}`);
       } else {
         const created = await createArticle({
@@ -96,6 +112,7 @@ export function ArticleEditorPage() {
           published: publish,
         });
         toast.success(publish ? "Artículo publicado" : "Borrador guardado");
+        if (publish && notify) await notifySubscribers(created.id);
         navigate(`/articulos/${created.id}`);
       }
     } catch (err) {
@@ -150,6 +167,12 @@ export function ArticleEditorPage() {
             >
               Guardar borrador
             </Button>
+            {!wasPublished && (
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="accent-[hsl(var(--primary))]" />
+                Avisar por correo al publicar
+              </label>
+            )}
             <Button
               variant="gradient"
               size="sm"

@@ -1,5 +1,5 @@
 import { getSessionUser, supabase } from '@/lib/supabase';
-import type { ChatMessage, CreateMatchDTO, Match, MatchPlayer } from '@/types';
+import type { ChatMessage, CreateMatchDTO, Match, MatchInvitation, MatchInvitee, MatchPlayer } from '@/types';
 import { mapRow, mapRows } from './repository';
 
 async function myId(): Promise<string> {
@@ -148,4 +148,66 @@ export async function sendMatchMessage(id: string, body: string): Promise<ChatMe
   const { data, error } = await supabase.from('match_messages').insert({ match_id: id, body }).select('id, author_id, body, created_at').single();
   if (error) throw error;
   return mapRow<ChatMessage>(data);
+}
+
+// ======================== INVITATIONS ========================
+
+/** The host sees every invitation of the game; a player only theirs. */
+export async function getMatchInvitations(matchId: string): Promise<MatchInvitation[]> {
+  const { data, error } = await supabase.from('match_invitations').select('*').eq('match_id', matchId).order('created_at');
+  if (error) return [];
+  return mapRows<MatchInvitation>(data ?? []);
+}
+
+export async function inviteToMatch(matchId: string, invitee: MatchInvitee): Promise<MatchInvitation> {
+  const row: Record<string, string> =
+    invitee.kind === 'user' ? { match_id: matchId, invited_user: invitee.profile.id } : { match_id: matchId, email: invitee.email.trim().toLowerCase() };
+  const { data, error } = await supabase.from('match_invitations').insert(row).select().single();
+  if (error) {
+    throw new Error(error.code === '23505' ? 'Ya habías invitado a ese jugador.' : error.message);
+  }
+  return mapRow<MatchInvitation>(data);
+}
+
+export async function withdrawMatchInvitation(id: string): Promise<void> {
+  const { error } = await supabase.from('match_invitations').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** By id (invited player) or with the token from the email link. Returns the game id. */
+export async function acceptMatchInvitation(opts: { id?: string; token?: string; faction?: string | null }): Promise<string> {
+  const { data, error } = await supabase.rpc('accept_match_invitation', {
+    p_invitation: opts.id ?? null,
+    p_token: opts.token ?? null,
+    p_faction: opts.faction ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+export async function declineMatchInvitation(opts: { id?: string; token?: string }): Promise<void> {
+  const { error } = await supabase.rpc('decline_match_invitation', { p_invitation: opts.id ?? null, p_token: opts.token ?? null });
+  if (error) throw error;
+}
+
+/** What an email link points to, readable before signing in. */
+export async function getMatchInvitationByToken(token: string): Promise<{ matchId: string; hostName: string; status: MatchInvitation['status'] } | null> {
+  const { data } = await supabase.rpc('match_invitation_by_token', { p_token: token });
+  const row = (data as { match_id: string; host_name: string; status: MatchInvitation['status'] }[] | null)?.[0];
+  return row ? { matchId: row.match_id, hostName: row.host_name, status: row.status } : null;
+}
+
+/** Emails the game's pending invitations (server: api/email.ts, action "match-invite"). */
+export async function sendMatchInviteEmails(matchId: string): Promise<number> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const res = await fetch('/api/email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+    body: JSON.stringify({ action: 'match-invite', matchId }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? 'No se pudieron enviar los correos.');
+  return Number(body.sent ?? 0);
 }

@@ -33,6 +33,8 @@ export function notificationText(n: AppNotification): string {
       return `ha abandonado tu partida del ${n.excerpt}`;
     case 'match_cancelled':
       return `ha cancelado la partida del ${n.excerpt}`;
+    case 'match_invite':
+      return `te ha invitado a una partida el ${n.excerpt}`;
   }
 }
 
@@ -50,6 +52,7 @@ export function notificationLink(n: AppNotification): string {
     case 'match_joined':
     case 'match_left':
     case 'match_cancelled':
+    case 'match_invite':
       return n.targetId ? `/partidas/${n.targetId}` : '/partidas';
   }
   if (!n.targetId) return '/comunidad';

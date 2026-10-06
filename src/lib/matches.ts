@@ -1,4 +1,4 @@
-import type { Match, MatchFormat, MatchLevel, VenueType } from "@/types";
+import type { Match, MatchFormat, MatchInvitee, MatchLevel, VenueType } from "@/types";
 
 export const FORMAT_LABEL: Record<MatchFormat, string> = {
   equilibrado: "Juego equilibrado",
@@ -59,6 +59,12 @@ export function matchPlace(m: Pick<Match, "venueType" | "venueName" | "city">): 
   return [m.venueType === "casa" ? "En casa" : m.venueName || VENUE_LABEL[m.venueType], m.city].filter(Boolean).join(" · ");
 }
 
-export function spotsLeft(m: Pick<Match, "maxPlayers" | "playerCount">): number {
-  return Math.max(0, m.maxPlayers - m.playerCount);
+/** Free seats: not taken by a player nor held by a pending invitation. */
+export function spotsLeft(m: Pick<Match, "maxPlayers" | "playerCount"> & { reservedCount?: number }): number {
+  return Math.max(0, m.maxPlayers - m.playerCount - (m.reservedCount ?? 0));
+}
+
+/** Stable key for an invitee (dedupe in the picker). */
+export function inviteeKey(i: MatchInvitee): string {
+  return i.kind === "user" ? `u:${i.profile.id}` : `e:${i.email}`;
 }

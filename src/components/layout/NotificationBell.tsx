@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/stores";
 import type { AppNotification } from "@/types";
 import { motion } from "framer-motion";
-import { Bell, CalendarX, CheckCheck, Dices, Heart, LogOut, MessageSquare, Shield, ShieldCheck, UserCheck, UserPlus, X } from "lucide-react";
+import { Bell, CalendarX, CheckCheck, Dices, Heart, LogOut, MessageSquare, Shield, ShieldCheck, Swords, UserCheck, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -20,6 +20,7 @@ const TYPE_ICON = {
   match_joined: { Icon: Dices, className: "bg-emerald-500" },
   match_left: { Icon: LogOut, className: "bg-zinc-500" },
   match_cancelled: { Icon: CalendarX, className: "bg-rose-500" },
+  match_invite: { Icon: Swords, className: "bg-amber-500" },
 } as const;
 
 function NotificationRow({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {

@@ -3,6 +3,7 @@ import {
   campaignKey,
   defaultSubject,
   renderEmail,
+  renderMatchInvite,
   signEmail,
   signUser,
   verifyEmail,
@@ -80,4 +81,41 @@ describe('email api', () => {
       campaignKey({ template: 'destacado', feature: 'torneos', subject: 'X' }),
     );
   });
+
+  it('announces a news article with its cover, excerpt and link', () => {
+    const article = { id: 'a9', title: 'Nuevo dataslate de otoño', excerpt: 'Todos los cambios', cover_image: 'https://example.com/c.jpg' };
+    const o = { template: 'noticia' as TemplateKey, article };
+    const { subject, html } = renderEmail(o, me, digest);
+    expect(subject).toBe('Nueva noticia: Nuevo dataslate de otoño');
+    expect(html).toContain('https://administratum.site/articulos/a9');
+    expect(html).toContain('https://example.com/c.jpg');
+    expect(html).toContain('Todos los cambios');
+    expect(html).toContain('/articulos/a1'); // other recent news
+    expect(campaignKey(o)).not.toBe(campaignKey({ ...o, article: { ...article, id: 'a10' } }));
+  });
+
+  it('invites to a game: link with token for strangers, plain link for users', () => {
+    const match = {
+      id: 'm1', starts_on: '2026-10-10', time_mode: 'fixed', start_time: '18:00:00', venue_type: 'tienda',
+      venue_name: 'Dungeon Marvels', city: 'Madrid', format: 'equilibrado', points_limit: 2000, level: 'casual', host_faction: 'Thousand Sons',
+      description: 'Traigo la <mesa>',
+    };
+    const ext = renderMatchInvite({ token: 'tok123', email: 'amigo@club.es', name: '', external: true, hostName: 'José <b>', match });
+    expect(ext.subject).toBe('José <b> te ha invitado a una partida de Warhammer 40K');
+    expect(ext.html).toContain('/partidas/m1?invitacion=tok123');
+    expect(ext.html).toContain('José &lt;b&gt;');
+    expect(ext.html).not.toContain('José <b>');
+    expect(ext.html).toContain('Dungeon Marvels · Madrid');
+    expect(ext.html).toContain('a las 18:00');
+    expect(ext.html).toContain('Traigo la &lt;mesa&gt;');
+    expect(ext.html).toContain('action=unsubscribe&e=amigo%40club.es');
+    const user = renderMatchInvite({ token: 'tok123', email: 'u@x.es', name: 'Laura', external: false, hostName: 'José', match: { ...match, venue_type: 'casa', venue_name: 'Calle Falsa 1' } });
+    expect(user.html).toContain('Hola, Laura.');
+    expect(user.html).toContain('href="https://administratum.site/partidas/m1"');
+    expect(user.html).not.toContain('invitacion=');
+    expect(user.html).toContain('En casa · Madrid');
+    expect(user.html).not.toContain('Calle Falsa');
+    expect(user.html).not.toContain('action=unsubscribe');
+  });
 });
+
