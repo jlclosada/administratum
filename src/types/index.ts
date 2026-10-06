@@ -147,7 +147,8 @@ export type NotificationType =
   | 'team_joined'
   | 'match_joined'
   | 'match_left'
-  | 'match_cancelled';
+  | 'match_cancelled'
+  | 'match_invite';
 
 /** In-app notification, written by database triggers for the recipient. */
 export interface AppNotification {
@@ -1170,6 +1171,8 @@ export interface Match {
   timeNote: string;
   maxPlayers: number;
   playerCount: number;
+  /** Seats held by pending invitations. */
+  reservedCount: number;
   status: 'open' | 'cancelled';
   createdAt: string;
   updatedAt: string;
@@ -1184,7 +1187,21 @@ export interface MatchPlayer {
   joinedAt: string;
 }
 
-export type CreateMatchDTO = Omit<Match, 'id' | 'hostId' | 'playerCount' | 'status' | 'createdAt' | 'updatedAt' | 'distanceKm'> & {
+export interface MatchInvitation {
+  id: string;
+  matchId: string;
+  invitedUser: string | null;
+  email: string | null;
+  invitedBy: string;
+  status: 'pending' | 'accepted' | 'declined';
+  emailedAt: string | null;
+  createdAt: string;
+}
+
+/** Who to invite while creating a game: a player, or any email address. */
+export type MatchInvitee = { kind: 'user'; profile: Profile } | { kind: 'email'; email: string };
+
+export type CreateMatchDTO = Omit<Match, 'id' | 'hostId' | 'playerCount' | 'reservedCount' | 'status' | 'createdAt' | 'updatedAt' | 'distanceKm'> & {
   /** Exact address, shown to the players only. */
   address?: string;
 };

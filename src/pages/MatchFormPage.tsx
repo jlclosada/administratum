@@ -1,3 +1,4 @@
+import { MatchInvitePicker } from "@/components/matches/MatchInvitePicker";
 import { PlacePicker } from "@/components/matches/PlacePicker";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -6,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { COLLECTION_GAME_NAME, createMatch, getFactionCatalog, getMatch, getMatchAddress, updateMatch } from "@/db";
+import { COLLECTION_GAME_NAME, createMatch, getFactionCatalog, getMatch, getMatchAddress, inviteToMatch, sendMatchInviteEmails, updateMatch } from "@/db";
 import type { Place } from "@/lib/geo";
 import { FORMAT_LABEL, LEVEL_HINT, LEVEL_LABEL, VENUE_LABEL } from "@/lib/matches";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore } from "@/stores";
-import type { CreateMatchDTO, MatchFormat, MatchLevel, VenueType } from "@/types";
-import { ArrowLeft, Building2, Globe, Home, Loader2, MapPin, Store, Users } from "lucide-react";
+import type { CreateMatchDTO, MatchFormat, MatchInvitee, MatchLevel, VenueType } from "@/types";
+import { ArrowLeft, Building2, Globe, Home, Loader2, MapPin, Store, Swords, Users } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -64,6 +65,7 @@ export function MatchFormPage() {
   const [maxPlayers, setMaxPlayers] = useState(2);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [invitees, setInvitees] = useState<MatchInvitee[]>([]);
 
   useEffect(() => {
     getFactionCatalog(COLLECTION_GAME_NAME).then((f) => setFactions(f.map((x) => x.factionName).sort((a, b) => a.localeCompare(b, "es"))));
@@ -125,7 +127,20 @@ export function MatchFormPage() {
     };
     try {
       const saved = matchId ? await updateMatch(matchId, dto) : await createMatch(dto);
-      toast.success(matchId ? "Partida actualizada" : "¡Partida publicada! Te avisaremos cuando alguien se apunte.");
+      if (!matchId && invitees.length > 0) {
+        // Seats for the agreed opponents, then the emails (best effort).
+        const failed: string[] = [];
+        for (const i of invitees) {
+          await inviteToMatch(saved.id, i).catch((err: Error) => failed.push(`${i.kind === "user" ? i.profile.displayName : i.email}: ${err.message}`));
+        }
+        const emailed = await sendMatchInviteEmails(saved.id).catch(() => 0);
+        if (failed.length) toast.warning(`No se pudo invitar a ${failed.join("; ")}`);
+        toast.success(
+          `¡Partida publicada! ${invitees.length - failed.length} ${invitees.length - failed.length === 1 ? "invitación enviada" : "invitaciones enviadas"}${emailed ? " por correo" : ""}.`,
+        );
+      } else {
+        toast.success(matchId ? "Partida actualizada" : "¡Partida publicada! Te avisaremos cuando alguien se apunte.");
+      }
       navigate(`/partidas/${saved.id}`);
     } catch {
       toast.error("No se pudo guardar la partida. Revisa los datos.");
@@ -337,6 +352,21 @@ export function MatchFormPage() {
             />
           </Field>
         </section>
+
+        {!matchId && (
+          <section className="space-y-3 rounded-2xl border border-border/60 bg-card/40 p-5">
+            <div>
+              <h2 className="flex items-center gap-2 font-semibold">
+                <Swords className="h-4 w-4 text-primary" /> ¿Ya tienes rival? (opcional)
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Invita a quien ya has quedado: búscalo por nombre o escribe su correo si aún no está en Administratum. Le reservamos la
+                plaza y le enviamos la invitación.
+              </p>
+            </div>
+            <MatchInvitePicker value={invitees} onChange={setInvitees} max={maxPlayers - 1} exclude={myId ? [myId] : []} disabled={saving} />
+          </section>
+        )}
 
         <div className="flex items-center gap-3">
           <Button type="submit" variant="gradient" size="lg" disabled={!valid || saving} className="gap-2">

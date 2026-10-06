@@ -1,3 +1,4 @@
+import { HostInvitations, InvitationBanner } from "@/components/matches/MatchInvitations";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { GroupChat } from "@/components/shared/GroupChat";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -11,6 +12,8 @@ import {
   getFactionCatalog,
   getMatch,
   getMatchAddress,
+  getMatchInvitationByToken,
+  getMatchInvitations,
   getMatchMessages,
   getMatchPlayers,
   getProfilesByIds,
@@ -22,12 +25,13 @@ import {
 } from "@/db";
 import { copyText } from "@/lib/clipboard";
 import { formatDistance, haversineKm, savedPlace } from "@/lib/geo";
+import { clearPendingInvite, pendingInvite, savePendingInvite } from "@/lib/pendingInvite";
 import { FORMAT_LABEL, LEVEL_HINT, LEVEL_LABEL, matchDay, matchPlace, matchTime, spotsLeft, VENUE_LABEL } from "@/lib/matches";
 import { useAuthStore, useProfileStore } from "@/stores";
-import type { Match, MatchPlayer, Profile } from "@/types";
+import type { Match, MatchInvitation, MatchPlayer, Profile } from "@/types";
 import { ArrowLeft, CalendarDays, Clock, Crown, Dices, Gauge, Link2, Loader2, Lock, LogOut, MapPin, Pencil, Swords, UserMinus, Users, XCircle } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 const MatchesMap = lazy(() => import("@/components/matches/MatchesMap").then((m) => ({ default: m.MatchesMap })));
@@ -59,14 +63,37 @@ export function MatchDetailPage() {
   const [factions, setFactions] = useState<string[]>([]);
   const [faction, setFaction] = useState(favorite);
   const [busy, setBusy] = useState(false);
+  const [invitations, setInvitations] = useState<MatchInvitation[]>([]);
+  const [params] = useSearchParams();
+  // Token from the email link (or kept from before signing up).
+  const [token] = useState<string | null>(() => {
+    const fromUrl = params.get("invitacion");
+    const saved = pendingInvite();
+    return fromUrl ?? (saved?.matchId === matchId ? saved.token : null);
+  });
+  const [tokenInvite, setTokenInvite] = useState<{ hostName: string; status: MatchInvitation["status"] } | null>(null);
 
   const load = useCallback(async () => {
     const [m, p] = await Promise.all([getMatch(matchId), getMatchPlayers(matchId)]);
     setMatch(m);
     setPlayers(p);
-    setProfiles(await getProfilesByIds([...new Set([...(m ? [m.hostId] : []), ...p.map((x) => x.userId)])]));
+    const inv = user ? await getMatchInvitations(matchId) : [];
+    setInvitations(inv);
+    const invited = inv.flatMap((i) => (i.invitedUser ? [i.invitedUser] : []));
+    setProfiles(await getProfilesByIds([...new Set([...(m ? [m.hostId] : []), ...p.map((x) => x.userId), ...invited])]));
     if (user) setAddress(await getMatchAddress(matchId));
   }, [matchId, user]);
+
+  useEffect(() => {
+    if (!token) return;
+    getMatchInvitationByToken(token).then((t) => {
+      if (t && t.matchId === matchId) {
+        setTokenInvite({ hostName: t.hostName, status: t.status });
+        if (t.status === "pending") savePendingInvite({ matchId, token });
+        else clearPendingInvite();
+      }
+    });
+  }, [token, matchId]);
 
   useEffect(() => {
     load();
@@ -99,6 +126,8 @@ export function MatchDetailPage() {
   const isHost = user?.id === m.hostId;
   const joined = players.some((p) => p.userId === user?.id);
   const left = spotsLeft(m);
+  const myInvitation = invitations.find((i) => i.invitedUser === user?.id && i.status === "pending");
+  const showTokenBanner = !!token && tokenInvite?.status === "pending" && !joined && !isHost && !myInvitation;
   const past = m.startsOn < new Date().toISOString().slice(0, 10);
   const open = m.status === "open" && !past;
   const here = savedPlace();
@@ -169,6 +198,23 @@ export function MatchDetailPage() {
           <p className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
             <XCircle className="h-4 w-4" /> El organizador ha cancelado esta partida.
           </p>
+        )}
+
+        {open && (myInvitation || showTokenBanner) && (
+          <InvitationBanner
+            hostName={profiles.get(m.hostId)?.displayName ?? tokenInvite?.hostName ?? "Un jugador"}
+            invitationId={myInvitation?.id}
+            token={myInvitation ? undefined : (token ?? undefined)}
+            signedIn={!!user}
+            factions={factions}
+            defaultFaction={favorite}
+            onSignUp={() => openAuth("signup")}
+            onDone={(accepted) => {
+              setTokenInvite(null);
+              if (accepted) navigate(`/partidas/${m.id}`, { replace: true });
+              load();
+            }}
+          />
         )}
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -248,6 +294,14 @@ export function MatchDetailPage() {
                     </li>
                   );
                 })}
+                {Array.from({ length: m.reservedCount ?? 0 }).map((_, i) => (
+                  <li key={`reserved-${i}`} className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-primary/40 text-primary">
+                      <Swords className="h-4 w-4" />
+                    </span>
+                    Plaza reservada (invitación)
+                  </li>
+                ))}
                 {Array.from({ length: left }).map((_, i) => (
                   <li key={`free-${i}`} className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-border">?</span>
@@ -256,7 +310,7 @@ export function MatchDetailPage() {
                 ))}
               </ul>
 
-              {open && !isHost && !joined && left > 0 && (
+              {open && !isHost && !joined && !myInvitation && left > 0 && (
                 <div className="space-y-2 border-t border-border/50 pt-4">
                   <label htmlFor="join-faction" className="text-xs text-muted-foreground">
                     Tu ejército
@@ -292,6 +346,17 @@ export function MatchDetailPage() {
               )}
               {!open && m.status === "open" && <p className="text-xs text-muted-foreground">Esta partida ya se ha jugado.</p>}
             </section>
+
+            {isHost && open && (
+              <HostInvitations
+                matchId={m.id}
+                invitations={invitations}
+                profiles={profiles}
+                seatsLeft={left}
+                exclude={[m.hostId, ...players.map((p) => p.userId), ...invitations.flatMap((i) => (i.invitedUser && i.status === "pending" ? [i.invitedUser] : []))]}
+                onChange={load}
+              />
+            )}
 
             <Button
               variant="ghost"

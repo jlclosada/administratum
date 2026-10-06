@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getAppConfig, getEmailAudienceCount, getEmailCampaigns, getEmailContacts, updateAppConfig } from "@/db";
-import { supabase } from "@/lib/supabase";
+import { getAppConfig, getArticles, getEmailAudienceCount, getEmailCampaigns, getEmailContacts, updateAppConfig } from "@/db";
+import { emailApi } from "@/lib/emailApi";
 import { cn } from "@/lib/utils";
 import type { AppConfig, EmailCampaign, EmailContact } from "@/types";
 import {
@@ -21,6 +21,7 @@ import {
   History,
   Loader2,
   Mail,
+  Megaphone,
   Monitor,
   Newspaper,
   Play,
@@ -35,7 +36,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AddContactsForm, EmailContactsPanel } from "./EmailContactsPanel";
 
-type TemplateKey = "presentacion" | "destacado" | "novedades" | "recordatorio";
+type TemplateKey = "presentacion" | "destacado" | "novedades" | "recordatorio" | "noticia";
 type FeatureKey = "puntos" | "torneos" | "listas" | "comunidad" | "guias" | "coleccion";
 
 const TEMPLATES: { key: TemplateKey; label: string; description: string; icon: LucideIcon }[] = [
@@ -43,6 +44,7 @@ const TEMPLATES: { key: TemplateKey; label: string; description: string; icon: L
   { key: "destacado", label: "Característica destacada", description: "Una función concreta, con contenido real de la web.", icon: Star },
   { key: "novedades", label: "Resumen de novedades", description: "Puntos, torneos, listas, noticias y fotos recientes.", icon: Newspaper },
   { key: "recordatorio", label: "Te echamos de menos", description: "El mismo resumen, para quien lleva tiempo sin entrar.", icon: BellRing },
+  { key: "noticia", label: "Nueva noticia", description: "Avisa de una noticia publicada, con su portada y enlace.", icon: Megaphone },
 ];
 
 const FEATURES: { key: FeatureKey; label: string }[] = [
@@ -60,27 +62,14 @@ const KIND_LABEL: Record<EmailCampaign["kind"], string> = {
   test: "Prueba",
 };
 
-/** Calls the /api/email Vercel function with the admin's session. */
-async function emailApi<T>(body: Record<string, unknown>): Promise<T> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const res = await fetch("/api/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({ error: `Error ${res.status}` }));
-  if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
-  return data as T;
-}
-
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function AdminEmailPage() {
   const [template, setTemplate] = useState<TemplateKey>("presentacion");
   const [feature, setFeature] = useState<FeatureKey>("puntos");
+  const [articles, setArticles] = useState<{ id: string; title: string }[]>([]);
+  const [articleId, setArticleId] = useState("");
   const [subject, setSubject] = useState("");
   const [preview, setPreview] = useState<{ subject: string; html: string } | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -113,6 +102,10 @@ export function AdminEmailPage() {
     getAppConfig().then(setConfig);
     loadCampaigns();
     loadContacts();
+    getArticles(true).then((list) => {
+      setArticles(list.map((x) => ({ id: x.id, title: x.title })));
+      if (list[0]) setArticleId(list[0].id);
+    });
     getEmailAudienceCount(null)
       .then((all) => setCounts((c) => ({ ...c, all })))
       .catch(() => setCounts((c) => ({ ...c, all: null })));
@@ -132,14 +125,14 @@ export function AdminEmailPage() {
     let cancelled = false;
     setPreviewLoading(true);
     setPreviewError(null);
-    emailApi<{ subject: string; html: string }>({ action: "preview", template, feature, external })
+    emailApi<{ subject: string; html: string }>({ action: "preview", template, feature, external, articleId: articleId || undefined })
       .then((p) => !cancelled && setPreview(p))
       .catch((err: Error) => !cancelled && setPreviewError(err.message))
       .finally(() => !cancelled && setPreviewLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [template, feature, external]);
+  }, [template, feature, external, articleId]);
 
   const contactCount = contacts ? contacts.filter((c) => c.status === "activo").length : null;
   const recipients = external ? contactCount : audienceType === "all" ? counts.all : counts.inactive;
@@ -153,6 +146,7 @@ export function AdminEmailPage() {
   const payload = {
     template,
     feature,
+    articleId: template === "noticia" ? articleId || undefined : undefined,
     subject: subject.trim() || undefined,
     audience: { type: audienceType, days: inactiveDays },
     external,
@@ -266,6 +260,28 @@ export function AdminEmailPage() {
               ))}
             </div>
           </div>
+
+          {template === "noticia" && (
+            <div className="space-y-2">
+              <Label htmlFor="email-article">Noticia</Label>
+              <select
+                id="email-article"
+                value={articleId}
+                onChange={(e) => setArticleId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                {articles.length === 0 && <option value="">No hay noticias publicadas</option>}
+                {articles.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Al publicar una noticia también puedes avisar directamente desde el editor. Nadie recibe dos veces la misma.
+              </p>
+            </div>
+          )}
 
           {template === "destacado" && (
             <div className="space-y-2">

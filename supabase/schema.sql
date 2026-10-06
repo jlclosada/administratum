@@ -2693,13 +2693,256 @@ $$;
 grant execute on function public.nearby_matches(double precision, double precision, double precision, boolean) to anon, authenticated;
 
 -- ============================================================
+-- Game invitations: a host can bring an opponent already agreed
+-- ============================================================
+-- Invite a registered player (notification + email) or any email address
+-- (email with a link to sign up and accept). A pending invitation holds a
+-- seat; `reserved_count` makes that visible in the public listing.
+alter table public.matches add column if not exists reserved_count integer not null default 0;
+
+create table if not exists public.match_invitations (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references public.matches (id) on delete cascade,
+  invited_user uuid references auth.users (id) on delete cascade,
+  email text check (email = lower(email) and email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' and char_length(email) <= 254),
+  invited_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  -- Secret for the link in external invitations (two random UUIDs, 244 bits).
+  token text not null default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''),
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  emailed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- Who it is for: a user, an email, or both once an emailed invitation is
+-- accepted (the address stays as a record).
+alter table public.match_invitations drop constraint if exists match_invitations_target_check;
+alter table public.match_invitations add constraint match_invitations_target_check
+  check (invited_user is not null or email is not null);
+
+create unique index if not exists match_invitations_user_key on public.match_invitations (match_id, invited_user) where invited_user is not null;
+create unique index if not exists match_invitations_email_key on public.match_invitations (match_id, email) where email is not null;
+create unique index if not exists match_invitations_token_key on public.match_invitations (token);
+create index if not exists idx_match_invitations_user on public.match_invitations (invited_user) where status = 'pending';
+
+-- Checks before an invitation is stored: the host's own open game, a free
+-- seat, not already playing, a daily cap on emails to strangers, and an
+-- address that belongs to a user becomes an invitation to that user.
+create or replace function public.match_invitation_prepare()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  m public.matches;
+  existing uuid;
+begin
+  new.email := nullif(lower(trim(new.email)), '');
+  select * into m from public.matches where id = new.match_id;
+  if m.id is null or m.host_id <> new.invited_by then
+    raise exception 'Solo el organizador puede invitar a su partida';
+  end if;
+  if m.status <> 'open' or m.starts_on < current_date then
+    raise exception 'La partida ya no admite invitaciones';
+  end if;
+  if new.email is not null then
+    select id into existing from auth.users where lower(email) = new.email limit 1;
+    if existing is not null then
+      new.invited_user := existing;
+      new.email := null;
+    elsif (
+      select count(*) from public.match_invitations
+      where invited_by = new.invited_by and email is not null and created_at > now() - interval '1 day'
+    ) >= 10 then
+      raise exception 'Has alcanzado el límite de 10 invitaciones por correo al día';
+    end if;
+  end if;
+  if new.invited_user = m.host_id then
+    raise exception 'No puedes invitarte a ti mismo';
+  end if;
+  if new.invited_user is not null and exists (
+    select 1 from public.match_players where match_id = m.id and user_id = new.invited_user
+  ) then
+    raise exception 'Ese jugador ya está en la partida';
+  end if;
+  if m.player_count + m.reserved_count >= m.max_players then
+    raise exception 'No quedan plazas libres en la partida';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists match_invitations_prepare on public.match_invitations;
+create trigger match_invitations_prepare before insert on public.match_invitations
+  for each row execute function public.match_invitation_prepare();
+
+create or replace function public.match_reserved_recount()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  m uuid := coalesce(new.match_id, old.match_id);
+begin
+  update public.matches
+    set reserved_count = (select count(*) from public.match_invitations where match_id = m and status = 'pending')
+    where id = m;
+  return null;
+end;
+$$;
+
+drop trigger if exists match_invitations_recount on public.match_invitations;
+create trigger match_invitations_recount after insert or update or delete on public.match_invitations
+  for each row execute function public.match_reserved_recount();
+
+alter table public.match_invitations enable row level security;
+
+drop policy if exists "match_invitations_read" on public.match_invitations;
+drop policy if exists "match_invitations_insert" on public.match_invitations;
+drop policy if exists "match_invitations_delete" on public.match_invitations;
+-- The host sees all of a game's invitations; a player sees the ones for them.
+-- Answering goes through the RPCs below (they also accept the email token).
+create policy "match_invitations_read" on public.match_invitations for select to authenticated
+  using (invited_user = auth.uid() or exists (select 1 from public.matches m where m.id = match_id and m.host_id = auth.uid()));
+create policy "match_invitations_insert" on public.match_invitations for insert to authenticated
+  with check (invited_by = auth.uid() and exists (select 1 from public.matches m where m.id = match_id and m.host_id = auth.uid()));
+create policy "match_invitations_delete" on public.match_invitations for delete to authenticated
+  using (exists (select 1 from public.matches m where m.id = match_id and m.host_id = auth.uid()));
+
+-- Joining with the normal button also answers your own invitation.
+create or replace function public.match_player_claims_invitation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.match_invitations set status = 'accepted'
+    where match_id = new.match_id and invited_user = new.user_id and status = 'pending';
+  return null;
+end;
+$$;
+
+drop trigger if exists match_players_claim_invitation on public.match_players;
+create trigger match_players_claim_invitation after insert on public.match_players
+  for each row execute function public.match_player_claims_invitation();
+
+-- Seats held by someone else's pending invitation are not free.
+create or replace function public.can_join_match(p_match uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.matches m
+    where m.id = p_match and m.status = 'open' and m.starts_on >= current_date
+      and m.player_count + (
+        select count(*) from public.match_invitations i
+        where i.match_id = m.id and i.status = 'pending' and i.invited_user is distinct from auth.uid()
+      ) < m.max_players
+  )
+$$;
+
+-- Accept by id (invited user) or by the email link's token (anyone signed in
+-- who has the link): takes the reserved seat.
+create or replace function public.accept_match_invitation(
+  p_invitation uuid default null,
+  p_token text default null,
+  p_faction text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inv public.match_invitations;
+  m public.matches;
+begin
+  select * into inv from public.match_invitations
+    where status = 'pending'
+      and ((p_invitation is not null and id = p_invitation and invited_user = auth.uid())
+        or (p_token is not null and token = p_token));
+  if inv.id is null then
+    raise exception 'Invitación no encontrada o ya respondida';
+  end if;
+  select * into m from public.matches where id = inv.match_id;
+  if m.status <> 'open' or m.starts_on < current_date then
+    raise exception 'La partida ya no está disponible';
+  end if;
+  if auth.uid() = m.host_id then
+    raise exception 'Es tu propia partida';
+  end if;
+  update public.match_invitations set status = 'accepted', invited_user = auth.uid() where id = inv.id;
+  insert into public.match_players (match_id, user_id, faction) values (m.id, auth.uid(), nullif(trim(p_faction), ''))
+    on conflict (match_id, user_id) do nothing;
+  return m.id;
+end;
+$$;
+
+create or replace function public.decline_match_invitation(p_invitation uuid default null, p_token text default null)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.match_invitations set status = 'declined'
+  where status = 'pending'
+    and ((p_invitation is not null and id = p_invitation and invited_user = auth.uid())
+      or (p_token is not null and token = p_token))
+$$;
+
+-- What the email link shows before signing in: whose game, and if it's still open.
+create or replace function public.match_invitation_by_token(p_token text)
+returns table (match_id uuid, host_name text, status text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select i.match_id, coalesce(nullif(p.display_name, ''), 'Un jugador'), i.status
+  from public.match_invitations i
+  join public.matches m on m.id = i.match_id
+  left join public.profiles p on p.id = m.host_id
+  where i.token = p_token
+$$;
+
+revoke all on function public.accept_match_invitation(uuid, text, text) from public, anon;
+revoke all on function public.decline_match_invitation(uuid, text) from public, anon;
+grant execute on function public.accept_match_invitation(uuid, text, text) to authenticated;
+grant execute on function public.decline_match_invitation(uuid, text) to authenticated;
+grant execute on function public.match_invitation_by_token(text) to anon, authenticated;
+
+-- Invitations still to email, with the address (server only).
+create or replace function public.match_invitation_recipients(p_match uuid)
+returns table (id uuid, email text, name text, token text, external boolean)
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select i.id, coalesce(u.email::text, i.email), coalesce(p.display_name, ''), i.token, i.invited_user is null
+  from public.match_invitations i
+  left join auth.users u on u.id = i.invited_user
+  left join public.profiles p on p.id = i.invited_user
+  where i.match_id = p_match and i.status = 'pending' and i.emailed_at is null
+    and (i.invited_user is not null or not exists (select 1 from public.email_suppressions s where s.email = i.email))
+$$;
+
+revoke all on function public.match_invitation_recipients(uuid) from public, anon, authenticated;
+grant execute on function public.match_invitation_recipients(uuid) to service_role;
+
+-- ============================================================
 -- Notifications for teams and games
 -- ============================================================
 alter table public.notifications drop constraint if exists notifications_type_check;
 alter table public.notifications add constraint notifications_type_check
   check (type in (
     'friend_request', 'friend_accepted', 'like', 'comment', 'comment_like',
-    'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled'
+    'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled', 'match_invite'
   ));
 
 create or replace function public.notify_team_invitation()
@@ -2794,6 +3037,30 @@ $$;
 drop trigger if exists matches_notify_cancelled on public.matches;
 create trigger matches_notify_cancelled after update on public.matches
   for each row execute function public.notify_match_cancelled();
+
+create or replace function public.notify_match_invitation()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' and new.invited_user is not null then
+    insert into public.notifications (user_id, actor_id, type, target_type, target_id, entity_id, excerpt)
+      select new.invited_user, new.invited_by, 'match_invite', 'match', new.match_id, new.id, to_char(m.starts_on, 'DD/MM')
+      from public.matches m where m.id = new.match_id;
+  elsif tg_op = 'UPDATE' and new.status <> 'pending' then
+    update public.notifications set read_at = coalesce(read_at, now()) where entity_id = new.id and type = 'match_invite';
+  elsif tg_op = 'DELETE' then
+    delete from public.notifications where entity_id = old.id and type = 'match_invite';
+  end if;
+  return null;
+end;
+$$;
+
+drop trigger if exists match_invitations_notify on public.match_invitations;
+create trigger match_invitations_notify after insert or update or delete on public.match_invitations
+  for each row execute function public.notify_match_invitation();
 
 -- ============================================================
 -- Profile counters (defined last: reads tables from every section)

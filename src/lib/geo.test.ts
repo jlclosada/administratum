@@ -37,5 +37,6 @@ describe("match labels", () => {
     expect(matchPlace({ venueType: "tienda", venueName: "Dungeon Marvels", city: "Barcelona" })).toBe("Dungeon Marvels · Barcelona");
     expect(matchPlace({ venueType: "online", venueName: "Tabletop Simulator", city: "" })).toBe("Online · Tabletop Simulator");
     expect(spotsLeft({ maxPlayers: 2, playerCount: 1 })).toBe(1);
+    expect(spotsLeft({ maxPlayers: 2, playerCount: 1, reservedCount: 1 })).toBe(0);
   });
 });

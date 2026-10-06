@@ -2,6 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { touchLastSeen } from "@/db";
 import { lazyRoute } from "@/lib/chunkReload";
+import { pendingInvite } from "@/lib/pendingInvite";
 import { CONFIRM_PATH } from "@/lib/site";
 import { isPublicPath } from "@/lib/publicPaths";
 import {
@@ -454,6 +455,24 @@ function AppGate() {
     // token refresh (which produces a new `user` object with the same id).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Someone who opened a game invitation from an email and then signed up
+  // goes back to that game once (after the welcome wizard) to accept it.
+  const readyForInvite = !!user && profileFetched && (!profile || !!profile.onboardedAt);
+  useEffect(() => {
+    if (!readyForInvite) return;
+    const invite = pendingInvite();
+    if (!invite || pathname.startsWith(`/partidas/${invite.matchId}`)) return;
+    try {
+      if (sessionStorage.getItem("administratum:invite-redirected") === invite.token) return;
+      sessionStorage.setItem("administratum:invite-redirected", invite.token);
+    } catch {
+      // Without storage we still redirect, at most once per page load.
+    }
+    navigate(`/partidas/${invite.matchId}?invitacion=${encodeURIComponent(invite.token)}`);
+    // Only when becoming ready, not on every navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readyForInvite]);
 
   const toaster = (
     <Toaster
