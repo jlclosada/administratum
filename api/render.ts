@@ -76,6 +76,12 @@ export function seoFaction(slug: string, englishName: string, units: number, det
   };
 }
 
+export const SEO_POINTS_CHANGES: SeoCopy = {
+  title: "Cambios de puntos de Warhammer 40K: subidas y bajadas",
+  description:
+    "Todos los cambios de puntos del Munitorum Field Manual de Warhammer 40K en cuanto se publican: qué unidades suben y cuáles bajan, facción por facción, con el coste anterior y el nuevo.",
+};
+
 export const SEO_COMPETITIVO: SeoCopy = {
   title: "Torneos de Warhammer 40K en España y listas competitivas",
   description:
@@ -849,9 +855,10 @@ const HOME_FAQ: [string, string][] = [
 
 /** Unit name and faction slug out of a "Name - Faction" points update. */
 function updateTarget(u: Row): { name: string; slug: string } | null {
-  const slug = String(u.link ?? '').match(/^\/catalogo-puntos\/([a-z0-9-]+)/)?.[1];
+  const slug = u.faction_slug ?? String(u.link ?? '').match(/^\/catalogo-puntos\/([a-z0-9-]+)/)?.[1];
   const i = String(u.title ?? '').lastIndexOf(' - ');
-  return slug && i > 0 ? { name: u.title.slice(0, i), slug } : null;
+  const name = u.unit_name ?? (i > 0 ? u.title.slice(0, i) : null);
+  return slug && name ? { name, slug } : null;
 }
 
 async function home(q: Query): Promise<Page> {
@@ -899,7 +906,7 @@ ${section(
     const t = updateTarget(u);
     return `${t ? link(`/catalogo-puntos/${t.slug}/${unitSlug(t.name)}`, u.title) : esc(u.title)}: ${esc(u.description)} <small>(${esc(fmtDate(u.occurred_at))})</small>`;
   }),
-  ['Ver el catálogo completo de puntos', '/catalogo-puntos'],
+  ['Ver todos los cambios de puntos', '/cambios-puntos'],
 )}
 ${section(
   'Próximos torneos de Warhammer 40K en España',
@@ -915,6 +922,56 @@ ${section('Guías de pintura', guides.map((g) => link(`/guias/${g.id}`, g.title)
 ${section('Noticias', articles.map((a) => link(`/articulos/${a.id}`, a.title)))}
 <h2>Preguntas frecuentes</h2>
 ${HOME_FAQ.map(([question, answer]) => `<h3>${esc(question)}</h3><p>${esc(answer)}</p>`).join('\n')}`,
+  };
+}
+
+async function pointsChanges(q: Query): Promise<Page> {
+  const rows = await q(
+    'catalog_updates',
+    'select=title,description,link,unit_name,faction_slug,points_before,points_after,points_delta,occurred_at&type=eq.points&points_delta=not.is.null&order=occurred_at.desc&limit=1500',
+  ).catch(() => [] as Row[]);
+  const latestDay = rows[0]?.occurred_at ? String(rows[0].occurred_at).slice(0, 10) : null;
+  const latest = rows.filter((r) => String(r.occurred_at).slice(0, 10) === latestDay);
+  const byFaction = new Map<string, Row[]>();
+  for (const r of latest) {
+    const t = updateTarget(r);
+    const key = t?.slug ?? 'otras';
+    byFaction.set(key, [...(byFaction.get(key) ?? []), r]);
+  }
+  const ups = latest.filter((r) => r.points_delta > 0).length;
+  const sections = [...byFaction.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([slug, list]) => {
+      const faction = String(list[0]!.title).split(' - ').pop() ?? '';
+      const items = [...list]
+        .sort((a, b) => Math.abs(b.points_delta) - Math.abs(a.points_delta))
+        .map((r) => {
+          const t = updateTarget(r);
+          const unit = r.unit_name ?? t?.name ?? r.title;
+          const sign = r.points_delta > 0 ? '▲ +' : '▼ ';
+          return `<tr><td>${t ? link(`/catalogo-puntos/${t.slug}/${unitSlug(unit)}`, unit) : esc(unit)}</td><td>${esc(r.points_before)} → ${esc(r.points_after)} pts</td><td>${sign}${esc(r.points_delta)}</td></tr>`;
+        })
+        .join('');
+      return `<h2>${slug === 'otras' ? esc(faction) : link(`/catalogo-puntos/${slug}`, factionDisplayName(slug, faction))}</h2>
+<table><thead><tr><th>Unidad</th><th>Puntos</th><th>Cambio</th></tr></thead><tbody>${items}</tbody></table>`;
+    })
+    .join('\n');
+  return {
+    status: 200,
+    ...SEO_POINTS_CHANGES,
+    path: '/cambios-puntos',
+    breadcrumbs: [
+      ['Catálogo de puntos', '/catalogo-puntos'],
+      ['Cambios de puntos', '/cambios-puntos'],
+    ],
+    body: `<h1>Cambios de puntos de Warhammer 40K</h1>
+<p class="lead">${
+      latestDay
+        ? `Última actualización del Munitorum Field Manual detectada el ${esc(fmtDate(latestDay))}: ${latest.length} unidades cambian de puntos, ${ups} suben y ${latest.length - ups} bajan.`
+        : 'Aquí aparecerán los cambios de puntos en cuanto se publique la próxima actualización del Munitorum Field Manual.'
+    }</p>
+${sections}
+<p>${link('/catalogo-puntos', 'Ver el catálogo completo de puntos')}</p>`,
   };
 }
 
@@ -936,6 +993,7 @@ export async function renderPath(path: string, q: Query): Promise<Page | null> {
   if (a === 'comunidad' && b === 'listas' && parts.length === 3) return armyList(q, c, 'community');
   if (a === 'perfil' && parts.length === 2) return profile(q, b);
   if (a === 'descargas' && parts.length === 1) return descargas(q);
+  if (a === 'cambios-puntos' && parts.length === 1) return pointsChanges(q);
   return null;
 }
 

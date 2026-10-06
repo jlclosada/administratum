@@ -26,6 +26,12 @@ export function seoFaction(slug: string, englishName: string, units: number, det
   };
 }
 
+export const SEO_POINTS_CHANGES: SeoCopy = {
+  title: "Cambios de puntos de Warhammer 40K: subidas y bajadas",
+  description:
+    "Todos los cambios de puntos del Munitorum Field Manual de Warhammer 40K en cuanto se publican: qué unidades suben y cuáles bajan, facción por facción, con el coste anterior y el nuevo.",
+};
+
 export const SEO_COMPETITIVO: SeoCopy = {
   title: "Torneos de Warhammer 40K en España y listas competitivas",
   description:

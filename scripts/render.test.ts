@@ -82,7 +82,7 @@ describe('prerender', () => {
 
   it('uses exactly the same SEO copy as the app', () => {
     expect(server.FACTION_ES).toEqual(FACTION_ES);
-    for (const key of ['SEO_CATALOG', 'SEO_COMPETITIVO', 'SEO_COMUNIDAD', 'SEO_GUIAS', 'SEO_DESCARGAS'] as const) {
+    for (const key of ['SEO_CATALOG', 'SEO_COMPETITIVO', 'SEO_COMUNIDAD', 'SEO_GUIAS', 'SEO_DESCARGAS', 'SEO_POINTS_CHANGES'] as const) {
       expect(server[key]).toEqual(app[key]);
     }
     expect(server.seoFaction('thousand-sons', 'Thousand Sons', 34, 9)).toEqual(app.seoFaction('thousand-sons', 'Thousand Sons', 34, 9));
@@ -217,3 +217,22 @@ describe('unit pages and home', () => {
     expect(html).toContain('<link rel="canonical" href="https://administratum.site/" />');
   });
 });
+
+describe('points changes page', () => {
+  it('lists the latest update by faction, linking each unit', async () => {
+    const rows = [
+      { title: 'Rubric Marines - Thousand Sons', description: '+15 pts', link: '/catalogo-puntos/thousand-sons', unit_name: 'Rubric Marines', faction_slug: 'thousand-sons', points_before: 100, points_after: 115, points_delta: 15, occurred_at: '2026-10-06T10:00:00Z' },
+      { title: 'Boyz - Orks', description: '-5 pts', link: '/catalogo-puntos/orks', points_before: 85, points_after: 80, points_delta: -5, occurred_at: '2026-10-06T09:00:00Z' },
+      { title: 'Old - Orks', description: '+5 pts', link: '/catalogo-puntos/orks', points_before: 1, points_after: 6, points_delta: 5, occurred_at: '2026-09-01T09:00:00Z' },
+    ];
+    const page = (await renderPath('/cambios-puntos', async (table) => (table === 'catalog_updates' ? rows : [])))!;
+    expect(page.status).toBe(200);
+    expect(page.title).toBe(app.SEO_POINTS_CHANGES.title);
+    expect(page.body).toContain('2 unidades cambian de puntos, 1 suben y 1 bajan');
+    expect(page.body).toContain('<a href="/catalogo-puntos/thousand-sons/rubric-marines">Rubric Marines</a>');
+    expect(page.body).toContain('<a href="/catalogo-puntos/orks/boyz">Boyz</a>');
+    expect(page.body).toContain('▲ +15');
+    expect(page.body).not.toContain('Old');
+  });
+});
+

@@ -26,6 +26,7 @@ import {
   Library,
   Search,
   Shield,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -223,6 +224,12 @@ export function PointsCatalogPage() {
             día con el Munitorum Field Manual. Busca una miniatura o entra en un
             ejército para ver unidades, destacamentos y mejoras.
           </p>
+          <Link
+            to="/cambios-puntos"
+            className="mt-3 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-brand-soft px-3 py-1.5 text-sm font-medium transition-colors hover:border-primary/70"
+          >
+            <TrendingUp className="h-4 w-4 text-primary" /> Últimos cambios de puntos
+          </Link>
         </div>
 
         <div className="relative">

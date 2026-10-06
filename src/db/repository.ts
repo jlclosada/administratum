@@ -1540,6 +1540,19 @@ export async function getDownloads(gameName?: string): Promise<DownloadEntry[]> 
  * crons — powers the "Últimos updates" section on the home page.
  * Degrades to an empty list if the `catalog_updates` table does not exist yet.
  */
+/** Every real points change of the latest updates, newest first (the "Cambios de puntos" page). */
+export async function getPointsChanges(limit = 2000): Promise<CatalogUpdate[]> {
+  const { data, error } = await supabase
+    .from('catalog_updates')
+    .select('*')
+    .eq('type', 'points')
+    .not('points_delta', 'is', null)
+    .order('occurred_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return mapRows<CatalogUpdate>(data);
+}
+
 /** Real points changes of one unit (catalog_updates title is "Name - Faction"), newest first. */
 export async function getUnitPointsHistory(unitName: string, factionName: string): Promise<CatalogUpdate[]> {
   const { data, error } = await supabase

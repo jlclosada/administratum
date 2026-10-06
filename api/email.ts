@@ -206,7 +206,7 @@ const fmtDate = (d: string) =>
 function pointsBlock(points: Row[]) {
   if (!points.length) return '';
   return (
-    sectionTitle('Cambios de puntos', `${SITE}/catalogo-puntos`) +
+    sectionTitle('Cambios de puntos', `${SITE}/cambios-puntos`) +
     panel(
       points
         .map((u, i) => {
@@ -828,8 +828,8 @@ export function renderPointsDigest(
       ? sectionTitle(`Tu facción · ${esc(r.favoriteFaction ?? '')}`, `${SITE}/catalogo-puntos/${fav[0]!.slug}`) + changeList(fav.slice(0, 12), (c) => esc(models(c).replace(/^ · /, '')))
       : '',
     biggest.length ? sectionTitle('Los mayores cambios') + changeList(biggest, (c) => `${esc(c.faction)}${esc(models(c))}`) : '',
-    factionTable ? sectionTitle('Por facción', `${SITE}/catalogo-puntos`) + panel(factionTable) : '',
-    button(`${SITE}/catalogo-puntos`, 'Ver todos los puntos'),
+    factionTable ? sectionTitle('Por facción', `${SITE}/cambios-puntos`) + panel(factionTable) : '',
+    button(`${SITE}/cambios-puntos`, 'Ver todos los cambios'),
     signature('Un saludo,'),
   ].join('\n');
   return { subject, html: layout({ subject, preheader: `${ups} suben y ${downs} bajan`, eyebrow: 'Cambios de puntos', title, body, unsubscribe: unsubscribeUrl(r) }) };
