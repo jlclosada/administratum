@@ -11,6 +11,7 @@ describe('isPublicPath', () => {
       '/guias/0b6f',
       '/articulos/9a1c',
       '/descargas',
+      '/cambios-puntos',
       '/competitivo',
       '/competitivo/torneos/42',
       '/competitivo/listas/7',

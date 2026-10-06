@@ -507,6 +507,9 @@ export interface CatalogUpdate extends BaseEntity {
   pointsBefore?: number | null;
   pointsAfter?: number | null;
   pointsDelta?: number | null;
+  /** Unit and faction of a points change (rows from Oct 2026 on; older ones only have the title). */
+  unitName?: string | null;
+  factionSlug?: string | null;
 }
 
 /** "Miniatura del mes" — the admin publishes one, the home page shows the latest. */

@@ -1,7 +1,7 @@
 import { StarRating } from "@/components/shared/StarRating";
 import { countdownLabel, parseDay } from "@/components/competitive/status";
 import { guideRating } from "@/db";
-import { formatDelta, pointsDeltaOf } from "@/lib/catalogUpdates";
+import { formatDelta, pointsDeltaOf, updateTarget } from "@/lib/catalogUpdates";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Article, CatalogUpdate, MiniatureSpotlight, PaintingGuide, Tournament } from "@/types";
@@ -117,7 +117,7 @@ export function NewsWidget({ articles, action }: { articles: Article[]; action?:
 
 export function PointsWidget({ updates }: { updates: CatalogUpdate[] }) {
   return (
-    <Widget title="Cambios de puntos" icon={Target} to="/catalogo-puntos">
+    <Widget title="Cambios de puntos" icon={Target} to="/cambios-puntos">
       {updates.length === 0 ? (
         <p className="px-4 py-5 text-sm text-muted-foreground">Sin cambios recientes.</p>
       ) : (
@@ -140,7 +140,7 @@ export function PointsWidget({ updates }: { updates: CatalogUpdate[] }) {
             return (
               <li key={u.id}>
                 {u.link ? (
-                  <Link to={u.link} className="flex items-start gap-2.5 px-4 py-2.5 transition-colors hover:bg-accent/40">
+                  <Link to={u.type === "points" ? updateTarget(u).href : u.link} className="flex items-start gap-2.5 px-4 py-2.5 transition-colors hover:bg-accent/40">
                     {inner}
                   </Link>
                 ) : (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogUpdate } from '@/types';
-import { formatDelta, pointsDeltaOf } from './catalogUpdates';
+import { formatDelta, pointsDeltaOf, updateModels, updateTarget } from './catalogUpdates';
 
 const base: CatalogUpdate = {
   id: '1',
@@ -36,3 +36,24 @@ describe('formatDelta', () => {
     expect(formatDelta(-10)).toBe('−10 pts');
   });
 });
+
+describe('updateTarget', () => {
+  it('reads the unit columns when present', () => {
+    const u = { ...base, title: 'Sorcerer In Terminator Armour - Thousand Sons', unitName: 'Sorcerer In Terminator Armour', factionSlug: 'thousand-sons', link: '/catalogo-puntos/thousand-sons' };
+    expect(updateTarget(u)).toEqual({
+      unit: 'Sorcerer In Terminator Armour',
+      faction: 'Thousand Sons',
+      slug: 'thousand-sons',
+      href: '/catalogo-puntos/thousand-sons/sorcerer-in-terminator-armour',
+    });
+  });
+
+  it('falls back to the title and link of older rows', () => {
+    const u = { ...base, title: "T'au Commander - T'au Empire", link: '/catalogo-puntos/tau-empire', description: '+5 pts (100 → 105, 1 miniatura)' };
+    expect(updateTarget(u)).toMatchObject({ unit: "T'au Commander", faction: "T'au Empire", href: '/catalogo-puntos/tau-empire/tau-commander' });
+    expect(updateModels(u)).toBe(1);
+    expect(updateModels({ ...u, description: '+15 pts (100 → 115, 5 miniaturas)' })).toBe(5);
+    expect(updateTarget({ ...u, link: null })).toMatchObject({ slug: null, href: '/catalogo-puntos' });
+  });
+});
+

@@ -159,7 +159,7 @@ function TodayStrip({
     cards.push(
       <TodayCard
         key="p"
-        to="/catalogo-puntos"
+        to="/cambios-puntos"
         icon={Target}
         eyebrow="Cambios de puntos"
         title={latestPoints.title}
