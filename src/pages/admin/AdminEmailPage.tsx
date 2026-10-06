@@ -29,6 +29,7 @@ import {
   Send,
   Smartphone,
   Sparkles,
+  TrendingUp,
   Star,
   type LucideIcon,
 } from "lucide-react";
@@ -82,7 +83,7 @@ export function AdminEmailPage() {
   const [inactiveDays, setInactiveDays] = useState(14);
   const [counts, setCounts] = useState<{ all: number | null; inactive: number | null }>({ all: null, inactive: null });
 
-  const [busy, setBusy] = useState<"test" | "send" | "reminders" | null>(null);
+  const [busy, setBusy] = useState<"test" | "send" | "reminders" | "points" | "points-preview" | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -204,6 +205,45 @@ export function AdminEmailPage() {
     try {
       const r = await emailApi<{ sent?: number; recipients?: number; skipped?: string }>({ action: "run-reminders" });
       toast.success(r.recipients ? `Recordatorios enviados: ${r.sent} de ${r.recipients}.` : "No hay usuarios inactivos pendientes.");
+      loadCampaigns();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function togglePointsEmail(enabled: boolean) {
+    if (!config) return;
+    const next = { ...config, pointsEmailEnabled: enabled };
+    setConfig(next);
+    try {
+      await updateAppConfig(next);
+      toast.success(enabled ? "Aviso de cambios de puntos activado" : "Aviso de cambios de puntos desactivado");
+    } catch {
+      setConfig(config);
+      toast.error("No se pudo guardar.");
+    }
+  }
+
+  async function previewPoints() {
+    setBusy("points-preview");
+    try {
+      setPreview(await emailApi<{ subject: string; html: string }>({ action: "preview-points" }));
+      setPreviewError(null);
+      document.getElementById("email-preview")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runPoints() {
+    setBusy("points");
+    try {
+      const r = await emailApi<{ sent?: number; digests?: number; skipped?: string }>({ action: "run-points" });
+      toast.success(r.sent ? `Aviso de puntos enviado a ${r.sent} usuarios.` : "No hay avisos de puntos pendientes de enviar.");
       loadCampaigns();
     } catch (err) {
       toast.error((err as Error).message);
@@ -410,7 +450,7 @@ export function AdminEmailPage() {
         </section>
 
         {/* ---------- Preview ---------- */}
-        <section className="space-y-3 rounded-2xl border border-border/60 bg-card/30 p-5">
+        <section id="email-preview" className="scroll-mt-24 space-y-3 rounded-2xl border border-border/60 bg-card/30 p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-semibold">Vista previa</h2>
             <div className="flex rounded-lg border border-border/60 p-0.5">
@@ -464,6 +504,39 @@ export function AdminEmailPage() {
         </section>
 
         <EmailContactsPanel contacts={contacts} onChange={loadContacts} />
+
+        {/* ---------- Points changes ---------- */}
+        <section className="space-y-4 rounded-2xl border border-border/60 bg-card/30 p-5">
+          <h2 className="flex items-center gap-2 font-semibold">
+            <TrendingUp className="h-4 w-4 text-primary" /> Aviso automático de cambios de puntos
+          </h2>
+          {!config ? (
+            <LoadingSpinner />
+          ) : (
+            <>
+              <ToggleRow
+                checked={config.pointsEmailEnabled}
+                onChange={togglePointsEmail}
+                label="Avisar a todos los usuarios cuando cambien los puntos"
+                description="En cuanto la sincronización con el Munitorum detecta cambios, cada usuario recibe un resumen: sus miniaturas afectadas, su facción, los mayores cambios y el resumen por facción, con lo que sube y lo que baja."
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-2" onClick={previewPoints} disabled={busy !== null}>
+                  {busy === "points-preview" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Monitor className="h-4 w-4" />}
+                  Ver ejemplo
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2" onClick={runPoints} disabled={busy !== null}>
+                  {busy === "points" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  Enviar pendientes ahora
+                </Button>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Nadie recibe dos veces el mismo aviso. Respeta el límite diario de Resend: si hay más usuarios, el resto lo recibe en
+                los envíos siguientes (como muy tarde, al día siguiente a las 11:00).
+              </p>
+            </>
+          )}
+        </section>
 
         {/* ---------- Automation ---------- */}
         <section className="space-y-4 rounded-2xl border border-border/60 bg-card/30 p-5">

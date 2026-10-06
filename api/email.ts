@@ -712,6 +712,239 @@ async function sendMatchInvites(req: Request, matchId: string): Promise<Response
 }
 
 // ---------------------------------------------------------------------------
+// Points changes ("Cambios de puntos"): automatic digest after each MFM sync
+// ---------------------------------------------------------------------------
+
+/** Same as unitSlug() in src/lib/seoCopy.ts and api/render.ts (a test checks). */
+export function unitSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** A points change as stored in catalog_updates, with name/faction/link resolved. */
+export interface PointsChange {
+  id: string;
+  unit: string;
+  faction: string;
+  slug: string;
+  before: number;
+  after: number;
+  delta: number;
+  models: number | null;
+}
+
+export function toPointsChange(row: Row): PointsChange | null {
+  if (row.points_delta == null) return null;
+  const title = String(row.title ?? '');
+  const cut = title.lastIndexOf(' - ');
+  const slug = row.faction_slug ?? String(row.link ?? '').match(/^\/catalogo-puntos\/([a-z0-9-]+)/)?.[1] ?? '';
+  return {
+    id: row.id,
+    unit: row.unit_name ?? (cut > 0 ? title.slice(0, cut) : title),
+    faction: cut > 0 ? title.slice(cut + 3) : '',
+    slug,
+    before: Number(row.points_before),
+    after: Number(row.points_after),
+    delta: Number(row.points_delta),
+    models: Number(String(row.description ?? '').match(/(\d+) miniaturas?\)/)?.[1]) || null,
+  };
+}
+
+function changeRow(c: PointsChange, meta: string, last: boolean) {
+  const up = c.delta > 0;
+  const color = up ? C.up : C.down;
+  const href = c.slug ? `${SITE}/catalogo-puntos/${c.slug}/${unitSlug(c.unit)}` : `${SITE}/catalogo-puntos`;
+  return itemRow(
+    href,
+    c.unit,
+    meta,
+    `<span style="color:${color};">${up ? '&#9650; +' : '&#9660; '}${c.delta} pts</span><div style="margin-top:3px;font-family:${SANS};font-size:12px;font-weight:400;color:${C.muted};">${c.before} &rarr; ${c.after}</div>`,
+    last,
+  );
+}
+
+const changeList = (list: PointsChange[], meta: (c: PointsChange) => string) =>
+  panel(list.map((c, i) => changeRow(c, meta(c), i === list.length - 1)).join(''));
+
+/**
+ * The points digest for one person: their own units first, then their
+ * favourite faction, the biggest moves and a per-faction summary.
+ */
+export function renderPointsDigest(
+  changes: PointsChange[],
+  r: Recipient & { favoriteFaction?: string | null },
+  owned: Map<string, number> = new Map(),
+  version: string | null = null,
+): { subject: string; html: string } {
+  const ups = changes.filter((c) => c.delta > 0).length;
+  const downs = changes.length - ups;
+  const mine = changes.filter((c) => owned.has(c.id)).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const shown = new Set(mine.map((c) => c.id));
+  const fav = r.favoriteFaction
+    ? changes.filter((c) => c.faction.toLowerCase() === r.favoriteFaction!.toLowerCase() && !shown.has(c.id)).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    : [];
+  fav.slice(0, 12).forEach((c) => shown.add(c.id));
+  const biggest = changes.filter((c) => !shown.has(c.id)).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 8);
+  const byFaction = new Map<string, { slug: string; up: number; down: number }>();
+  for (const c of changes) {
+    const f = byFaction.get(c.faction) ?? { slug: c.slug, up: 0, down: 0 };
+    if (c.delta > 0) f.up += 1;
+    else f.down += 1;
+    byFaction.set(c.faction, f);
+  }
+  const units = (n: number) => `${n} ${n === 1 ? 'unidad' : 'unidades'}`;
+  const subject = mine.length
+    ? `Cambian los puntos de ${units(mine.length)} de tu colección`
+    : `Cambios de puntos en Warhammer 40K: ${units(changes.length)}`;
+  const title = version ? `Nuevos puntos: Munitorum Field Manual ${version}` : 'Han cambiado los puntos';
+  const models = (c: PointsChange) => (c.models ? ` · ${c.models} ${c.models === 1 ? 'miniatura' : 'miniaturas'}` : '');
+  const factionTable = [...byFaction.entries()]
+    .sort((a, b) => b[1].up + b[1].down - (a[1].up + a[1].down))
+    .map(
+      ([name, f], i, all) =>
+        itemRow(
+          `${SITE}/catalogo-puntos/${f.slug}`,
+          name || 'Otras',
+          '',
+          `${f.up ? `<span style="color:${C.up};">&#9650; ${f.up}</span>` : ''}${f.up && f.down ? '&nbsp;&nbsp;' : ''}${f.down ? `<span style="color:${C.down};">&#9660; ${f.down}</span>` : ''}`,
+          i === all.length - 1,
+        ),
+    )
+    .join('');
+  const body = [
+    greeting(r.name),
+    p(
+      `Games Workshop ha actualizado los puntos de Warhammer 40K: ${strong(units(changes.length))} cambian de coste. ` +
+        `<span style="color:${C.up};">&#9650; ${ups} ${ups === 1 ? 'sube' : 'suben'}</span> y <span style="color:${C.down};">&#9660; ${downs} ${downs === 1 ? 'baja' : 'bajan'}</span>. ` +
+        'Los puntos de tu colección ya están actualizados en Administratum.',
+    ),
+    mine.length ? sectionTitle('Tus miniaturas') + changeList(mine.slice(0, 20), (c) => `${esc(c.faction)} · tienes ${owned.get(c.id)}`) : '',
+    fav.length
+      ? sectionTitle(`Tu facción · ${esc(r.favoriteFaction ?? '')}`, `${SITE}/catalogo-puntos/${fav[0]!.slug}`) + changeList(fav.slice(0, 12), (c) => esc(models(c).replace(/^ · /, '')))
+      : '',
+    biggest.length ? sectionTitle('Los mayores cambios') + changeList(biggest, (c) => `${esc(c.faction)}${esc(models(c))}`) : '',
+    factionTable ? sectionTitle('Por facción', `${SITE}/catalogo-puntos`) + panel(factionTable) : '',
+    button(`${SITE}/catalogo-puntos`, 'Ver todos los puntos'),
+    signature('Un saludo,'),
+  ].join('\n');
+  return { subject, html: layout({ subject, preheader: `${ups} suben y ${downs} bajan`, eyebrow: 'Cambios de puntos', title, body, unsubscribe: unsubscribeUrl(r) }) };
+}
+
+const DAILY_LIMIT = Number(process.env.EMAIL_DAILY_LIMIT) || 95;
+
+/** Emails sent so far today (UTC), from the campaign log: Resend's free plan allows 100/day. */
+async function sentToday(): Promise<number> {
+  const since = new Date().toISOString().slice(0, 10);
+  const rows: Row[] = await rest(`/rest/v1/email_campaigns?select=sent&created_at=gte.${since}`).catch(() => []);
+  return rows.reduce((n, r) => n + (Number(r.sent) || 0), 0);
+}
+
+async function sendHtml(items: { r: Recipient; subject: string; html: string }[]) {
+  const sentEmails: string[] = [];
+  const errors: string[] = [];
+  for (let i = 0; i < items.length; i += 100) {
+    const chunk = items.slice(i, i + 100);
+    const res = await fetch('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        chunk.map(({ r, subject, html }) => ({
+          from: FROM,
+          to: [r.email],
+          reply_to: CONTACT,
+          subject,
+          html,
+          headers: {
+            'List-Unsubscribe': `<${unsubscribeUrl(r)}>, <mailto:${CONTACT}?subject=Baja>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        })),
+      ),
+    });
+    if (res.ok) sentEmails.push(...chunk.map(({ r }) => r.email.toLowerCase()));
+    else errors.push(`${res.status} ${(await res.text()).slice(0, 300)}`);
+  }
+  return { sentEmails, error: errors.join(' | ') || null };
+}
+
+async function digestRows(key: string): Promise<{ changes: PointsChange[]; version: string | null }> {
+  const rows: Row[] = await rest(
+    `/rest/v1/catalog_updates?select=id,title,description,link,unit_name,faction_slug,points_before,points_after,points_delta&digest_key=eq.${encodeURIComponent(key)}&points_delta=not.is.null&order=occurred_at.desc&limit=2000`,
+  );
+  const [cat] = await rest('/rest/v1/unit_catalog?select=mfm_version&order=updated_at.desc&limit=1').catch(() => [] as Row[]);
+  return { changes: rows.map(toPointsChange).filter((c): c is PointsChange => c !== null), version: cat?.mfm_version ?? null };
+}
+
+/**
+ * Announces new points changes. Unannounced changes become a digest; every
+ * subscribed user gets it once (email_deliveries), within the daily budget.
+ * Digests younger than 3 days keep going out on later runs (daily cron).
+ */
+export async function runPointsDigest(force = false) {
+  const [config] = await rest('/rest/v1/app_config?select=points_email_enabled&id=eq.global').catch(() => [] as Row[]);
+  if (config && config.points_email_enabled === false && !force) return { skipped: 'Aviso de puntos desactivado' };
+
+  const fresh: Row[] = await rest('/rest/v1/catalog_updates?select=id&type=eq.points&points_delta=not.is.null&digest_key=is.null&limit=1');
+  if (fresh.length) {
+    const key = `pts-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`;
+    await rest('/rest/v1/catalog_updates?type=eq.points&points_delta=not.is.null&digest_key=is.null', {
+      method: 'PATCH',
+      body: { digest_key: key },
+      prefer: 'return=minimal',
+    });
+  }
+  const since = new Date(Date.now() - 3 * 86400000).toISOString();
+  const recent: Row[] = await rest(`/rest/v1/catalog_updates?select=digest_key&digest_key=like.pts-*&occurred_at=gte.${since}`);
+  const keys = [...new Set(recent.map((r) => String(r.digest_key)))].sort();
+  if (!keys.length) return { sent: 0, digests: 0 };
+
+  let budget = Math.max(0, DAILY_LIMIT - (await sentToday()));
+  const results: Row[] = [];
+  const everyone = await audience(null, null);
+  for (const key of keys) {
+    if (budget <= 0) break;
+    const { changes, version } = await digestRows(key);
+    if (!changes.length) continue;
+    const campaign = `puntos:${key}`;
+    const pending = (await undelivered(campaign, everyone)).slice(0, budget);
+    if (!pending.length) continue;
+    const [profiles, owners] = await Promise.all([
+      rest(`/rest/v1/profiles?select=id,favorite_faction&id=in.(${pending.map((r) => r.id).join(',')})`).catch(() => [] as Row[]),
+      rest('/rest/v1/rpc/points_digest_owners', { method: 'POST', body: { p_key: key } }).catch(() => [] as Row[]),
+    ]);
+    const fav = new Map((profiles as Row[]).map((p) => [p.id, p.favorite_faction as string | null]));
+    const owned = new Map<string, Map<string, number>>();
+    for (const o of owners as Row[]) {
+      const m = owned.get(o.user_id) ?? new Map<string, number>();
+      m.set(o.update_id, Number(o.quantity) || 1);
+      owned.set(o.user_id, m);
+    }
+    const items = pending.map((r) => ({ r, ...renderPointsDigest(changes, { ...r, favoriteFaction: fav.get(r.id) }, owned.get(r.id), version) }));
+    const result = await sendHtml(items);
+    await recordDeliveries(campaign, result.sentEmails);
+    budget -= result.sentEmails.length;
+    await logCampaign({
+      kind: 'automatic',
+      template: 'puntos',
+      subject: `Cambios de puntos (${changes.length} unidades)`,
+      audience: 'Todos los suscritos',
+      recipients: everyone.length,
+      sent: result.sentEmails.length,
+      failed: pending.length - result.sentEmails.length,
+      error: result.error,
+      created_by: null,
+    });
+    results.push({ digest: key, changes: changes.length, sent: result.sentEmails.length, pending: pending.length });
+  }
+  return { sent: results.reduce((n, r) => n + r.sent, 0), digests: results.length, results, budgetLeft: budget };
+}
+
+// ---------------------------------------------------------------------------
 // Sending
 // ---------------------------------------------------------------------------
 
@@ -886,7 +1119,20 @@ export async function GET(req: Request): Promise<Response> {
     const secret = process.env.CRON_SECRET;
     if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) return json({ error: 'No autorizado' }, 401);
     try {
-      return json(await runReminders(null));
+      // Points first: news about the game beats a "we miss you".
+      const points = await runPointsDigest().catch((err: Error) => ({ error: err.message }));
+      return json({ points, reminders: await runReminders(null) });
+    } catch (err) {
+      return json({ error: (err as Error).message }, 500);
+    }
+  }
+  // Called right after an MFM sync (GitHub Action, admin button) so the email
+  // goes out as soon as the change is detected.
+  if (action === 'points') {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) return json({ error: 'No autorizado' }, 401);
+    try {
+      return json(await runPointsDigest());
     } catch (err) {
       return json({ error: (err as Error).message }, 500);
     }
@@ -1005,6 +1251,17 @@ export async function POST(req: Request): Promise<Response> {
       });
     }
     if (body.action === 'run-reminders') return json(await runReminders(admin.id));
+    if (body.action === 'run-points') return json(await runPointsDigest(true));
+    if (body.action === 'preview-points') {
+      // The latest digest (or the latest changes) as this admin would get it.
+      const [last] = await rest('/rest/v1/catalog_updates?select=digest_key&digest_key=not.is.null&points_delta=not.is.null&order=occurred_at.desc&limit=1');
+      const { changes, version } = await digestRows(last?.digest_key ?? 'historico');
+      if (!changes.length) return json({ error: 'Todavía no hay cambios de puntos registrados.' }, 400);
+      const [profile] = await rest(`/rest/v1/profiles?select=display_name,favorite_faction&id=eq.${admin.id}`);
+      const owners: Row[] = await rest('/rest/v1/rpc/points_digest_owners', { method: 'POST', body: { p_key: last?.digest_key ?? '' } }).catch(() => []);
+      const owned = new Map(owners.filter((o) => o.user_id === admin.id).map((o) => [o.update_id as string, Number(o.quantity) || 1]));
+      return json(renderPointsDigest(changes, { ...admin, name: profile?.display_name ?? '', favoriteFaction: profile?.favorite_faction }, owned, version));
+    }
     return json({ error: 'Acción no válida' }, 400);
   } catch (err) {
     return json({ error: (err as Error).message }, 500);
