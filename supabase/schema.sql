@@ -3172,3 +3172,72 @@ $$;
 
 revoke all on function public.admin_overview() from public, anon;
 grant execute on function public.admin_overview() to authenticated;
+
+-- ============================================================
+-- Sign-ups from visitors: "avísame de los cambios de puntos"
+-- ============================================================
+-- Double opt-in: the form stores a pending sign-up and emails a link; only
+-- clicking it adds the address to email_contacts (with the date as proof of
+-- consent). Server only: no policies, the API uses the service role.
+create table if not exists public.email_signups (
+  email text primary key check (email = lower(email) and char_length(email) <= 254),
+  token text not null default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''),
+  source text not null default '' check (char_length(source) <= 80),
+  ip_hash text,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists email_signups_token_key on public.email_signups (token);
+create index if not exists idx_email_signups_ip on public.email_signups (ip_hash, created_at);
+
+alter table public.email_signups enable row level security;
+
+-- ============================================================
+-- Column privacy (defined last: every column must already exist)
+-- ============================================================
+-- Profiles are public, but a few columns are personal: when someone was
+-- last online, their email preference, wizard and reminder dates. Column
+-- privileges keep them out of the public API; the owner reads them through
+-- my_profile_private(). A new profile column stays private until it is
+-- added to this list. The server (service role) is not affected.
+revoke select on public.profiles from anon, authenticated;
+grant select (id, display_name, avatar_url, bio, location, favorite_faction, website, links, role, created_at, updated_at)
+  on public.profiles to anon, authenticated;
+
+create or replace function public.my_profile_private()
+returns table (email_updates boolean, onboarded_at timestamptz)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select email_updates, onboarded_at from public.profiles where id = auth.uid()
+$$;
+
+revoke all on function public.my_profile_private() from public, anon;
+grant execute on function public.my_profile_private() to authenticated;
+
+-- The same for the site configuration: the announcement and sign-up switch
+-- are public; email automation settings only for admins (admin_app_config).
+revoke select on public.app_config from anon, authenticated;
+grant select (id, announcement, announcement_enabled, signups_enabled, updated_at)
+  on public.app_config to anon, authenticated;
+
+create or replace function public.admin_app_config()
+returns setof public.app_config
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Solo administradores';
+  end if;
+  return query select * from public.app_config where id = 'global';
+end;
+$$;
+
+revoke all on function public.admin_app_config() from public, anon;
+grant execute on function public.admin_app_config() to authenticated;
+

@@ -832,7 +832,10 @@ export function renderPointsDigest(
     button(`${SITE}/cambios-puntos`, 'Ver todos los cambios'),
     signature('Un saludo,'),
   ].join('\n');
-  return { subject, html: layout({ subject, preheader: `${ups} suben y ${downs} bajan`, eyebrow: 'Cambios de puntos', title, body, unsubscribe: unsubscribeUrl(r) }) };
+  return {
+    subject,
+    html: layout({ subject, preheader: `${ups} suben y ${downs} bajan`, eyebrow: 'Cambios de puntos', title, body, unsubscribe: unsubscribeUrl(r), external: r.external }),
+  };
 }
 
 const DAILY_LIMIT = Number(process.env.EMAIL_DAILY_LIMIT) || 95;
@@ -905,7 +908,8 @@ export async function runPointsDigest(force = false) {
 
   let budget = Math.max(0, DAILY_LIMIT - (await sentToday()));
   const results: Row[] = [];
-  const everyone = await audience(null, null);
+  // Users who accept emails, plus visitors who confirmed the points alerts.
+  const everyone = [...(await audience(null, null)), ...(await contactAudience().catch(() => [] as Recipient[]))];
   for (const key of keys) {
     if (budget <= 0) break;
     const { changes, version } = await digestRows(key);
@@ -914,7 +918,9 @@ export async function runPointsDigest(force = false) {
     const pending = (await undelivered(campaign, everyone)).slice(0, budget);
     if (!pending.length) continue;
     const [profiles, owners] = await Promise.all([
-      rest(`/rest/v1/profiles?select=id,favorite_faction&id=in.(${pending.map((r) => r.id).join(',')})`).catch(() => [] as Row[]),
+      pending.some((r) => r.id)
+        ? rest(`/rest/v1/profiles?select=id,favorite_faction&id=in.(${pending.flatMap((r) => (r.id ? [r.id] : [])).join(',')})`).catch(() => [] as Row[])
+        : Promise.resolve([] as Row[]),
       rest('/rest/v1/rpc/points_digest_owners', { method: 'POST', body: { p_key: key } }).catch(() => [] as Row[]),
     ]);
     const fav = new Map((profiles as Row[]).map((p) => [p.id, p.favorite_faction as string | null]));
@@ -942,6 +948,100 @@ export async function runPointsDigest(force = false) {
     results.push({ digest: key, changes: changes.length, sent: result.sentEmails.length, pending: pending.length });
   }
   return { sent: results.reduce((n, r) => n + r.sent, 0), digests: results.length, results, budgetLeft: budget };
+}
+
+// ---------------------------------------------------------------------------
+// Visitor sign-up to the points alerts (double opt-in)
+// ---------------------------------------------------------------------------
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/;
+
+export function renderSignupConfirm(link: string): { subject: string; html: string } {
+  const subject = 'Confirma tus avisos de cambios de puntos';
+  const body = [
+    greeting(''),
+    p(`Has pedido recibir en este correo los ${strong('cambios de puntos de Warhammer 40K')} en cuanto se publiquen: qué sube, qué baja y en qué facción.`),
+    p('Confirma que es tu dirección para empezar a recibirlos:'),
+    button(link, 'Confirmar mi suscripción'),
+    p(`<span style="color:${C.muted};font-size:14px;">Si no lo has pedido tú, ignora este correo: no te escribiremos más.</span>`),
+    signature('Un saludo,'),
+  ].join('\n');
+  const footer = 'Recibes este correo porque alguien pidió los avisos de puntos de Administratum con esta dirección.';
+  return { subject, html: layout({ subject, preheader: 'Un clic para confirmar', eyebrow: 'Avisos de puntos', title: 'Confirma tu correo', body, unsubscribe: SITE, external: true, footer }) };
+}
+
+async function ipHash(req: Request): Promise<string> {
+  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0]!.trim() || 'unknown';
+  return createHash('sha256').update(`${unsubSecret()}:${ip}`).digest('hex').slice(0, 32);
+}
+
+/**
+ * Public form: stores a pending sign-up and emails the confirmation link.
+ * Always answers the same, so it can't be used to learn who is registered.
+ */
+async function handleSignup(req: Request, body: { email?: string; consent?: boolean; source?: string; website?: string }): Promise<Response> {
+  const email = String(body.email ?? '').trim().toLowerCase();
+  if (body.website) return json({ ok: true }); // honeypot filled: a bot
+  if (!EMAIL_RE.test(email) || email.length > 254) return json({ error: 'Escribe un correo válido.' }, 400);
+  if (body.consent !== true) return json({ error: 'Tienes que aceptar recibir los avisos.' }, 400);
+  const ok = json({ ok: true });
+
+  const ip = await ipHash(req);
+  const hourAgo = new Date(Date.now() - 3600000).toISOString();
+  const recentFromIp: Row[] = await rest(`/rest/v1/email_signups?select=email&ip_hash=eq.${ip}&created_at=gte.${hourAgo}`);
+  if (recentFromIp.length >= 5) return json({ error: 'Demasiados intentos. Prueba más tarde.' }, 429);
+
+  const enc = encodeURIComponent(email);
+  const [suppressed, contact, pending] = await Promise.all([
+    rest(`/rest/v1/email_suppressions?select=email&email=eq.${enc}`),
+    rest(`/rest/v1/email_contacts?select=email&email=eq.${enc}`),
+    rest(`/rest/v1/email_signups?select=created_at&email=eq.${enc}`),
+  ]);
+  if (suppressed.length || contact.length) return ok;
+  if (pending[0] && Date.now() - new Date(pending[0].created_at).getTime() < 86400000) return ok;
+
+  const [row] = await rest('/rest/v1/email_signups?on_conflict=email', {
+    method: 'POST',
+    body: { email, source: String(body.source ?? '').slice(0, 80), ip_hash: ip, created_at: new Date().toISOString(), token: createHash('sha256').update(`${email}:${Date.now()}:${Math.random()}`).digest('hex') },
+    prefer: 'resolution=merge-duplicates,return=representation',
+  });
+  const { subject, html } = renderSignupConfirm(`${SITE}/api/email?action=confirm&t=${row.token}`);
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: [email], reply_to: CONTACT, subject, html }),
+  });
+  if (!res.ok) return json({ error: 'No se pudo enviar el correo de confirmación. Inténtalo más tarde.' }, 502);
+  return ok;
+}
+
+function simplePage(heading: string, text: string, status = 200) {
+  return new Response(
+    `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(heading)} · Administratum</title></head>
+<body style="margin:0;background:#0a0a0b;color:#d4d4d8;font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px">
+<main style="max-width:440px;text-align:center"><img src="${ASSETS}/logo.png" alt="Administratum" width="220" style="max-width:100%">
+<h1 style="color:#fafafa;font-size:24px;margin:28px 0 8px">${esc(heading)}</h1><p>${esc(text)}</p>
+<p><a href="${SITE}/cambios-puntos" style="color:#d8c08a">Ver los últimos cambios de puntos</a></p></main></body></html>`,
+    { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+  );
+}
+
+/** The link in the confirmation email: the address joins email_contacts. */
+async function handleConfirm(url: URL): Promise<Response> {
+  const token = url.searchParams.get('t') ?? '';
+  if (!/^[0-9a-f]{32,64}$/.test(token)) return simplePage('Enlace no válido', 'Este enlace de confirmación no es válido.', 400);
+  const [row] = await rest(`/rest/v1/email_signups?select=email,source,created_at&token=eq.${token}`);
+  if (!row || Date.now() - new Date(row.created_at).getTime() > 7 * 86400000) {
+    return simplePage('Enlace caducado', 'Este enlace ha caducado o ya se usó. Vuelve a pedir los avisos desde la web.', 400);
+  }
+  const date = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
+  await rest('/rest/v1/email_contacts?on_conflict=email', {
+    method: 'POST',
+    body: { email: row.email, source: `Alta en la web${row.source ? ` (${row.source})` : ''} con doble confirmación, ${date}` },
+    prefer: 'resolution=ignore-duplicates,return=minimal',
+  });
+  await rest(`/rest/v1/email_signups?token=eq.${token}`, { method: 'DELETE', prefer: 'return=minimal' });
+  return simplePage('¡Suscripción confirmada!', 'Te avisaremos por correo cada vez que cambien los puntos de Warhammer 40K. Puedes darte de baja desde cualquier aviso.');
 }
 
 // ---------------------------------------------------------------------------
@@ -1128,6 +1228,13 @@ export async function GET(req: Request): Promise<Response> {
   }
   // Called right after an MFM sync (GitHub Action, admin button) so the email
   // goes out as soon as the change is detected.
+  if (action === 'confirm') {
+    try {
+      return await handleConfirm(url);
+    } catch {
+      return simplePage('Algo ha fallado', 'No hemos podido confirmar la suscripción. Inténtalo de nuevo más tarde.', 500);
+    }
+  }
   if (action === 'points') {
     const secret = process.env.CRON_SECRET;
     if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) return json({ error: 'No autorizado' }, 401);
@@ -1159,7 +1266,19 @@ export async function POST(req: Request): Promise<Response> {
     audience?: { type: 'all' | 'inactive' | 'contacts'; days?: number };
     /** Preview/test as an external contact sees it. */
     external?: boolean;
+    /** 'subscribe' (public form): visitor's email, consent, page and honeypot. */
+    email?: string;
+    consent?: boolean;
+    source?: string;
+    website?: string;
   };
+  if (body.action === 'subscribe') {
+    try {
+      return await handleSignup(req, body);
+    } catch {
+      return json({ error: 'No se pudo completar la suscripción. Inténtalo más tarde.' }, 500);
+    }
+  }
   if (body.action === 'match-invite') {
     try {
       return await sendMatchInvites(req, String(body.matchId ?? ''));

@@ -15,7 +15,7 @@ export function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getAppConfig().then(setConfig);
+    getAppConfig(true).then(setConfig);
   }, []);
 
   async function handleSave() {

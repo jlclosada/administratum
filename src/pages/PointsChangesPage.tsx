@@ -1,3 +1,4 @@
+import { PointsAlertForm } from "@/components/catalog/PointsAlertForm";
 import { RedditKitDialog } from "@/components/catalog/RedditKitDialog";
 import { DeltaBadge } from "@/components/home/HomeWidgets";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -157,6 +158,8 @@ export function PointsChangesPage() {
             </div>
           )}
         </header>
+
+        <PointsAlertForm source="cambios-puntos" />
 
         {changes === null ? (
           <div className="flex justify-center py-20">

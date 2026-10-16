@@ -8,7 +8,7 @@ import type {
   ProfileStats,
   SharedPhoto,
 } from '@/types';
-import { mapRow, mapRows, toProfile, withMyPhotoState } from './repository';
+import { mapRow, mapRows, PUBLIC_PROFILE_COLUMNS, toProfile, withMyPhotoState } from './repository';
 
 async function requireUserId(): Promise<string> {
   const {
@@ -23,7 +23,7 @@ async function requireUserId(): Promise<string> {
 export async function getProfilesByIds(ids: string[]): Promise<Map<string, Profile>> {
   const unique = [...new Set(ids)].filter(Boolean);
   if (unique.length === 0) return new Map();
-  const { data, error } = await supabase.from('profiles').select('*').in('id', unique);
+  const { data, error } = await supabase.from('profiles').select(PUBLIC_PROFILE_COLUMNS).in('id', unique);
   if (error || !data) return new Map();
   return new Map(data.map((row) => {
     const p = toProfile(row);
@@ -36,7 +36,7 @@ export async function searchProfiles(term: string, limit = 12): Promise<Profile[
   if (!q) return [];
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PUBLIC_PROFILE_COLUMNS)
     .ilike('display_name', `%${q}%`)
     .limit(limit);
   if (error || !data) return [];

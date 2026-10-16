@@ -91,6 +91,24 @@ export function PrivacidadPage() {
             para no volver a escribirte. Puedes darte de baja con un clic desde
             cualquier correo o escribiendo a {CONTACT_EMAIL}.
           </li>
+          <li>
+            <strong className="text-foreground">
+              Avisarte de los cambios de puntos sin tener cuenta
+            </strong>{" "}
+            (formulario «Recibe los cambios de puntos en tu correo») — base legal:
+            consentimiento (art. 6.1.a RGPD y art. 21.1 LSSI). Te enviamos un correo
+            para confirmar la suscripción y solo te escribimos si pulsas el enlace
+            (doble confirmación). Mientras tanto guardamos la dirección como máximo
+            7 días, junto con un resumen cifrado (hash) de tu dirección IP para
+            evitar abusos; si no confirmas, se descarta.
+          </li>
+          <li>
+            <strong className="text-foreground">Medir las visitas</strong> —
+            base legal: interés legítimo (art. 6.1.f RGPD) en saber qué secciones
+            se usan para mejorarlas. Usamos Vercel Web Analytics, que no instala
+            cookies ni guarda tu dirección IP: solo cuenta visitas de forma agregada
+            y anónima.
+          </li>
         </List>
       </Section>
 
@@ -173,8 +191,14 @@ export function PrivacidadPage() {
           </li>
         </List>
         <p>
-          Ningún dato se vende ni se cede a terceros con fines publicitarios.{" "}
-          {SITE_NAME} no utiliza herramientas de analítica ni de publicidad.
+          Ningún dato se vende ni se cede a terceros con fines publicitarios. Si en
+          algún momento {SITE_NAME} usa herramientas de analítica o publicidad de
+          terceros (como Google Analytics o el píxel de Meta), solo se activan si
+          las aceptas en el aviso de cookies; se detallan en la{" "}
+          <a href="/legal/cookies" className="text-primary hover:underline">
+            política de cookies
+          </a>
+          .
         </p>
       </Section>
 

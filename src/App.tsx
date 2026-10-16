@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ConsentBanner } from "@/components/shared/ConsentBanner";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { touchLastSeen } from "@/db";
 import { lazyRoute } from "@/lib/chunkReload";
@@ -467,7 +468,7 @@ function AppGate() {
 
   // Someone who opened a game invitation from an email and then signed up
   // goes back to that game once (after the welcome wizard) to accept it.
-  const readyForInvite = !!user && profileFetched && (!profile || !!profile.onboardedAt);
+  const readyForInvite = !!user && profileFetched && (!profile || profile.onboardedAt !== null);
   useEffect(() => {
     if (!readyForInvite) return;
     const invite = pendingInvite();
@@ -484,18 +485,21 @@ function AppGate() {
   }, [readyForInvite]);
 
   const toaster = (
-    <Toaster
-      position="bottom-right"
-      theme="dark"
-      toastOptions={{
-        style: {
-          background: "hsl(240 12% 7.5% / 0.85)",
-          border: "1px solid hsl(240 6% 16%)",
-          backdropFilter: "blur(16px)",
-          color: "hsl(0 0% 98%)",
-        },
-      }}
-    />
+    <>
+      <ConsentBanner />
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: "hsl(240 12% 7.5% / 0.85)",
+            border: "1px solid hsl(240 6% 16%)",
+            backdropFilter: "blur(16px)",
+            color: "hsl(0 0% 98%)",
+          },
+        }}
+      />
+    </>
   );
 
   if (!initialized) {
@@ -543,7 +547,7 @@ function AppGate() {
       </div>
     );
   }
-  if (profile && !profile.onboardedAt) {
+  if (profile && profile.onboardedAt === null) {
     return (
       <>
         <OnboardingPage />

@@ -1,4 +1,5 @@
 import { Seo } from "@/components/shared/Seo";
+import { PointsAlertForm } from "@/components/catalog/PointsAlertForm";
 import { UnitPoints } from "@/components/catalog/UnitPoints";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
@@ -231,6 +232,8 @@ export function PointsCatalogPage() {
             <TrendingUp className="h-4 w-4 text-primary" /> Últimos cambios de puntos
           </Link>
         </div>
+
+        <PointsAlertForm source="catalogo-puntos" />
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
