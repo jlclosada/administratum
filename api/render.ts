@@ -82,6 +82,105 @@ export const SEO_POINTS_CHANGES: SeoCopy = {
     "Todos los cambios de puntos del Munitorum Field Manual de Warhammer 40K en cuanto se publican: qué unidades suben y cuáles bajan, facción por facción, con el coste anterior y el nuevo.",
 };
 
+// Same as src/lib/aboutCopy.ts (a test checks both agree).
+export interface AboutFeature {
+  title: string;
+  text: string;
+  path: string;
+}
+
+export const ABOUT_ES = {
+  title: "Qué es Administratum: puntos, listas y torneos de Warhammer 40K en español",
+  description:
+    "Administratum es una plataforma gratuita y en español para jugadores de Warhammer 40.000: puntos oficiales actualizados cada pocas horas, cambios de puntos, listas, torneos y partidas en España, guías de pintura y gestor de colección.",
+  lead:
+    "Administratum es una plataforma gratuita y en español para jugadores de Warhammer 40.000. Reúne los puntos oficiales del Munitorum Field Manual siempre actualizados, los cambios de puntos en cuanto se publican, listas de ejército, torneos en España, partidas abiertas cerca de ti, equipos, guías de pintura y un gestor para tu colección de miniaturas.",
+  features: [
+    {
+      title: "Puntos de Warhammer 40K actualizados",
+      text: "El coste oficial de cada unidad de todas las facciones, con sus tramos, equipo y destacamentos, sincronizado con el Munitorum Field Manual cada 4 horas.",
+      path: "/catalogo-puntos",
+    },
+    {
+      title: "Cambios de puntos al momento",
+      text: "Qué sube y qué baja en cada actualización, facción por facción, con el coste anterior y el nuevo. Los usuarios reciben un aviso por correo con las miniaturas de su colección afectadas.",
+      path: "/cambios-puntos",
+    },
+    {
+      title: "Torneos de Warhammer 40K en España",
+      text: "Calendario de torneos con fechas, lugar, plazas, precio de inscripción y bases completas. Puedes apuntarte y ver quién más va.",
+      path: "/competitivo",
+    },
+    {
+      title: "Partidas abiertas cerca de ti",
+      text: "Publica una partida (en tienda, club, casa u online) con fecha, nivel y ejército, o busca rival por distancia. Puedes invitar a un rival ya apalabrado.",
+      path: "/partidas",
+    },
+    {
+      title: "Listas de ejército",
+      text: "Pega la lista exportada de la app oficial de Warhammer 40.000 y compártela con la comunidad, con todas sus unidades y puntos.",
+      path: "/comunidad",
+    },
+    {
+      title: "Guías de pintura",
+      text: "Guías paso a paso escritas por la comunidad, con las pinturas usadas y valoraciones.",
+      path: "/guias",
+    },
+    {
+      title: "Gestor de colección y equipos",
+      text: "Registra tus ejércitos y el progreso de pintura de cada miniatura, y crea un equipo con tablón, chat y torneos compartidos.",
+      path: "/",
+    },
+    {
+      title: "Descargas oficiales",
+      text: "Reglas básicas, faction packs y dataslates de Warhammer 40K, siempre enlazados a su última versión.",
+      path: "/descargas",
+    },
+  ] as AboutFeature[],
+  audience:
+    "Está pensada para jugadores de Warhammer 40.000 de España y de habla hispana: desde quien empieza su primer ejército hasta jugadores de torneo, pintores, coleccionistas, clubes y organizadores de torneos.",
+  howPoints:
+    "Los puntos se leen directamente del Munitorum Field Manual oficial de Games Workshop cada 4 horas. Cuando cambia algún coste, aparece en «Cambios de puntos», se actualizan los puntos de las colecciones de los usuarios y se envía un aviso por correo a quien lo tenga activado.",
+  faq: [
+    ["¿Administratum es gratis?", "Sí. Todas las funciones son gratuitas y no hace falta cuenta para consultar puntos, torneos, listas o guías. La cuenta (gratuita) sirve para guardar tu colección, publicar y apuntarte."],
+    ["¿De dónde salen los puntos y cada cuánto se actualizan?", "Del Munitorum Field Manual oficial de Games Workshop. Se comprueba cada 4 horas y los cambios aparecen en cuanto se detectan."],
+    ["¿Dónde veo los últimos cambios de puntos de Warhammer 40K en español?", "En la página «Cambios de puntos» de Administratum, con las subidas y bajadas de cada actualización agrupadas por facción."],
+    ["¿Dónde encuentro torneos de Warhammer 40K en España?", "En la sección Competitivo, con fechas, lugar, plazas, inscripción y bases. Los organizadores pueden publicar su torneo gratis escribiendo a hola@administratum.site."],
+    ["¿Cómo encuentro rival para jugar cerca de mí?", "En «Partidas»: publica una partida abierta o busca las que hay cerca por distancia, día y nivel, en tiendas, clubes, en casa u online."],
+    ["¿Puedo importar mi lista de la app oficial?", "Sí. Copia la exportación de la app oficial de Warhammer 40.000 y pégala: se reconocen las unidades, el destacamento y los puntos."],
+    ["¿Está relacionado con Games Workshop?", "No. Administratum es un proyecto independiente de la comunidad, sin afiliación con Games Workshop."],
+    ["¿Qué juegos cubre?", "Solo Warhammer 40.000."],
+  ] as [string, string][],
+};
+
+export const ABOUT_EN = {
+  title: "Administratum: Warhammer 40K points, army lists and tournaments for Spanish-speaking players",
+  description:
+    "Administratum is a free Spanish-language platform for Warhammer 40,000: official points updated every few hours, points changes as soon as they are published, army lists, tournaments and pick-up games in Spain, painting guides and a collection tracker.",
+  lead:
+    "Administratum is a free platform for Warhammer 40,000 players, in Spanish. It brings together the official Munitorum Field Manual points (checked every 4 hours), points changes as soon as Games Workshop publishes them, army lists, a tournament calendar for Spain, open games near you, teams, painting guides and a miniature collection tracker.",
+  features: [
+    { title: "Up-to-date Warhammer 40K points", text: "Official costs for every unit of every faction, synced with the Munitorum Field Manual every 4 hours.", path: "/catalogo-puntos" },
+    { title: "Points changes", text: "What went up and down in each update, faction by faction, with old and new costs.", path: "/cambios-puntos" },
+    { title: "Tournaments in Spain", text: "Dates, venues, spots, entry fees and full rules packs.", path: "/competitivo" },
+    { title: "Find an opponent", text: "Open games in stores, clubs, at home or online, searchable by distance, day and skill level.", path: "/partidas" },
+    { title: "Army lists and painting guides", text: "Lists imported from the official app and step-by-step painting guides from the community.", path: "/comunidad" },
+    { title: "Collection tracker", text: "Track your armies and the painting progress of every miniature.", path: "/" },
+  ] as AboutFeature[],
+  note: "The site is in Spanish and free to use. It is an independent community project, not affiliated with Games Workshop.",
+  faq: [
+    ["Is Administratum free?", "Yes. Points, tournaments, lists and guides can be browsed without an account; a free account lets you track your collection and post."],
+    ["Where do the points come from?", "From Games Workshop's official Munitorum Field Manual, checked every 4 hours."],
+    ["Is there an English version?", "The site is in Spanish, but unit names and points use the official English names, so the points catalog is easy to follow."],
+  ] as [string, string][],
+};
+
+export const SEO_MATCHES: SeoCopy = {
+  title: "Partidas de Warhammer 40K cerca de ti",
+  description:
+    "Encuentra rivales para jugar a Warhammer 40.000 cerca de ti: partidas abiertas en tiendas, clubes, en casa u online, con fecha, nivel y ejército. Publica la tuya gratis.",
+};
+
 export const SEO_COMPETITIVO: SeoCopy = {
   title: "Torneos de Warhammer 40K en España y listas competitivas",
   description:
@@ -269,6 +368,10 @@ export interface Page {
   jsonLd?: Record<string, unknown>[];
   /** Use `title` as the full <title> (home page), without " · Administratum". */
   exactTitle?: boolean;
+  /** Page language (default Spanish). */
+  lang?: 'es' | 'en';
+  /** Same content in other languages, for hreflang. */
+  alternates?: { hreflang: string; path: string }[];
   body: string;
 }
 
@@ -975,6 +1078,151 @@ ${sections}
   };
 }
 
+const ABOUT_ALTERNATES = [
+  { hreflang: 'es', path: '/sobre' },
+  { hreflang: 'en', path: '/en' },
+  { hreflang: 'x-default', path: '/sobre' },
+];
+
+const ORGANIZATION_LD = {
+  '@type': 'Organization',
+  '@id': `${SITE}/#organization`,
+  name: NAME,
+  url: `${SITE}/`,
+  logo: `${SITE}/icon-512.png`,
+  email: 'hola@administratum.site',
+  description: ABOUT_ES.description,
+  areaServed: { '@type': 'Country', name: 'España' },
+  knowsAbout: ['Warhammer 40.000', 'Munitorum Field Manual', 'Wargames', 'Pintura de miniaturas', 'Torneos de Warhammer 40K'],
+  foundingDate: '2026',
+};
+
+const faqLd = (faq: [string, string][], lang: string) => ({
+  '@type': 'FAQPage',
+  inLanguage: lang,
+  mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+});
+
+function about(): Page {
+  const c = ABOUT_ES;
+  return {
+    status: 200,
+    title: c.title,
+    description: c.description,
+    path: '/sobre',
+    alternates: ABOUT_ALTERNATES,
+    breadcrumbs: [['Qué es Administratum', '/sobre']],
+    jsonLd: [{ '@type': 'AboutPage', name: c.title, url: `${SITE}/sobre`, inLanguage: 'es', about: { '@id': `${SITE}/#organization` } }, ORGANIZATION_LD, faqLd(c.faq, 'es')],
+    body: `<h1>Qué es Administratum</h1>
+<p class="lead">${esc(c.lead)}</p>
+<h2>Qué puedes hacer</h2>
+<ul>${c.features.map((f) => `<li><strong>${link(f.path, f.title)}</strong>: ${esc(f.text)}</li>`).join('')}</ul>
+<h2>Para quién es</h2><p>${esc(c.audience)}</p>
+<h2>Cómo se mantienen los puntos al día</h2><p>${esc(c.howPoints)}</p>
+<h2>Preguntas frecuentes</h2>
+${c.faq.map(([q, a]) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join('\n')}
+<p>Contacto: <a href="mailto:hola@administratum.site">hola@administratum.site</a> · ${link('/en', 'English summary')}</p>`,
+  };
+}
+
+function aboutEn(): Page {
+  const c = ABOUT_EN;
+  return {
+    status: 200,
+    title: c.title,
+    description: c.description,
+    path: '/en',
+    lang: 'en',
+    alternates: ABOUT_ALTERNATES,
+    jsonLd: [{ '@type': 'WebPage', name: c.title, url: `${SITE}/en`, inLanguage: 'en', about: { '@id': `${SITE}/#organization` } }, faqLd(c.faq, 'en')],
+    body: `<h1>Administratum: Warhammer 40K points, lists and tournaments in Spanish</h1>
+<p class="lead">${esc(c.lead)}</p>
+<h2>What you can do</h2>
+<ul>${c.features.map((f) => `<li><strong>${link(f.path, f.title)}</strong>: ${esc(f.text)}</li>`).join('')}</ul>
+<p>${esc(c.note)}</p>
+<h2>FAQ</h2>
+${c.faq.map(([q, a]) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join('\n')}
+<p>Contact: <a href="mailto:hola@administratum.site">hola@administratum.site</a> · ${link('/sobre', 'Versión en español')}</p>`,
+  };
+}
+
+const MATCH_LABELS = {
+  format: { equilibrado: 'Juego equilibrado', cruzada: 'Cruzada', narrativo: 'Narrativo', patrulla: 'Patrulla de combate', incursion: 'Incursión', otro: 'Partida' } as Record<string, string>,
+  level: { iniciacion: 'Iniciación', casual: 'Casual', intermedio: 'Intermedio', competitivo: 'Competitivo' } as Record<string, string>,
+  venue: { tienda: 'Tienda', club: 'Club', casa: 'En casa', online: 'Online', otro: 'Otro lugar' } as Record<string, string>,
+};
+const MATCH_FIELDS = 'id,title,description,format,points_limit,level,venue_type,venue_name,city,starts_on,time_mode,start_time,time_note,max_players,player_count,reserved_count,host_faction,status';
+
+function matchSummary(m: Row): { title: string; when: string; where: string } {
+  const title = m.title || `${MATCH_LABELS.format[m.format] ?? 'Partida'}${m.points_limit ? ` a ${m.points_limit} puntos` : ''}`;
+  const when = `${fmtDate(m.starts_on)}${m.time_mode === 'fixed' && m.start_time ? `, ${String(m.start_time).slice(0, 5)}` : m.time_note ? `, ${m.time_note}` : ''}`;
+  const where =
+    m.venue_type === 'online'
+      ? `Online${m.venue_name ? ` (${m.venue_name})` : ''}`
+      : [m.venue_type === 'casa' ? 'En casa' : m.venue_name || MATCH_LABELS.venue[m.venue_type], m.city].filter(Boolean).join(', ');
+  return { title, when, where };
+}
+
+async function matchesIndex(q: Query): Promise<Page> {
+  const today = new Date().toISOString().slice(0, 10);
+  const matches = await q('matches', `select=${MATCH_FIELDS}&status=eq.open&starts_on=gte.${today}&order=starts_on.asc&limit=200`).catch(() => [] as Row[]);
+  const byCity = new Map<string, Row[]>();
+  for (const m of matches) {
+    const key = m.venue_type === 'online' ? 'Online' : m.city || 'Otras ubicaciones';
+    byCity.set(key, [...(byCity.get(key) ?? []), m]);
+  }
+  return {
+    status: 200,
+    ...SEO_MATCHES,
+    path: '/partidas',
+    breadcrumbs: [['Partidas', '/partidas']],
+    body: `<h1>Partidas de Warhammer 40K cerca de ti</h1>
+<p class="lead">Busca rival para jugar a Warhammer 40.000: partidas abiertas en tiendas, clubes, en casa u online, con fecha, nivel y ejército. Apúntate a una o publica la tuya gratis.</p>
+${
+  matches.length
+    ? [...byCity.entries()]
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(
+          ([city, list]) =>
+            `<h2>${esc(city === 'Online' ? 'Partidas online' : `Partidas en ${city}`)}</h2><ul>${list
+              .map((m) => {
+                const s = matchSummary(m);
+                return `<li>${link(`/partidas/${m.id}`, s.title)} — ${esc(s.when)} · ${esc(s.where)} · ${esc(MATCH_LABELS.level[m.level] ?? '')}${m.host_faction ? ` · ${esc(m.host_faction)}` : ''}</li>`;
+              })
+              .join('')}</ul>`,
+        )
+        .join('\n')
+    : '<p>Ahora mismo no hay partidas abiertas. ¡Publica la primera de tu zona!</p>'
+}
+<p>${link('/competitivo', 'Torneos de Warhammer 40K en España')}</p>`,
+  };
+}
+
+/** One game: prerendered for link previews, kept out of the index (it expires in days). */
+async function matchPage(q: Query, id: string): Promise<Page> {
+  const path = `/partidas/${id}`;
+  if (!uuid.test(id)) return notFound(path);
+  const [m] = await q('matches', `select=${MATCH_FIELDS}&id=${eq(id)}`);
+  if (!m) return notFound(path);
+  const s = matchSummary(m);
+  const free = Math.max(0, m.max_players - m.player_count - (m.reserved_count ?? 0));
+  return {
+    status: 200,
+    title: `${s.title} · ${s.when}`,
+    description: summarize(`Partida de Warhammer 40K: ${s.title}, ${s.when}, ${s.where}. Nivel ${MATCH_LABELS.level[m.level] ?? ''}. ${free ? `${free} ${free === 1 ? 'plaza libre' : 'plazas libres'}.` : 'Completa.'} ${m.description ?? ''}`),
+    path,
+    noindex: true,
+    breadcrumbs: [
+      ['Partidas', '/partidas'],
+      [s.title, path],
+    ],
+    body: `<article><h1>${esc(s.title)}</h1>
+<ul><li>Cuándo: ${esc(s.when)}</li><li>Dónde: ${esc(s.where)}</li><li>Nivel: ${esc(MATCH_LABELS.level[m.level] ?? '')}</li><li>Plazas: ${esc(m.player_count)} de ${esc(m.max_players)}</li>${m.host_faction ? `<li>Ejército del organizador: ${esc(m.host_faction)}</li>` : ''}</ul>
+${m.description ? `<p>${esc(m.description)}</p>` : ''}
+<p>${link('/partidas', 'Más partidas')}</p></article>`,
+  };
+}
+
 /** Maps a public URL path to its page, or null to serve the plain shell. */
 export async function renderPath(path: string, q: Query): Promise<Page | null> {
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
@@ -994,6 +1242,10 @@ export async function renderPath(path: string, q: Query): Promise<Page | null> {
   if (a === 'perfil' && parts.length === 2) return profile(q, b);
   if (a === 'descargas' && parts.length === 1) return descargas(q);
   if (a === 'cambios-puntos' && parts.length === 1) return pointsChanges(q);
+  if (a === 'sobre' && parts.length === 1) return about();
+  if (a === 'en' && parts.length === 1) return aboutEn();
+  if (a === 'partidas' && parts.length === 1) return matchesIndex(q);
+  if (a === 'partidas' && parts.length === 2 && b !== 'nueva') return matchPage(q, b);
   return null;
 }
 
@@ -1053,7 +1305,8 @@ export function inject(template: string, page: Page): string {
     `<link rel="canonical" href="${esc(url)}" />`,
     `<meta property="og:type" content="${page.type ?? 'website'}" />`,
     `<meta property="og:site_name" content="${NAME}" />`,
-    `<meta property="og:locale" content="es_ES" />`,
+    `<meta property="og:locale" content="${page.lang === 'en' ? 'en_GB' : 'es_ES'}" />`,
+    ...(page.alternates ?? []).map((a) => `<link rel="alternate" hreflang="${a.hreflang}" href="${esc(`${SITE}${a.path}`)}" />`),
     `<meta property="og:url" content="${esc(url)}" />`,
     `<meta property="og:title" content="${esc(fullTitle)}" />`,
     page.description && `<meta property="og:description" content="${esc(page.description)}" />`,
@@ -1084,7 +1337,8 @@ ${page.breadcrumbs?.length ? breadcrumbHtml(page.breadcrumbs) : ''}
 </div>`
     : '';
 
-  return stripped.replace('</head>', `    ${head}\n  </head>`).replace('<div id="root"></div>', `<div id="root">${body}</div>`);
+  const localized = page.lang === 'en' ? stripped.replace('<html lang="es"', '<html lang="en"') : stripped;
+  return localized.replace('</head>', `    ${head}\n  </head>`).replace('<div id="root"></div>', `<div id="root">${body}</div>`);
 }
 
 // ---------------------------------------------------------------------------

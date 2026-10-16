@@ -543,6 +543,8 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             ))}
           </nav>
           <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+            <Link to="/sobre" className="transition-colors hover:text-white">Qué es Administratum</Link>
+            <Link to="/en" hrefLang="en" className="transition-colors hover:text-white">English</Link>
             <Link to="/legal/aviso-legal" className="transition-colors hover:text-white">Aviso legal</Link>
             <Link to="/legal/privacidad" className="transition-colors hover:text-white">Privacidad</Link>
             <Link to="/legal/cookies" className="transition-colors hover:text-white">Cookies</Link>

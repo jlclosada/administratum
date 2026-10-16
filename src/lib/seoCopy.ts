@@ -32,6 +32,12 @@ export const SEO_POINTS_CHANGES: SeoCopy = {
     "Todos los cambios de puntos del Munitorum Field Manual de Warhammer 40K en cuanto se publican: qué unidades suben y cuáles bajan, facción por facción, con el coste anterior y el nuevo.",
 };
 
+export const SEO_MATCHES: SeoCopy = {
+  title: "Partidas de Warhammer 40K cerca de ti",
+  description:
+    "Encuentra rivales para jugar a Warhammer 40.000 cerca de ti: partidas abiertas en tiendas, clubes, en casa u online, con fecha, nivel y ejército. Publica la tuya gratis.",
+};
+
 export const SEO_COMPETITIVO: SeoCopy = {
   title: "Torneos de Warhammer 40K en España y listas competitivas",
   description:

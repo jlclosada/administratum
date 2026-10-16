@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { getMyMatches, getProfilesByIds, searchMatches } from "@/db";
 import { savedPlace, savePlace, type Place } from "@/lib/geo";
 import { LEVEL_LABEL, VENUE_LABEL } from "@/lib/matches";
+import { SEO_MATCHES } from "@/lib/seoCopy";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
 import type { Match, MatchLevel, Profile, VenueType } from "@/types";
@@ -97,11 +98,7 @@ export function MatchesPage() {
 
   return (
     <PageTransition>
-      <Seo
-        title="Partidas de Warhammer 40K cerca de ti"
-        description="Encuentra rivales para jugar a Warhammer 40.000 cerca de ti: partidas abiertas en tiendas, clubes, en casa u online, con fecha, nivel y ejército. Publica la tuya gratis."
-        path="/partidas"
-      />
+      <Seo {...SEO_MATCHES} path="/partidas" />
       <div className="space-y-6">
         <header className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/40 p-6 sm:p-8">
           <img src="/images/landing-hero.jpg" alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20" />

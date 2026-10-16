@@ -1,15 +1,17 @@
+import { RedditKitDialog } from "@/components/catalog/RedditKitDialog";
 import { DeltaBadge } from "@/components/home/HomeWidgets";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Seo } from "@/components/shared/Seo";
 import { Input } from "@/components/ui/input";
-import { getPointsChanges } from "@/db";
+import { getCatalogVersion, getPointsChanges } from "@/db";
+import { useIsAdmin } from "@/lib/admin";
 import { pointsDeltaOf, updateModels, updateTarget } from "@/lib/catalogUpdates";
-import { factionDisplayName } from "@/lib/factionNames";
+import { factionDisplayName, factionSpanishName } from "@/lib/factionNames";
 import { SEO_POINTS_CHANGES } from "@/lib/seoCopy";
 import { cn } from "@/lib/utils";
 import type { CatalogUpdate } from "@/types";
-import { ArrowDown, ArrowUp, Library, Search, Target } from "lucide-react";
+import { ArrowDown, ArrowUp, Library, Search, Share2, Target } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -61,6 +63,13 @@ export function PointsChangesPage() {
   const [query, setQuery] = useState("");
   const [faction, setFaction] = useState("");
   const [direction, setDirection] = useState<Direction>("all");
+  const isAdmin = useIsAdmin();
+  const [reddit, setReddit] = useState(false);
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAdmin) getCatalogVersion().then(setVersion);
+  }, [isAdmin]);
 
   useEffect(() => {
     getPointsChanges().then((rows) => {
@@ -129,6 +138,15 @@ export function PointsChangesPage() {
             <Link to="/catalogo-puntos" className="flex items-center gap-2 rounded-full border border-border/60 px-4 py-2 text-sm transition-colors hover:border-primary/40 hover:text-primary">
               <Library className="h-4 w-4" /> Catálogo completo
             </Link>
+            {isAdmin && day && ofDay.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setReddit(true)}
+                className="flex items-center gap-2 rounded-full border border-primary/40 bg-brand-soft px-4 py-2 text-sm transition-colors hover:border-primary/70"
+              >
+                <Share2 className="h-4 w-4 text-primary" /> Kit para Reddit
+              </button>
+            )}
           </div>
           {day && (
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -271,6 +289,21 @@ export function PointsChangesPage() {
           </>
         )}
       </div>
+      {reddit && day && (
+        <RedditKitDialog
+          day={day}
+          version={version}
+          onClose={() => setReddit(false)}
+          changes={ofDay.map((c) => ({
+            unit: c.unit,
+            faction: c.faction,
+            factionEs: c.slug ? factionSpanishName(c.slug, c.faction) : null,
+            before: c.update.pointsBefore ?? null,
+            after: c.update.pointsAfter ?? null,
+            delta: c.delta,
+          }))}
+        />
+      )}
     </PageTransition>
   );
 }

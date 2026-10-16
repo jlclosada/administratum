@@ -4,6 +4,7 @@ import { inject, pricingText, renderPath, richText, summarize, type Query } from
 import { FACTION_ES } from '../src/lib/factionNames';
 import * as app from '../src/lib/seoCopy';
 import * as sitemap from '../api/sitemap';
+import * as about from '../src/lib/aboutCopy';
 
 // ?raw: import.meta.url isn't a file URL under happy-dom.
 import template from '../index.html?raw';
@@ -82,7 +83,7 @@ describe('prerender', () => {
 
   it('uses exactly the same SEO copy as the app', () => {
     expect(server.FACTION_ES).toEqual(FACTION_ES);
-    for (const key of ['SEO_CATALOG', 'SEO_COMPETITIVO', 'SEO_COMUNIDAD', 'SEO_GUIAS', 'SEO_DESCARGAS', 'SEO_POINTS_CHANGES'] as const) {
+    for (const key of ['SEO_CATALOG', 'SEO_COMPETITIVO', 'SEO_COMUNIDAD', 'SEO_GUIAS', 'SEO_DESCARGAS', 'SEO_POINTS_CHANGES', 'SEO_MATCHES'] as const) {
       expect(server[key]).toEqual(app[key]);
     }
     expect(server.seoFaction('thousand-sons', 'Thousand Sons', 34, 9)).toEqual(app.seoFaction('thousand-sons', 'Thousand Sons', 34, 9));
@@ -233,6 +234,55 @@ describe('points changes page', () => {
     expect(page.body).toContain('<a href="/catalogo-puntos/orks/boyz">Boyz</a>');
     expect(page.body).toContain('▲ +15');
     expect(page.body).not.toContain('Old');
+  });
+});
+
+describe('about pages and open games', () => {
+  const none: Query = async () => [];
+
+  it('keeps the about copy identical in the app and the server', () => {
+    expect(server.ABOUT_ES).toEqual(about.ABOUT_ES);
+    expect(server.ABOUT_EN).toEqual(about.ABOUT_EN);
+  });
+
+  it('renders /sobre with features, FAQ data and links to the English version', async () => {
+    const page = (await renderPath('/sobre', none))!;
+    expect(page.body).toContain('<h1>Qué es Administratum</h1>');
+    expect(page.body).toContain('<a href="/cambios-puntos">Cambios de puntos al momento</a>');
+    expect(page.jsonLd?.map((n) => n['@type'])).toEqual(['AboutPage', 'Organization', 'FAQPage']);
+    const html = inject(template, page);
+    expect(html).toContain('<link rel="alternate" hreflang="en" href="https://administratum.site/en" />');
+    expect(html).toContain('<link rel="alternate" hreflang="x-default" href="https://administratum.site/sobre" />');
+    expect(html).toContain('<html lang="es"');
+  });
+
+  it('serves /en in English', async () => {
+    const html = inject(template, (await renderPath('/en', none))!);
+    expect(html).toContain('<html lang="en"');
+    expect(html).toContain('<meta property="og:locale" content="en_GB" />');
+    expect(html).toContain('Warhammer 40K points, lists and tournaments in Spanish');
+  });
+
+  it('lists open games by city and keeps single games out of the index', async () => {
+    const games = [
+      { id: '44444444-4444-4444-8444-444444444444', title: '', format: 'equilibrado', points_limit: 2000, level: 'casual', venue_type: 'tienda', venue_name: 'Dungeon Marvels', city: 'Madrid', starts_on: '2030-10-10', time_mode: 'fixed', start_time: '18:00:00', max_players: 2, player_count: 1, reserved_count: 0, status: 'open' },
+      { id: '55555555-5555-4555-8555-555555555555', title: 'Cruzada en casa', format: 'cruzada', level: 'iniciacion', venue_type: 'casa', venue_name: 'Calle Falsa 1', city: 'Getafe', starts_on: '2030-10-11', time_mode: 'flexible', time_note: 'por la tarde', max_players: 2, player_count: 1, status: 'open' },
+    ];
+    const q: Query = async (table, query) => {
+      if (table !== 'matches') return [];
+      const id = query.match(/id=eq\.([^&]+)/)?.[1];
+      return id ? games.filter((g) => g.id === id) : games;
+    };
+    const index = (await renderPath('/partidas', q))!;
+    expect(index.title).toBe(app.SEO_MATCHES.title);
+    expect(index.body).toContain('<h2>Partidas en Madrid</h2>');
+    expect(index.body).toContain('<a href="/partidas/44444444-4444-4444-8444-444444444444">Juego equilibrado a 2000 puntos</a>');
+    expect(index.body).toContain('En casa, Getafe');
+    expect(index.body).not.toContain('Calle Falsa');
+    const one = (await renderPath('/partidas/55555555-5555-4555-8555-555555555555', q))!;
+    expect(one.noindex).toBe(true);
+    expect(one.body).toContain('<h1>Cruzada en casa</h1>');
+    expect(await renderPath('/partidas/nueva', q)).toBeNull();
   });
 });
 

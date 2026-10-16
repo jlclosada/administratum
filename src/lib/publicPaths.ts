@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   /^\/catalogo-puntos(\/[^/]+){0,2}$/,
   /^\/descargas$/,
   /^\/cambios-puntos$/,
+  /^\/(sobre|en)$/,
   /^\/competitivo(\/(listas|torneos)\/[^/]+)?$/,
   /^\/comunidad(\/listas\/[^/]+)?$/,
   /^\/perfil\/[^/]+$/,

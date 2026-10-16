@@ -23,6 +23,8 @@ export const STATIC_ENTRIES: SitemapEntry[] = [
   { path: '/descargas', changefreq: 'weekly', priority: 0.6 },
   { path: '/partidas', changefreq: 'daily', priority: 0.8 },
   { path: '/cambios-puntos', changefreq: 'daily', priority: 0.8 },
+  { path: '/sobre', changefreq: 'monthly', priority: 0.7 },
+  { path: '/en', changefreq: 'monthly', priority: 0.5 },
   { path: '/legal/aviso-legal', changefreq: 'yearly', priority: 0.1 },
   { path: '/legal/privacidad', changefreq: 'yearly', priority: 0.1 },
   { path: '/legal/cookies', changefreq: 'yearly', priority: 0.1 },

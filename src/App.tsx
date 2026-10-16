@@ -169,6 +169,9 @@ const GuideEditorPage = lazyRoute(() =>
     default: m.GuideEditorPage,
   })),
 );
+const AboutPage = lazyRoute(() =>
+  import("@/pages/AboutPage").then((m) => ({ default: m.AboutPage })),
+);
 const PointsChangesPage = lazyRoute(() =>
   import("@/pages/PointsChangesPage").then((m) => ({ default: m.PointsChangesPage })),
 );
@@ -254,6 +257,8 @@ const publicRoutes = (
     />
     <Route path="catalogo-puntos/:factionSlug/:unitSlug" element={<UnitPointsPage />} />
     <Route path="cambios-puntos" element={<PointsChangesPage />} />
+    <Route path="sobre" element={<AboutPage />} />
+    <Route path="en" element={<AboutPage lang="en" />} />
     <Route path="descargas" element={<DownloadsPage />} />
     <Route path="competitivo" element={<CompetitivoPage />} />
     <Route
