@@ -14,6 +14,12 @@ export function Footer() {
           ))}
         </nav>
         <nav aria-label="Legal" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5">
+          <Link to="/sobre" className="transition-colors hover:text-foreground">
+            Qué es Administratum
+          </Link>
+          <Link to="/en" hrefLang="en" className="transition-colors hover:text-foreground">
+            English
+          </Link>
           <Link to="/legal/aviso-legal" className="transition-colors hover:text-foreground">
             Aviso legal
           </Link>

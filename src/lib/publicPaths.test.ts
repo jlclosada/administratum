@@ -12,6 +12,8 @@ describe('isPublicPath', () => {
       '/articulos/9a1c',
       '/descargas',
       '/cambios-puntos',
+      '/sobre',
+      '/en',
       '/competitivo',
       '/competitivo/torneos/42',
       '/competitivo/listas/7',

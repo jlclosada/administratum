@@ -19,4 +19,13 @@ describe('vercel.json', () => {
     expect(config.rewrites.some((r) => r.source === '/catalogo-puntos/:slug/:unit')).toBe(true);
     expect(pkg.scripts.build).toContain('scripts/vercel-postbuild.mjs');
   });
+
+  it('serves one URL per page: no trailing-slash or /index.html duplicates', () => {
+    expect((config as { trailingSlash?: boolean }).trailingSlash).toBe(false);
+    expect(config.redirects).toContainEqual({ source: '/index.html', destination: '/', permanent: true });
+    for (const source of ['/llms.txt', '/llms-full.txt', '/sobre', '/en', '/partidas']) {
+      expect(config.rewrites.some((r) => r.source === source), source).toBe(true);
+    }
+  });
 });
+
