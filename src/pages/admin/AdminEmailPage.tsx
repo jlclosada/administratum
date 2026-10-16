@@ -100,7 +100,7 @@ export function AdminEmailPage() {
   );
 
   useEffect(() => {
-    getAppConfig().then(setConfig);
+    getAppConfig(true).then(setConfig);
     loadCampaigns();
     loadContacts();
     getArticles(true).then((list) => {

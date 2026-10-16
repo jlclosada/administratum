@@ -1,3 +1,4 @@
+import { CONSENT_NEEDED, openConsentSettings } from "@/lib/consent";
 import { Link } from "react-router-dom";
 import { exploreLinks } from "./navItems";
 
@@ -29,6 +30,11 @@ export function Footer() {
           <Link to="/legal/cookies" className="transition-colors hover:text-foreground">
             Cookies
           </Link>
+          {CONSENT_NEEDED && (
+            <button type="button" onClick={openConsentSettings} className="transition-colors hover:text-foreground">
+              Configurar cookies
+            </button>
+          )}
           <Link to="/legal/terminos" className="transition-colors hover:text-foreground">
             Términos de uso
           </Link>

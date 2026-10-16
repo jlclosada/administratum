@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import config from '../vercel.json';
+import { CSP, SECURITY_HEADERS } from './security-headers.mjs';
 
 describe('vercel.json', () => {
   it('redirects every administratum.vercel.app URL, including the root, to the domain', () => {
@@ -27,5 +28,15 @@ describe('vercel.json', () => {
       expect(config.rewrites.some((r) => r.source === source), source).toBe(true);
     }
   });
-});
 
+  it('sends the security headers from scripts/security-headers.mjs on every response', () => {
+    const all = config.headers.find((h) => h.source === '/(.*)');
+    expect(all?.headers).toEqual(SECURITY_HEADERS);
+    expect(CSP).toContain("frame-ancestors 'none'");
+    expect(CSP).toContain("object-src 'none'");
+    // Scripts only from our domain (plus the consent-gated tags): no inline code.
+    expect(CSP).toMatch(/script-src 'self'[^;]*;/);
+    expect(CSP).not.toMatch(/script-src[^;]*'unsafe-(inline|eval)'/);
+    expect(CSP).toContain(`wss://${new URL('https://qqfggcpdphuadsicutsb.supabase.co').host}`);
+  });
+});

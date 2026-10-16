@@ -1,4 +1,5 @@
 import { MagneticButton, Marquee, RevealText } from "@/components/landing/primitives";
+import { CONSENT_NEEDED, openConsentSettings } from "@/lib/consent";
 import { ScrollStory } from "@/components/landing/ScrollStory";
 import { exploreLinks } from "@/components/layout/navItems";
 import { Seo } from "@/components/shared/Seo";
@@ -548,6 +549,9 @@ export function LandingPage({ onEnter }: LandingPageProps) {
             <Link to="/legal/aviso-legal" className="transition-colors hover:text-white">Aviso legal</Link>
             <Link to="/legal/privacidad" className="transition-colors hover:text-white">Privacidad</Link>
             <Link to="/legal/cookies" className="transition-colors hover:text-white">Cookies</Link>
+            {CONSENT_NEEDED && (
+              <button type="button" onClick={openConsentSettings} className="transition-colors hover:text-white">Configurar cookies</button>
+            )}
             <Link to="/legal/terminos" className="transition-colors hover:text-white">Términos de uso</Link>
           </nav>
         </div>

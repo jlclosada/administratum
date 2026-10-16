@@ -153,10 +153,29 @@ export function toProfile(row: Record<string, unknown>): Profile {
   };
 }
 
+/**
+ * Columns of a profile anyone may read. The rest (last seen, email
+ * preference, wizard date…) are private: column privileges in schema.sql
+ * block them, so never `select('*')` on profiles from the browser.
+ */
+export const PUBLIC_PROFILE_COLUMNS =
+  'id,display_name,avatar_url,bio,location,favorite_faction,website,links,role,created_at,updated_at';
+
+/** The signed-in user's private settings (email preference, wizard done). */
+async function myPrivateFields(userId: string): Promise<Pick<Profile, 'emailUpdates' | 'onboardedAt'>> {
+  const { data, error } = await supabase.rpc('my_profile_private');
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!error && row) return { emailUpdates: row.email_updates, onboardedAt: row.onboarded_at ?? null };
+  // Database without my_profile_private() yet (schema.sql not re-run): the
+  // columns are still readable directly.
+  const { data: direct } = await supabase.from('profiles').select('email_updates,onboarded_at').eq('id', userId).maybeSingle();
+  return direct ? { emailUpdates: direct.email_updates, onboardedAt: direct.onboarded_at ?? null } : {};
+}
+
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PUBLIC_PROFILE_COLUMNS)
     .eq('id', userId)
     .maybeSingle();
   if (error || !data) return null;
@@ -168,7 +187,8 @@ export async function getMyProfile(): Promise<Profile | null> {
     data: { user },
   } = await getSessionUser();
   if (!user) return null;
-  return getProfile(user.id);
+  const profile = await getProfile(user.id);
+  return profile ? { ...profile, ...(await myPrivateFields(user.id)) } : null;
 }
 
 /**
@@ -193,13 +213,18 @@ export async function updateMyProfile(dto: UpdateProfileDTO): Promise<Profile> {
   if (dto.emailUpdates !== undefined) payload.email_updates = dto.emailUpdates;
   if (dto.onboarded) payload.onboarded_at = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .upsert(payload, { onConflict: 'id' })
-    .select()
-    .single();
-  if (error) throw error;
-  return toProfile(data);
+  // Update, and insert only when the row is missing: an upsert would need
+  // read access to the private columns it writes (see PUBLIC_PROFILE_COLUMNS).
+  const { id: _id, ...changes } = payload;
+  const updated = await supabase.from('profiles').update(changes).eq('id', user.id).select(PUBLIC_PROFILE_COLUMNS).maybeSingle();
+  if (updated.error) throw updated.error;
+  let row = updated.data;
+  if (!row) {
+    const inserted = await supabase.from('profiles').insert(payload).select(PUBLIC_PROFILE_COLUMNS).single();
+    if (inserted.error) throw inserted.error;
+    row = inserted.data;
+  }
+  return { ...toProfile(row as Record<string, unknown>), ...(await myPrivateFields(user.id)) };
 }
 
 // ======================== GAMES ========================
@@ -1260,18 +1285,23 @@ const DEFAULT_APP_CONFIG: AppConfig = {
 };
 
 /**
- * Read the global app configuration. Degrades gracefully to defaults if the
- * `app_config` table has not been created yet.
+ * Read the global app configuration. Everyone gets the public part
+ * (announcement, sign-ups); `full` (admin pages) adds the email automation
+ * settings through admin_app_config(). Degrades to defaults on errors.
  */
-export async function getAppConfig(): Promise<AppConfig> {
+export async function getAppConfig(full = false): Promise<AppConfig> {
   try {
-    const { data, error } = await supabase
-      .from('app_config')
-      // '*': a column added by a newer schema.sql must not break older databases.
-      .select('*')
-      .eq('id', 'global')
-      .maybeSingle();
-    if (error || !data) return DEFAULT_APP_CONFIG;
+    let data: Record<string, unknown> | null = null;
+    if (full) {
+      const rpc = await supabase.rpc('admin_app_config');
+      data = Array.isArray(rpc.data) ? (rpc.data[0] ?? null) : null;
+      // Before schema.sql adds admin_app_config(), the table is still readable.
+      if (rpc.error) data = (await supabase.from('app_config').select('*').eq('id', 'global').maybeSingle()).data;
+    } else {
+      const res = await supabase.from('app_config').select('id,announcement,announcement_enabled,signups_enabled').eq('id', 'global').maybeSingle();
+      data = res.error ? null : res.data;
+    }
+    if (!data) return DEFAULT_APP_CONFIG;
     const row = mapRow<AppConfig & { id?: string; updatedAt?: string }>(data);
     return {
       announcement: row.announcement ?? DEFAULT_APP_CONFIG.announcement,
@@ -1289,8 +1319,8 @@ export async function getAppConfig(): Promise<AppConfig> {
 
 /** Update the global app configuration (admin only, enforced by RLS). */
 export async function updateAppConfig(config: AppConfig): Promise<void> {
-  const { error } = await supabase.from('app_config').upsert({
-    id: 'global',
+  // Update rather than upsert: an upsert needs read access to every column.
+  const row = {
     announcement: config.announcement,
     announcement_enabled: config.announcementEnabled,
     signups_enabled: config.signupsEnabled,
@@ -1299,8 +1329,13 @@ export async function updateAppConfig(config: AppConfig): Promise<void> {
     reengagement_cooldown_days: config.reengagementCooldownDays,
     points_email_enabled: config.pointsEmailEnabled,
     updated_at: new Date().toISOString(),
-  });
+  };
+  const { data, error } = await supabase.from('app_config').update(row).eq('id', 'global').select('id');
   if (error) throw error;
+  if (!data?.length) {
+    const inserted = await supabase.from('app_config').insert({ id: 'global', ...row });
+    if (inserted.error) throw inserted.error;
+  }
 }
 
 // ======================== EMAIL (ADMIN) ========================

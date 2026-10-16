@@ -5,6 +5,7 @@ import {
   renderEmail,
   renderMatchInvite,
   renderPointsDigest,
+  renderSignupConfirm,
   toPointsChange,
   unitSlug,
   signEmail,
@@ -174,5 +175,15 @@ describe('email api', () => {
       expect(html).toContain('Por facción');
     });
   });
-});
 
+  describe('visitor sign-up (double opt-in)', () => {
+    it('asks to confirm with a single link and no unsubscribe footer for someone not yet subscribed', () => {
+      const link = 'https://administratum.site/api/email?action=confirm&t=abc123';
+      const { subject, html } = renderSignupConfirm(link);
+      expect(subject).toBe('Confirma tus avisos de cambios de puntos');
+      expect(html).toMatch(/href="https:\/\/administratum\.site\/api\/email\?action=confirm&(amp;)?t=abc123"/);
+      expect(html).toContain('Confirmar mi suscripción');
+      expect(html).not.toContain('action=unsubscribe');
+    });
+  });
+});

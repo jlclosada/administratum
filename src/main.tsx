@@ -4,6 +4,7 @@ import App from "./App";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { reloadForNewVersion } from "./lib/chunkReload";
 import { initSentry } from "./lib/sentry";
+import { inject as injectAnalytics } from "@vercel/analytics";
 import "./styles/globals.css";
 
 // Vite reports failed module preloads (typically a stale tab after a new
@@ -13,6 +14,11 @@ window.addEventListener("vite:preloadError", (event) => {
 });
 
 initSentry();
+
+// Visit counts without cookies or personal data (Vercel Web Analytics), so
+// no consent banner is needed for them. Only on the real site: not in local
+// dev, Vercel previews or the desktop app.
+if (window.location.hostname === "administratum.site") injectAnalytics({ mode: "production" });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
