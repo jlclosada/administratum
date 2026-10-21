@@ -150,7 +150,7 @@ export function ArmyListsPage() {
                 transition: { staggerChildren: 0.06 },
               },
             }}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5"
           >
             <AnimatePresence>
               {lists.map((list) => (

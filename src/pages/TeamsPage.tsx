@@ -133,7 +133,7 @@ export function TeamsPage() {
               <p className="mt-1 text-sm text-muted-foreground">Crea el tuyo e invita a tu grupo, o espera a que te inviten.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {mine.map((t) => (
                 <TeamCard key={t.id} team={t} badge={ROLE_LABEL[t.myRole]} />
               ))}
@@ -149,7 +149,7 @@ export function TeamsPage() {
               <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nombre o ciudad" className="pl-9" aria-label="Buscar equipos" />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
             {directory
               .filter((t) => !myIds.has(t.id))
               .map((t) => (

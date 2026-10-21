@@ -167,7 +167,7 @@ export function GuidesPage() {
             }}
           />
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5">
             {guides.map((g, i) => (
               <MotionLink
                 key={g.id}

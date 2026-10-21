@@ -272,7 +272,7 @@ export function CompetitivoPage() {
             <div className="space-y-6">
               {spotlight && <Spotlight t={spotlight} />}
               {active.length > 0 && (
-                <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+                <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3 3xl:grid-cols-4">
                   {active.map((t, i) => (
                     <TournamentCard key={t.id} t={t} index={i} />
                   ))}

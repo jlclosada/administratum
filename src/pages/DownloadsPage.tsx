@@ -160,7 +160,7 @@ export function DownloadsPage() {
                 <h2 className="font-semibold">{category}</h2>
                 <Badge variant="secondary">{entries.length}</Badge>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                 {entries.map((entry, i) => (
                   <DownloadCard key={entry.id} entry={entry} index={i} />
                 ))}

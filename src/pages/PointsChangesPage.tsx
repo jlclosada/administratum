@@ -238,7 +238,7 @@ export function PointsChangesPage() {
             {groups.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">Ningún cambio coincide con los filtros.</p>
             ) : (
-              <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 3xl:grid-cols-3">
                 {groups.map((g) => {
                   const up = g.list.filter((c) => c.delta > 0).length;
                   const down = g.list.length - up;

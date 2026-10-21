@@ -149,7 +149,7 @@ export function ListBrowser({
           </p>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3 3xl:grid-cols-4">
           {visible.map((l, i) => (
             <CommunityListCard key={l.id} list={l} author={authors.get(l.userId)} index={i} />
           ))}

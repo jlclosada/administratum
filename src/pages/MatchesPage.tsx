@@ -229,7 +229,7 @@ export function MatchesPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 3xl:grid-cols-3">
             {shown.map((m) => (
               <MatchCard key={m.id} match={m} host={hosts.get(m.hostId)} joined={mineIds.has(m.id) && m.hostId !== user?.id} />
             ))}

@@ -4,6 +4,8 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Large desktop monitors (1920 px and up): wider pages, extra columns.
+      screens: { "3xl": "1920px" },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

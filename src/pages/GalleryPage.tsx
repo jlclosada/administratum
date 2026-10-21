@@ -68,7 +68,7 @@ export function GalleryPage() {
               hidden: { opacity: 0 },
               show: { opacity: 1, transition: { staggerChildren: 0.04 } },
             }}
-            className="columns-2 gap-4 sm:columns-3 lg:columns-4"
+            className="columns-2 gap-4 sm:columns-3 lg:columns-4 2xl:columns-5 3xl:columns-6"
           >
             {images.map((img) => (
               <motion.div
