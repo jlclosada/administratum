@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as server from '../api/render';
-import { inject, pricingText, renderPath, richText, summarize, type Query } from '../api/render';
+import { inject, pricingText, renderPath, richText, summarize, type Query, isAppShell } from '../api/render';
 import { FACTION_ES } from '../src/lib/factionNames';
 import * as app from '../src/lib/seoCopy';
 import * as sitemap from '../api/sitemap';
@@ -283,6 +283,22 @@ describe('about pages and open games', () => {
     expect(one.noindex).toBe(true);
     expect(one.body).toContain('<h1>Cruzada en casa</h1>');
     expect(await renderPath('/partidas/nueva', q)).toBeNull();
+  });
+});
+
+describe('SPA shell for the prerender', () => {
+  it('accepts the built index.html and rejects other pages (e.g. the Vercel login)', async () => {
+    const { readFile } = await import('node:fs/promises');
+    expect(isAppShell(await readFile('index.html', 'utf8'))).toBe(false); // source, not built
+    const built = '<html><head><script type="module" crossorigin src="/assets/index-AbC123.js"></script></head><body><div id="root"></div></body></html>';
+    expect(isAppShell(built)).toBe(true);
+    const login = '<!DOCTYPE html><html><head><title>Log in to Vercel</title><script src="/_next/static/chunks/a.js"></script></head><body></body></html>';
+    expect(isAppShell(login)).toBe(false);
+  });
+
+  it('bundles app.html with the render function', async () => {
+    const config = (await import('../vercel.json')).default as { functions: Record<string, { includeFiles?: string }> };
+    expect(config.functions['api/render.ts']?.includeFiles).toBe('dist/app.html');
   });
 });
 
