@@ -15,6 +15,9 @@
 //
 // Self-contained on purpose: Vercel compiles each function file on its own.
 
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 export const SITE = 'https://administratum.site';
 const NAME = 'Administratum';
 const DEFAULT_IMAGE = `${SITE}/og-image.jpg`;
@@ -1347,13 +1350,37 @@ ${page.breadcrumbs?.length ? breadcrumbHtml(page.breadcrumbs) : ''}
 
 let templateCache: { html: string; at: number } | null = null;
 
-async function loadTemplate(origin: string): Promise<string> {
+/** True if `html` is the built SPA shell and not, say, a login or error page. */
+export function isAppShell(html: string): boolean {
+  return html.includes('<div id="root"></div>') && /<script[^>]+src="\/assets\/index-[^"]+\.js"/.test(html);
+}
+
+/**
+ * The SPA shell, built as app.html on Vercel (scripts/vercel-postbuild.mjs)
+ * so "/" can be prerendered. Read from the function bundle (vercel.json →
+ * includeFiles); failing that, fetched from the public domain the visitor
+ * used. Never from the deployment's own *.vercel.app URL: with Deployment
+ * Protection on, that answers with the Vercel login page.
+ */
+async function loadTemplate(request: Request): Promise<string> {
   // The template only changes on deploy; a warm instance keeps it for a minute.
   if (templateCache && Date.now() - templateCache.at < 60_000) return templateCache.html;
-  // Built as app.html on Vercel (scripts/vercel-postbuild.mjs) so "/" can be prerendered.
-  const res = await fetch(`${origin}/app.html`, { headers: { 'x-prerender-template': '1' } });
-  if (!res.ok) throw new Error(`template: ${res.status}`);
-  const html = await res.text();
+  let html: string | null = null;
+  for (const file of [join(process.cwd(), 'dist', 'app.html'), join(process.cwd(), 'dist', 'index.html')]) {
+    const text = await readFile(file, 'utf8').catch(() => null);
+    if (text && isAppShell(text)) {
+      html = text;
+      break;
+    }
+  }
+  if (!html) {
+    const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? new URL(request.url).host;
+    const origin = host.endsWith('.vercel.app') ? SITE : `https://${host}`;
+    const res = await fetch(`${origin}/app.html`, { headers: { 'x-prerender-template': '1' }, redirect: 'manual' });
+    const text = res.ok ? await res.text() : '';
+    if (!isAppShell(text)) throw new Error(`template: ${res.status} from ${origin}`);
+    html = text;
+  }
   templateCache = { html, at: Date.now() };
   return html;
 }
@@ -1361,7 +1388,7 @@ async function loadTemplate(origin: string): Promise<string> {
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const path = `/${(url.searchParams.get('path') ?? '').replace(/^\/+/, '')}`;
-  const template = await loadTemplate(url.origin);
+  const template = await loadTemplate(request);
 
   let page: Page | null = null;
   try {

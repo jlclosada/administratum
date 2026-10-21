@@ -191,6 +191,9 @@
   "functions": {
     "api/mfm-sync.ts": {
       "maxDuration": 300
+    },
+    "api/render.ts": {
+      "includeFiles": "dist/app.html"
     }
   }
 }
