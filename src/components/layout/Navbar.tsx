@@ -9,6 +9,7 @@ import {
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { isItemActive, profileItems } from "@/components/layout/navItems";
+import { PAGE_GUTTER, PAGE_WIDTH } from "@/components/layout/pageWidth";
 import { useIsAdmin } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useProfileStore, useSocialStore } from "@/stores";
@@ -90,7 +91,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-card/60 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className={cn("mx-auto flex h-16 items-center gap-4", PAGE_WIDTH, PAGE_GUTTER)}>
         {/* Logo */}
         <button
           type="button"

@@ -692,7 +692,7 @@ export function MyPaintsPage() {
                     <h3 className="text-sm font-semibold">{range}</h3>
                     <Badge variant="secondary" className="text-xs">{paints.length}</Badge>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                     <AnimatePresence>
                       {paints.map((up) => (
                         <PaintCard
@@ -722,7 +722,7 @@ export function MyPaintsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 <AnimatePresence>
                   {filteredWishlist.map((up) => (
                     <WishlistCard

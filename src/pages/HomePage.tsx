@@ -251,7 +251,9 @@ export function HomePage() {
   const feedPhotos = useMemo(() => feed.flatMap((i) => (i.kind === "photo" ? [i.photo] : [])), [feed]);
   const viewerIndex = viewerId ? feedPhotos.findIndex((p) => p.id === viewerId) : -1;
 
-  const rightRail = (
+  // On large monitors the rail splits in two columns (news and points |
+  // tournaments and guides); below that it is a single column.
+  const railNews = (
     <>
       <NewsWidget
         articles={articles}
@@ -270,14 +272,24 @@ export function HomePage() {
         }
       />
       <PointsWidget updates={updates} />
+    </>
+  );
+  const railEvents = (
+    <>
       <TournamentsWidget tournaments={tournaments} />
       <GuidesWidget guides={guides} />
+    </>
+  );
+  const rightRail = (
+    <>
+      {railNews}
+      {railEvents}
     </>
   );
 
   return (
     <PageTransition>
-      <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_330px]">
+      <div className="grid gap-6 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_330px] 2xl:grid-cols-[280px_minmax(0,1fr)_360px] 2xl:gap-8 3xl:grid-cols-[300px_minmax(0,1fr)_380px_380px]">
         {/* Left rail */}
         <aside className="hidden lg:block">
           <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -286,7 +298,7 @@ export function HomePage() {
         </aside>
 
         {/* Feed */}
-        <section aria-label="Publicaciones de la comunidad" className="mx-auto w-full min-w-0 max-w-[640px] space-y-5">
+        <section aria-label="Publicaciones de la comunidad" className="mx-auto w-full min-w-0 max-w-[640px] space-y-5 2xl:max-w-[780px] 3xl:max-w-[860px]">
           <TodayStrip spotlight={spotlight} tournament={tournaments[0]} updates={updates} article={articles[0]} />
           <Composer onPhoto={() => setSharePhoto(true)} onList={() => setShareList(true)} />
 
@@ -361,10 +373,16 @@ export function HomePage() {
           <div className="space-y-5 xl:hidden">{rightRail}</div>
         </section>
 
-        {/* Right rail */}
+        {/* Right rail: one column, or two on large monitors */}
         <aside className="hidden xl:block">
           <div className="sticky top-24 max-h-[calc(100vh-7rem)] space-y-5 overflow-y-auto overscroll-contain pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {rightRail}
+            {railNews}
+            <div className="space-y-5 3xl:hidden">{railEvents}</div>
+          </div>
+        </aside>
+        <aside className="hidden 3xl:block">
+          <div className="sticky top-24 max-h-[calc(100vh-7rem)] space-y-5 overflow-y-auto overscroll-contain pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {railEvents}
           </div>
         </aside>
       </div>

@@ -1,5 +1,6 @@
 import type { Ad } from "@/types";
 import { cn } from "@/lib/utils";
+import { PAGE_GUTTER, PAGE_WIDTH } from "./pageWidth";
 
 function AdLabel() {
   return (
@@ -54,7 +55,7 @@ export function AdFooter({ ads }: { ads: Ad[] }) {
   const banners = ads.filter((a) => a.position === "left");
   return (
     <section aria-label="Publicidad" className="border-t border-border/40 bg-card/20">
-      <div className="mx-auto max-w-[1440px] space-y-4 px-4 py-6 sm:px-6 lg:px-8">
+      <div className={cn("mx-auto space-y-4 py-6", PAGE_WIDTH, PAGE_GUTTER)}>
         {rectangles.length > 0 && (
           <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none] md:justify-center [&::-webkit-scrollbar]:hidden">
             {rectangles.map((ad) => (

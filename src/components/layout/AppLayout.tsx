@@ -9,6 +9,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { JoinRail } from "./JoinRail";
+import { PAGE_GUTTER, PAGE_WIDTH } from "./pageWidth";
 import { ProfileRail } from "./ProfileRail";
 import { AdFooter } from "./SideRail";
 import { RightRailContext } from "./rightRail";
@@ -61,7 +62,7 @@ export function AppLayout() {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-b border-border/60 bg-brand-soft"
           >
-            <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
+            <div className={cn("mx-auto flex items-center gap-3 py-2.5", PAGE_WIDTH, PAGE_GUTTER)}>
               <Megaphone className="h-4 w-4 shrink-0 text-primary" />
               <p className="flex-1 text-sm text-foreground">{announcement}</p>
               <button
@@ -80,9 +81,10 @@ export function AppLayout() {
       <RightRailContext.Provider value={setRightRailContent}>
         <div
           className={cn(
-            "mx-auto grid w-full flex-1 gap-8 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:px-8",
-            inAdmin ? "max-w-7xl" : "max-w-[1440px]",
-            hasRight && "xl:grid-cols-[minmax(0,1fr)_300px]",
+            "mx-auto grid w-full flex-1 gap-8 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:py-8",
+            PAGE_GUTTER,
+            inAdmin ? "max-w-7xl 2xl:max-w-[1680px]" : PAGE_WIDTH,
+            hasRight && "xl:grid-cols-[minmax(0,1fr)_300px] 3xl:grid-cols-[minmax(0,1fr)_340px] 3xl:gap-10",
             isHome && "sm:py-6",
           )}
         >

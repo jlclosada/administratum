@@ -494,7 +494,7 @@ export function SharedPhotosPage() {
               )}
             </div>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 2xl:grid-cols-3 3xl:grid-cols-4">
               {visibleLists.map((l, i) => (
                 <CommunityListCard
                   key={l.id}

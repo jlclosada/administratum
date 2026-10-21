@@ -303,7 +303,7 @@ export function PointsCatalogPage() {
               hidden: { opacity: 0 },
               show: { opacity: 1, transition: { staggerChildren: 0.03 } },
             }}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5"
           >
             <AnimatePresence>
               {matchingFactions.map((faction) => (
@@ -747,7 +747,7 @@ export function PointsCatalogFactionPage() {
               Aún no hay listas de {spanishName ?? factionName}. ¡Publica la primera desde Competitivo!
             </p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5">
               {factionLists.map((l) => (
                 <CommunityListCard key={l.id} list={l} author={undefined} />
               ))}
