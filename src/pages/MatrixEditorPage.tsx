@@ -1,3 +1,4 @@
+import { FactionPicker } from "@/components/matrix/FactionPicker";
 import { useFactions, type FactionOption } from "@/components/matrix/factions";
 import { FactionAvatar, MatrixGrid, ScoreButtons, ScoreLegend } from "@/components/matrix/MatrixParts";
 import { SCORE_SOLID, solidFor } from "@/components/matrix/scoreStyle";
@@ -268,33 +269,30 @@ function TeamsStep({
             />
             <ol className="space-y-2">
               {matrix[side].map((p, i) => (
-                <li key={i} className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/30 p-2.5">
-                  <FactionAvatar factions={factions} faction={p.faction} className="h-10 w-10" />
-                  <div className="grid grid-cols-1 min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                <li key={i} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/30 p-2.5">
+                  <span
+                    className={cn(
+                      "mt-3.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[10px]",
+                      side === "ours" ? "bg-primary/15 text-primary" : "bg-red-500/15 text-red-300",
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                     <Input
                       value={p.name}
                       onChange={(e) => setPlayer(side, i, { name: e.target.value.slice(0, 60) })}
                       placeholder={playerLabel({ name: "", faction: "" }, i, side)}
                       aria-label={`Nombre del ${side === "ours" ? "jugador" : "rival"} ${i + 1}`}
                       autoComplete="off"
-                      className="h-10"
+                      className="h-12 rounded-xl"
                     />
-                    <select
+                    <FactionPicker
+                      factions={factions}
                       value={p.faction}
-                      onChange={(e) => setPlayer(side, i, { faction: e.target.value })}
-                      aria-label={`Ejército del ${side === "ours" ? "jugador" : "rival"} ${i + 1}`}
-                      className={cn(
-                        "h-10 w-full min-w-0 rounded-md border border-input bg-background/60 px-2 text-sm",
-                        !p.faction && "text-muted-foreground",
-                      )}
-                    >
-                      <option value="">Elige ejército…</option>
-                      {factions.map((f) => (
-                        <option key={f.name} value={f.name}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(faction) => setPlayer(side, i, { faction })}
+                      who={playerLabel(p, i, side)}
+                    />
                   </div>
                 </li>
               ))}
