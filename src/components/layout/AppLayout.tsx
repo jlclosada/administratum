@@ -42,7 +42,9 @@ export function AppLayout() {
   const isHome = signedIn && pathname === "/";
   // Elsewhere the right rail carries "Mi espacio" (or, for guests, the
   // invitation to join) plus optional page content.
-  const hasRight = !inAdmin && !isHome;
+  // A pairing matrix being edited needs the whole width for its grid.
+  const isMatrixEditor = /^\/competitivo\/matrices\/[^/]+$/.test(pathname);
+  const hasRight = !inAdmin && !isHome && !isMatrixEditor;
 
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-background">

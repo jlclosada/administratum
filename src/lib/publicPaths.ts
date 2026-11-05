@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   /^\/cambios-puntos$/,
   /^\/(sobre|en)$/,
   /^\/competitivo(\/(listas|torneos)\/[^/]+)?$/,
+  /^\/competitivo\/matrices(\/[^/]+)?$/,
   /^\/comunidad(\/listas\/[^/]+)?$/,
   /^\/perfil\/[^/]+$/,
   /^\/partidas(\/(?!nueva$)[^/]+)?$/,
