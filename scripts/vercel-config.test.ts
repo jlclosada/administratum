@@ -24,7 +24,7 @@ describe('vercel.json', () => {
   it('serves one URL per page: no trailing-slash or /index.html duplicates', () => {
     expect((config as { trailingSlash?: boolean }).trailingSlash).toBe(false);
     expect(config.redirects).toContainEqual({ source: '/index.html', destination: '/', permanent: true });
-    for (const source of ['/llms.txt', '/llms-full.txt', '/sobre', '/en', '/partidas']) {
+    for (const source of ['/llms.txt', '/llms-full.txt', '/sobre', '/en', '/partidas', '/competitivo/matrices']) {
       expect(config.rewrites.some((r) => r.source === source), source).toBe(true);
     }
   });

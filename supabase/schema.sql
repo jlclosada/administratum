@@ -3174,6 +3174,67 @@ revoke all on function public.admin_overview() from public, anon;
 grant execute on function public.admin_overview() to authenticated;
 
 -- ============================================================
+-- Pairing matrices (/competitivo/matrices)
+-- ============================================================
+-- Team-event pairing matrices and the results of the games played. Private
+-- to their owner; guests can build one in their browser but not save it.
+create table if not exists public.pairing_matrices (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  title text not null default '' check (char_length(title) <= 120),
+  our_team text not null default '' check (char_length(our_team) <= 80),
+  rival_team text not null default '' check (char_length(rival_team) <= 80),
+  ours jsonb not null,
+  theirs jsonb not null,
+  scores jsonb not null,
+  results jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint pairing_matrices_shape check (
+    jsonb_typeof(ours) = 'array' and jsonb_typeof(theirs) = 'array' and jsonb_typeof(scores) = 'array'
+    and jsonb_array_length(ours) between 3 and 8
+    and jsonb_array_length(theirs) = jsonb_array_length(ours)
+    and jsonb_array_length(scores) = jsonb_array_length(ours)
+    and (results is null or (jsonb_typeof(results) = 'array' and jsonb_array_length(results) = jsonb_array_length(ours)))
+    and pg_column_size(ours) + pg_column_size(theirs) + pg_column_size(scores) + coalesce(pg_column_size(results), 0) < 20000
+  )
+);
+
+create index if not exists pairing_matrices_user_idx on public.pairing_matrices (user_id, updated_at desc);
+
+drop trigger if exists set_updated_at on public.pairing_matrices;
+create trigger set_updated_at before update on public.pairing_matrices
+  for each row execute function public.set_updated_at();
+
+-- A generous cap, so nobody fills the database by accident.
+create or replace function public.pairing_matrices_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.pairing_matrices where user_id = new.user_id) >= 300 then
+    raise exception 'Has llegado al máximo de 300 matrices: borra alguna para crear otra.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists pairing_matrices_limit on public.pairing_matrices;
+create trigger pairing_matrices_limit before insert on public.pairing_matrices
+  for each row execute function public.pairing_matrices_limit();
+
+alter table public.pairing_matrices enable row level security;
+revoke all on public.pairing_matrices from anon;
+
+drop policy if exists "pairing_matrices_select" on public.pairing_matrices;
+drop policy if exists "pairing_matrices_insert" on public.pairing_matrices;
+drop policy if exists "pairing_matrices_update" on public.pairing_matrices;
+drop policy if exists "pairing_matrices_delete" on public.pairing_matrices;
+create policy "pairing_matrices_select" on public.pairing_matrices for select to authenticated using (user_id = auth.uid());
+create policy "pairing_matrices_insert" on public.pairing_matrices for insert to authenticated with check (user_id = auth.uid());
+create policy "pairing_matrices_update" on public.pairing_matrices for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "pairing_matrices_delete" on public.pairing_matrices for delete to authenticated using (user_id = auth.uid());
+
+-- ============================================================
 -- Sign-ups from visitors: "avísame de los cambios de puntos"
 -- ============================================================
 -- Double opt-in: the form stores a pending sign-up and emails a link; only

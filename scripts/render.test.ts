@@ -5,6 +5,7 @@ import { FACTION_ES } from '../src/lib/factionNames';
 import * as app from '../src/lib/seoCopy';
 import * as sitemap from '../api/sitemap';
 import * as about from '../src/lib/aboutCopy';
+import { MATRIX_COPY } from '../src/lib/matrixCopy';
 
 // ?raw: import.meta.url isn't a file URL under happy-dom.
 import template from '../index.html?raw';
@@ -299,6 +300,27 @@ describe('SPA shell for the prerender', () => {
   it('bundles app.html with the render function', async () => {
     const config = (await import('../vercel.json')).default as { functions: Record<string, { includeFiles?: string }> };
     expect(config.functions['api/render.ts']?.includeFiles).toBe('dist/app.html');
+  });
+});
+
+describe('pairing matrices (/competitivo/matrices)', () => {
+  const none: Query = async () => [];
+
+  it('keeps the copy identical in the app and the server', () => {
+    expect(server.MATRIX_COPY).toEqual(MATRIX_COPY);
+  });
+
+  it('prerenders the tool page with its guide, FAQ and app data', async () => {
+    const page = (await renderPath('/competitivo/matrices', none))!;
+    expect(page.status).toBe(200);
+    expect(page.title).toBe(MATRIX_COPY.title);
+    expect(page.body).toContain('<h1>Matrices de emparejamientos de Warhammer 40K</h1>');
+    expect(page.body).toContain('Cómo funcionan los emparejamientos por equipos (WTC, ETC)');
+    expect(page.body).toContain('<h3>¿Cómo se elige el defensor?</h3>');
+    expect(page.jsonLd?.map((n) => n['@type'])).toEqual(['WebApplication', 'FAQPage']);
+    expect(page.breadcrumbs?.at(-1)).toEqual(['Matrices de emparejamientos', '/competitivo/matrices']);
+    // Each saved matrix lives in the browser: no prerendered page for it.
+    expect(await renderPath('/competitivo/matrices/abc', none)).toBeNull();
   });
 });
 

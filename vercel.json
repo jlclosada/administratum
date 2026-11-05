@@ -92,6 +92,10 @@
       "destination": "/api/render?path=/competitivo"
     },
     {
+      "source": "/competitivo/matrices",
+      "destination": "/api/render?path=/competitivo/matrices"
+    },
+    {
       "source": "/competitivo/torneos/:id",
       "destination": "/api/render?path=/competitivo/torneos/:id"
     },

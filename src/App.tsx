@@ -112,6 +112,12 @@ const AdminSettingsPage = lazyRoute(() =>
     default: m.AdminSettingsPage,
   })),
 );
+const MatricesPage = lazyRoute(() =>
+  import("@/pages/MatricesPage").then((m) => ({ default: m.MatricesPage })),
+);
+const MatrixEditorPage = lazyRoute(() =>
+  import("@/pages/MatrixEditorPage").then((m) => ({ default: m.MatrixEditorPage })),
+);
 const CompetitivoPage = lazyRoute(() =>
   import("@/pages/CompetitivoPage").then((m) => ({
     default: m.CompetitivoPage,
@@ -262,6 +268,8 @@ const publicRoutes = (
     <Route path="en" element={<AboutPage lang="en" />} />
     <Route path="descargas" element={<DownloadsPage />} />
     <Route path="competitivo" element={<CompetitivoPage />} />
+    <Route path="competitivo/matrices" element={<MatricesPage />} />
+    <Route path="competitivo/matrices/:matrixId" element={<MatrixEditorPage />} />
     <Route
       path="competitivo/listas/:listId"
       element={<FeaturedListDetailPage />}

@@ -27,6 +27,7 @@ import type { CommunityList, FeaturedList, Profile, Tournament } from "@/types";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  Grid3x3,
   History,
   MapPin,
   Plus,
@@ -232,16 +233,23 @@ export function CompetitivoPage() {
             Torneos de Warhammer 40K en España con sus bases completas, y las
             listas que están marcando el meta.
           </p>
-          <Button
-            variant="gradient"
-            className="mt-6 gap-2"
-            onClick={requireAuth(
-              () => setPublishing(true),
-              "publicar tus listas",
-            )}
-          >
-            <Plus className="h-4 w-4" /> Publicar lista
-          </Button>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button
+              variant="gradient"
+              className="gap-2"
+              onClick={requireAuth(
+                () => setPublishing(true),
+                "publicar tus listas",
+              )}
+            >
+              <Plus className="h-4 w-4" /> Publicar lista
+            </Button>
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/competitivo/matrices">
+                <Grid3x3 className="h-4 w-4" /> Matrices de equipo
+              </Link>
+            </Button>
+          </div>
           <dl className="mt-7 flex flex-wrap gap-x-10 gap-y-4">
             {stats.map((s) => (
               <div key={s.label}>
