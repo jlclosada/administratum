@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeMatrix,
+  hasContent,
+  resultStats,
   decodeMatrix,
   encodeMatrix,
   isComplete,
@@ -129,3 +131,41 @@ describe("matrix helpers", () => {
     ]);
   });
 });
+
+describe("results", () => {
+  const m = sample([
+    [3, 4, 3, 4],
+    [5, 1, 2, 3],
+    [2, 1, 4, 1],
+    [4, 2, 3, 5],
+  ]);
+
+  it("counts the record, the team result and how well the matrix called it", () => {
+    m.results = [
+      { rival: 1, outcome: "win", ours: 15, theirs: 5 }, // predicted 4 → hit
+      { rival: 0, outcome: "loss", ours: 8, theirs: 12 }, // predicted 5 → miss
+      { rival: 2, outcome: "draw", ours: 10, theirs: 10 }, // predicted 4 → miss
+      { rival: 3, outcome: "win", ours: 13, theirs: 7 }, // predicted 5 → hit
+    ];
+    expect(resultStats(m)).toEqual({ played: 4, wins: 2, draws: 1, losses: 1, points: { ours: 46, theirs: 34 }, team: "win", called: 4, right: 2 });
+  });
+
+  it("decides by wins without points, and ignores unplayed tables", () => {
+    m.results = [
+      { rival: 1, outcome: "loss", ours: null, theirs: null },
+      { rival: 0, outcome: "loss", ours: 3, theirs: null },
+      { rival: null, outcome: null, ours: null, theirs: null },
+      { rival: 3, outcome: "win", ours: null, theirs: null },
+    ];
+    const r = resultStats(m);
+    expect(r.points).toBeNull();
+    expect(r.team).toBe("loss");
+    expect(r.played).toBe(3);
+  });
+
+  it("knows when a matrix is still blank", () => {
+    expect(hasContent(newMatrix(4))).toBe(false);
+    expect(hasContent({ ...newMatrix(4), rivalTeam: "Lobos" })).toBe(true);
+  });
+});
+

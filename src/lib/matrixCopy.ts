@@ -26,7 +26,7 @@ export const MATRIX_COPY = {
     "Elige el formato (4vs4, 5vs5, 6vs6 u 8vs8) y escribe el nombre y el ejército de cada jugador de los dos equipos.",
     "Puntúa del 1 al 5 cada cruce: jugador a jugador, con botones grandes pensados para el móvil.",
     "Revisa el resumen: defensor recomendado, atacantes contra su defensor más probable, listas peligrosas, bazas y el emparejamiento ideal.",
-    "Comparte la matriz con tu equipo por WhatsApp o Discord con un enlace.",
+    "Comparte la matriz con tu equipo por WhatsApp o Discord con un enlace y, después de jugar, guarda el resultado de cada mesa para ver si la matriz acertó.",
   ],
   faq: [
     [
@@ -47,7 +47,7 @@ export const MATRIX_COPY = {
     ],
     [
       "¿Necesito cuenta para usarla?",
-      "No. Las matrices se guardan en tu navegador y puedes compartirlas con tu equipo con un enlace.",
+      "Puedes hacer una matriz sin cuenta, pero no se guarda. Con una cuenta gratuita guardas todas tus matrices y los resultados de cada partida, y ves si la matriz acertó.",
     ],
     [
       "¿Por qué del 1 al 5?",

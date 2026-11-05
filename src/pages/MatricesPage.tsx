@@ -1,15 +1,21 @@
 import { useFactions } from "@/components/matrix/factions";
+import { GuestLimit } from "@/components/matrix/GuestGate";
 import { MatrixGrid, ScoreLegend } from "@/components/matrix/MatrixParts";
 import { SCORE_SOLID } from "@/components/matrix/scoreStyle";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Seo } from "@/components/shared/Seo";
 import { Button } from "@/components/ui/button";
-import { analyzeMatrix, deleteMatrix, filledCount, loadMatrices, MATRIX_SIZES, type Matrix, type Score } from "@/lib/matrix";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { deleteMatrix, getMyMatrices } from "@/db";
+import { analyzeMatrix, filledCount, hasContent, loadDraft, MATRIX_SIZES, OUTCOME_LABEL, resultStats, type Matrix, type Score } from "@/lib/matrix";
 import { MATRIX_COPY } from "@/lib/matrixCopy";
+import { importGuestDraft } from "@/lib/matrixSync";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, ChevronDown, Grid3x3, Plus, Shield, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useAuthStore } from "@/stores";
+import { ArrowLeft, ChevronDown, CloudOff, Grid3x3, Loader2, Plus, Shield, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 // What a finished 5 vs 5 looks like (the example on the page).
 const DEMO: Matrix = {
@@ -38,6 +44,7 @@ const DEMO: Matrix = {
     [4, 3, 2, 3, 2],
     [1, 2, 4, 3, 5],
   ] as Score[][],
+  results: null,
   createdAt: "",
   updatedAt: "",
 };
@@ -53,18 +60,103 @@ function MiniGrid({ m }: { m: Matrix }) {
   );
 }
 
+/** A saved matrix (or the guest's draft) in the list. */
+function MatrixCard({ m, unsaved, onDelete }: { m: Matrix; unsaved?: boolean; onDelete?: () => void }) {
+  const total = m.ours.length ** 2;
+  const done = filledCount(m);
+  const r = resultStats(m);
+  const Item = unsaved ? "div" : "li";
+  return (
+    <Item className="group relative flex items-center gap-4 rounded-2xl border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/40">
+      <MiniGrid m={m} />
+      <Link to={`/competitivo/matrices/${m.id}`} className="min-w-0 flex-1 after:absolute after:inset-0">
+        <p className="truncate font-semibold">
+          {m.ourTeam || "Mi equipo"} vs {m.rivalTeam || "Rival"}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {m.title || `${m.ours.length} vs ${m.ours.length}`} · {new Date(m.updatedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
+        </p>
+        {r.team ? (
+          <p
+            className={cn(
+              "mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+              r.team === "win" ? "bg-emerald-500/15 text-emerald-300" : r.team === "loss" ? "bg-red-500/15 text-red-300" : "bg-amber-400/15 text-amber-200",
+            )}
+          >
+            {OUTCOME_LABEL[r.team]} {r.points ? `${r.points.ours}–${r.points.theirs}` : `${r.wins}-${r.draws}-${r.losses}`}
+          </p>
+        ) : (
+          <>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/60">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${(done / total) * 100}%` }} />
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">{done === total ? "Completa" : `${done} de ${total} cruces`}</p>
+          </>
+        )}
+        {unsaved && (
+          <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-300">
+            <CloudOff className="h-3 w-3" /> Sin guardar: se pierde al cerrar la pestaña
+          </p>
+        )}
+      </Link>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="relative z-10 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-destructive"
+          aria-label="Borrar matriz"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </Item>
+  );
+}
+
 /**
  * /competitivo/matrices: the pairing matrix tool. Starts a matrix, lists the
- * ones saved on this device and explains how matrices work (the same text
- * api/render.ts serves to crawlers).
+ * user's saved ones (or a guest's single unsaved draft) and explains how
+ * matrices work (the same text api/render.ts serves to crawlers).
  */
 export function MatricesPage() {
   const navigate = useNavigate();
   const factions = useFactions();
-  const [saved, setSaved] = useState(() => loadMatrices());
+  const user = useAuthStore((s) => s.user);
+  const [saved, setSaved] = useState<Matrix[] | null>(null);
+  const [draft, setDraft] = useState<Matrix | null>(null);
+  const [limitOpen, setLimitOpen] = useState(false);
   const demo = useMemo(() => analyzeMatrix(DEMO), []);
   const c = MATRIX_COPY;
-  const start = (n: number) => navigate(`/competitivo/matrices/nueva?n=${n}`);
+
+  useEffect(() => {
+    if (!user) {
+      const d = loadDraft();
+      setDraft(d && hasContent(d) ? d : null);
+      setSaved(null);
+      return;
+    }
+    setDraft(null);
+    importGuestDraft()
+      .then((imported) => {
+        if (imported) toast.success("Tu matriz se ha guardado en tu cuenta.");
+        return getMyMatrices();
+      })
+      .then(setSaved)
+      .catch(() => setSaved([]));
+  }, [user]);
+
+  // Without an account there is one matrix at a time.
+  const start = (n: number) => (!user && draft ? setLimitOpen(true) : navigate(`/competitivo/matrices/nueva?n=${n}`));
+
+  async function remove(m: Matrix) {
+    if (!window.confirm("¿Borrar esta matriz? No se puede deshacer.")) return;
+    try {
+      await deleteMatrix(m.id);
+      setSaved((list) => list?.filter((x) => x.id !== m.id) ?? null);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
 
   return (
     <PageTransition>
@@ -93,52 +185,56 @@ export function MatricesPage() {
                 </Button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">Gratis y sin cuenta. Se guarda en este dispositivo y la puedes compartir con tu equipo.</p>
+            <p className="text-xs text-muted-foreground">
+              {user
+                ? "Se guardan en tu cuenta, con los resultados de cada partida."
+                : "Pruébala gratis sin cuenta. Regístrate para guardar tus matrices y los resultados de cada partida."}
+            </p>
           </div>
         </header>
 
-        {saved.length > 0 && (
+        {!user && draft && (
           <section className="space-y-3">
-            <h2 className="font-display text-xl font-bold">Tus matrices</h2>
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {saved.map((m) => {
-                const total = m.ours.length ** 2;
-                const done = filledCount(m);
-                return (
-                  <li key={m.id} className="group relative flex items-center gap-4 rounded-2xl border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/40">
-                    <MiniGrid m={m} />
-                    <Link to={`/competitivo/matrices/${m.id}`} className="min-w-0 flex-1 after:absolute after:inset-0">
-                      <p className="truncate font-semibold">
-                        {m.ourTeam || "Mi equipo"} vs {m.rivalTeam || "Rival"}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {m.title || `${m.ours.length} vs ${m.ours.length}`} · {new Date(m.updatedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}
-                      </p>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/60">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${(done / total) * 100}%` }} />
-                      </div>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {done === total ? "Completa" : `${done} de ${total} cruces`}
-                      </p>
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!window.confirm("¿Borrar esta matriz?")) return;
-                        deleteMatrix(m.id);
-                        setSaved(loadMatrices());
-                      }}
-                      className="relative z-10 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-destructive"
-                      aria-label="Borrar matriz"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <h2 className="font-display text-xl font-bold">Tu matriz</h2>
+            <MatrixCard m={draft} unsaved />
           </section>
         )}
+
+        {user && (
+          <section className="space-y-3">
+            <h2 className="font-display text-xl font-bold">Tus matrices</h2>
+            {saved === null ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : saved.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+                Aún no tienes matrices. Crea la primera con los botones de arriba.
+              </p>
+            ) : (
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {saved.map((m) => (
+                  <MatrixCard key={m.id} m={m} onDelete={() => remove(m)} />
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        <Dialog open={limitOpen} onOpenChange={setLimitOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogTitle className="sr-only">Sin cuenta, una matriz cada vez</DialogTitle>
+            <GuestLimit
+              secondary={
+                draft && (
+                  <Button asChild variant="outline" size="lg">
+                    <Link to={`/competitivo/matrices/${draft.id}`}>Seguir con mi matriz</Link>
+                  </Button>
+                )
+              }
+            />
+          </DialogContent>
+        </Dialog>
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center">
           <div className="space-y-3 rounded-3xl border border-border/60 bg-card/30 p-4 sm:p-6">

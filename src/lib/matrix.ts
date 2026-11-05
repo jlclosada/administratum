@@ -4,8 +4,9 @@
  * Each of our players rates every rival list from 1 (very unfavourable) to
  * 5 (very favourable). From that grid we work out who should defend, who to
  * send as attackers, which rival lists are dangerous and the best and worst
- * possible line-ups. Matrices live in the browser (no account needed) and
- * can be shared as a link.
+ * possible line-ups. Signed-in users keep their matrices (and the results of
+ * the games) in their account (src/db/matrices.ts); guests get a single
+ * draft that lives in the browser tab. Any matrix can be shared as a link.
  */
 
 export const MATRIX_SIZES = [3, 4, 5, 6, 8] as const;
@@ -20,6 +21,20 @@ export const SCORE_LABEL: Record<Score, string> = {
   4: "Favorable",
   5: "Muy favorable",
 };
+
+export type Outcome = "win" | "draw" | "loss";
+
+export const OUTCOME_LABEL: Record<Outcome, string> = { win: "Victoria", draw: "Empate", loss: "Derrota" };
+
+/** What happened at one table, from our player's side. */
+export interface GameResult {
+  /** Rival list our player faced. */
+  rival: number | null;
+  outcome: Outcome | null;
+  /** Optional game points (e.g. 0–20 in WTC scoring). */
+  ours: number | null;
+  theirs: number | null;
+}
 
 export interface MatrixPlayer {
   name: string;
@@ -37,6 +52,8 @@ export interface Matrix {
   theirs: MatrixPlayer[];
   /** scores[i][j]: our player i against rival list j; null = not rated yet. */
   scores: (Score | null)[][];
+  /** results[i]: our player i's game; null until results are entered. */
+  results: GameResult[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +70,7 @@ export function newMatrix(size: MatrixSize, id: string = crypto.randomUUID()): M
     ours: emptyPlayers(size),
     theirs: emptyPlayers(size),
     scores: Array.from({ length: size }, () => Array<Score | null>(size).fill(null)),
+    results: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -66,7 +84,15 @@ export function resizeMatrix(m: Matrix, size: number): Matrix {
     ours: fit(m.ours, () => ({ name: "", faction: "" })),
     theirs: fit(m.theirs, () => ({ name: "", faction: "" })),
     scores: fit(m.scores, () => Array<Score | null>(size).fill(null)).map((row) => fit(row, () => null)),
+    results: null,
   };
+}
+
+export const emptyResults = (n: number): GameResult[] => Array.from({ length: n }, () => ({ rival: null, outcome: null, ours: null, theirs: null }));
+
+/** True once anything was typed or rated (worth keeping). */
+export function hasContent(m: Matrix): boolean {
+  return !!(m.title || m.ourTeam || m.rivalTeam || [...m.ours, ...m.theirs].some((p) => p.name || p.faction) || filledCount(m));
 }
 
 export const playerLabel = (p: MatrixPlayer, i: number, side: "ours" | "theirs") =>
@@ -261,6 +287,51 @@ export function analyzeMatrix(m: Matrix): MatrixAnalysis {
   return { average, verdict, players, rivals, defender, likelyRivalDefender, best, worst, recommendations: recs };
 }
 
+export interface ResultStats {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  /** Game points, when every played game has them. */
+  points: { ours: number; theirs: number } | null;
+  team: Outcome | null;
+  /** Games the matrix called clearly (4–5 or 1–2) and how many it got right. */
+  called: number;
+  right: number;
+}
+
+/** Team record from the entered results, and how well the matrix predicted them. */
+export function resultStats(m: Matrix): ResultStats {
+  const games = (m.results ?? []).map((r, i) => ({ r, i })).filter(({ r }) => r.outcome);
+  const count = (o: Outcome) => games.filter(({ r }) => r.outcome === o).length;
+  const wins = count("win");
+  const losses = count("loss");
+  const withPoints = games.filter(({ r }) => r.ours !== null && r.theirs !== null);
+  const points =
+    games.length && withPoints.length === games.length
+      ? { ours: withPoints.reduce((a, { r }) => a + r.ours!, 0), theirs: withPoints.reduce((a, { r }) => a + r.theirs!, 0) }
+      : null;
+  const diff = points ? points.ours - points.theirs : wins - losses;
+  let called = 0;
+  let right = 0;
+  for (const { r, i } of games) {
+    const s = r.rival === null ? null : (m.scores[i]?.[r.rival] ?? null);
+    if (s === null || s === 3) continue;
+    called++;
+    if ((s >= 4 && r.outcome === "win") || (s <= 2 && r.outcome === "loss")) right++;
+  }
+  return {
+    played: games.length,
+    wins,
+    draws: count("draw"),
+    losses,
+    points,
+    team: games.length ? (diff > 0 ? "win" : diff < 0 ? "loss" : "draw") : null,
+    called,
+    right,
+  };
+}
+
 /** Plain-text summary to paste in the team's chat. */
 export function summaryText(m: Matrix, a: MatrixAnalysis, url?: string): string {
   const ours = (i: number) => playerLabel(m.ours[i]!, i, "ours");
@@ -286,35 +357,35 @@ export function summaryText(m: Matrix, a: MatrixAnalysis, url?: string): string 
 // Storage (this browser) and sharing
 // ---------------------------------------------------------------------------
 
-const KEY = "adm-matrices-v1";
+// Guests get one unsaved matrix, kept only while the browser tab is open.
+const DRAFT_KEY = "adm-matrix-draft";
 
-export function loadMatrices(): Matrix[] {
+export function loadDraft(): Matrix | null {
   try {
-    const list = JSON.parse(localStorage.getItem(KEY) ?? "[]") as Matrix[];
-    return Array.isArray(list) ? list.filter(isMatrix).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) : [];
+    const m = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "null");
+    return isMatrix(m) ? m : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-export function saveMatrix(m: Matrix): void {
-  const list = loadMatrices().filter((x) => x.id !== m.id);
+export function saveDraft(m: Matrix): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify([{ ...m, updatedAt: new Date().toISOString() }, ...list].slice(0, 50)));
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(m));
   } catch {
-    // Private mode or full storage: the matrix still works for this visit.
+    // Private mode: the draft still lives in memory on this page.
   }
 }
 
-export function deleteMatrix(id: string): void {
+export function clearDraft(): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(loadMatrices().filter((x) => x.id !== id)));
+    sessionStorage.removeItem(DRAFT_KEY);
   } catch {
     // Nothing to do.
   }
 }
 
-function isMatrix(x: unknown): x is Matrix {
+export function isMatrix(x: unknown): x is Matrix {
   const m = x as Matrix;
   const n = m?.ours?.length;
   return (
@@ -324,7 +395,8 @@ function isMatrix(x: unknown): x is Matrix {
     m.theirs?.length === n &&
     Array.isArray(m.scores) &&
     m.scores.length === n &&
-    m.scores.every((row) => Array.isArray(row) && row.length === n && row.every((s) => s === null || (Number.isInteger(s) && s >= 1 && s <= 5)))
+    m.scores.every((row) => Array.isArray(row) && row.length === n && row.every((s) => s === null || (Number.isInteger(s) && s >= 1 && s <= 5))) &&
+    (m.results == null || (Array.isArray(m.results) && m.results.length === n))
   );
 }
 
@@ -355,6 +427,7 @@ export function decodeMatrix(code: string, id: string = crypto.randomUUID()): Ma
       scores: String(grid)
         .split(".")
         .map((row) => [...row].map((c) => (c === "0" ? null : (Number(c) as Score)))),
+      results: null,
       createdAt: now,
       updatedAt: now,
     };

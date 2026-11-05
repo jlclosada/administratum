@@ -118,3 +118,4 @@ export * from './tournaments';
 export * from './notifications';
 export * from './teams';
 export * from './matches';
+export * from './matrices';
