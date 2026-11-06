@@ -84,7 +84,7 @@ describe('prerender', () => {
 
   it('uses exactly the same SEO copy as the app', () => {
     expect(server.FACTION_ES).toEqual(FACTION_ES);
-    for (const key of ['SEO_CATALOG', 'SEO_COMPETITIVO', 'SEO_COMUNIDAD', 'SEO_GUIAS', 'SEO_DESCARGAS', 'SEO_POINTS_CHANGES', 'SEO_MATCHES'] as const) {
+    for (const key of ['SEO_CATALOG', 'SEO_COMPETITIVO', 'SEO_COMUNIDAD', 'SEO_GUIAS', 'SEO_DESCARGAS', 'SEO_POINTS_CHANGES', 'SEO_MATCHES', 'SEO_TORNEOS', 'SEO_ORGANIZAR'] as const) {
       expect(server[key]).toEqual(app[key]);
     }
     expect(server.seoFaction('thousand-sons', 'Thousand Sons', 34, 9)).toEqual(app.seoFaction('thousand-sons', 'Thousand Sons', 34, 9));
@@ -324,3 +324,54 @@ describe('pairing matrices (/competitivo/matrices)', () => {
   });
 });
 
+
+describe('tournaments organised in Administratum', () => {
+  const t = {
+    id: '66666666-6666-4666-8666-666666666666',
+    name: 'Copa Letanía',
+    description: 'Equipos de 5 a 2000 puntos.',
+    rules: '09:30 recepción',
+    cover_image: null,
+    organizer_name: 'Club La Letanía',
+    format: 'teams',
+    team_size: 5,
+    points_limit: 2000,
+    rounds: 3,
+    max_entries: 8,
+    location_type: 'presencial',
+    venue_name: 'Dados y Dragones',
+    address: 'Calle Mayor 1',
+    city: 'Madrid',
+    online_platform: '',
+    entry_fee: '15.00',
+    starts_on: '2099-03-14',
+    ends_on: null,
+    start_time: '10:00:00',
+    registration_deadline: null,
+    status: 'open',
+  };
+  const q: Query = async (table) => (table === 'play_tournaments' ? [t] : table === 'play_entries' ? [{ name: 'Los Osos', status: 'registered' }] : []);
+
+  it('prerenders a hosted tournament with Event data, offer and entries', async () => {
+    const page = (await renderPath(`/torneos/${t.id}`, q))!;
+    expect(page.status).toBe(200);
+    expect(page.body).toContain('<h1>Copa Letanía</h1>');
+    expect(page.body).toContain('Plazas: 1 de 8');
+    expect(page.body).toContain('<li>Los Osos</li>');
+    const ld = page.jsonLd![0]!;
+    expect(ld['@type']).toBe('Event');
+    expect(ld.startDate).toBe('2099-03-14T10:00');
+    expect(ld.offers).toMatchObject({ price: '75', priceCurrency: 'EUR', availability: 'https://schema.org/InStock' });
+    expect(ld.organizer).toEqual({ '@type': 'Organization', name: 'Club La Letanía' });
+    expect(await renderPath('/torneos/not-a-uuid', q)).toMatchObject({ status: 404 });
+  });
+
+  it('prerenders the calendar and the organiser page', async () => {
+    const cal = (await renderPath('/competitivo/torneos', q))!;
+    expect(cal.title).toBe(server.SEO_TORNEOS.title);
+    expect(cal.body).toContain(`<a href="/torneos/${t.id}">Copa Letanía</a>`);
+    const org = (await renderPath('/competitivo/organizar', q))!;
+    expect(org.title).toBe(server.SEO_ORGANIZAR.title);
+    expect(org.body).toContain('Formato WTC');
+  });
+});

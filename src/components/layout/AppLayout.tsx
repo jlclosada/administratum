@@ -42,9 +42,9 @@ export function AppLayout() {
   const isHome = signedIn && pathname === "/";
   // Elsewhere the right rail carries "Mi espacio" (or, for guests, the
   // invitation to join) plus optional page content.
-  // A pairing matrix being edited needs the whole width for its grid.
-  const isMatrixEditor = /^\/competitivo\/matrices\/[^/]+$/.test(pathname);
-  const hasRight = !inAdmin && !isHome && !isMatrixEditor;
+  // Matrices and tournaments (rosters, pairings, score tracker) need the whole width.
+  const isWideTool = /^\/competitivo\/matrices\/[^/]+$/.test(pathname) || /^\/torneos\//.test(pathname) || pathname === "/competitivo/organizar/nuevo";
+  const hasRight = !inAdmin && !isHome && !isWideTool;
 
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-background">

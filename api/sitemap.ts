@@ -19,6 +19,8 @@ export const STATIC_ENTRIES: SitemapEntry[] = [
   { path: '/catalogo-puntos', changefreq: 'daily', priority: 0.9 },
   { path: '/competitivo', changefreq: 'daily', priority: 0.8 },
   { path: '/competitivo/matrices', changefreq: 'monthly', priority: 0.7 },
+  { path: '/competitivo/torneos', changefreq: 'daily', priority: 0.8 },
+  { path: '/competitivo/organizar', changefreq: 'monthly', priority: 0.7 },
   { path: '/comunidad', changefreq: 'daily', priority: 0.8 },
   { path: '/guias', changefreq: 'weekly', priority: 0.8 },
   { path: '/descargas', changefreq: 'weekly', priority: 0.6 },
@@ -76,7 +78,7 @@ export async function collectEntries(fetchRows: Fetcher): Promise<SitemapEntry[]
     }
     return rows;
   };
-  const [factions, articles, guides, tournaments, featured, lists, units] = await Promise.all([
+  const [factions, articles, guides, tournaments, featured, lists, units, hosted] = await Promise.all([
     safe('faction_catalog', 'select=faction_slug,updated_at'),
     safe('articles', 'select=id,updated_at&published=eq.true'),
     safe('painting_guides', `select=id,updated_at&published=eq.true&or=${encodeURIComponent('(game_name.is.null,game_name.ilike.*40*)')}`),
@@ -84,6 +86,7 @@ export async function collectEntries(fetchRows: Fetcher): Promise<SitemapEntry[]
     safe('featured_lists', 'select=id,updated_at&published=eq.true'),
     safe('community_lists', 'select=id,updated_at'),
     allUnits(),
+    safe('play_tournaments', 'select=id,updated_at&status=neq.draft'),
   ]);
   const latest = (rows: Row[]) => rows.reduce<string | null>((max, r) => (r.updated_at && (!max || r.updated_at > max) ? r.updated_at : max), null);
   return [
@@ -93,6 +96,7 @@ export async function collectEntries(fetchRows: Fetcher): Promise<SitemapEntry[]
     ...articles.map((r) => ({ path: `/articulos/${r.id}`, lastmod: r.updated_at, priority: 0.7 })),
     ...guides.map((r) => ({ path: `/guias/${r.id}`, lastmod: r.updated_at, priority: 0.7 })),
     ...tournaments.map((r) => ({ path: `/competitivo/torneos/${r.id}`, lastmod: r.updated_at, priority: 0.6 })),
+    ...hosted.map((r) => ({ path: `/torneos/${r.id}`, lastmod: r.updated_at, priority: 0.7 })),
     ...featured.map((r) => ({ path: `/competitivo/listas/${r.id}`, lastmod: r.updated_at, priority: 0.6 })),
     ...lists.map((r) => ({ path: `/comunidad/listas/${r.id}`, lastmod: r.updated_at, priority: 0.5 })),
     ...units

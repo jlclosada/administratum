@@ -36,7 +36,8 @@ export async function loadLlmsData(q: Fetcher): Promise<LlmsData> {
 const SECTIONS: [string, string, string][] = [
   ['Puntos de Warhammer 40K', '/catalogo-puntos', 'coste oficial de cada unidad de todas las facciones, actualizado cada 4 horas desde el Munitorum Field Manual.'],
   ['Cambios de puntos', '/cambios-puntos', 'qué sube y qué baja en cada actualización del Munitorum Field Manual, por facción, con el coste anterior y el nuevo.'],
-  ['Torneos de Warhammer 40K en España', '/competitivo', 'calendario con fechas, lugar, plazas, inscripción y bases; listas destacadas del meta.'],
+  ['Torneos de Warhammer 40K en España', '/competitivo/torneos', 'calendario con fechas, lugar, plazas, inscripción y bases; los torneos organizados en Administratum tienen inscripción, listas y resultados en directo.'],
+  ['Organizar un torneo', '/competitivo/organizar', 'herramienta gratuita para tiendas y clubes: torneos individuales, por parejas o por equipos con inscripciones, validación de pagos, listas, rondas suizas, formato WTC y partidas puntuadas con las misiones de la 11ª edición.'],
   ['Matrices de emparejamientos', '/competitivo/matrices', 'herramienta gratuita para preparar los emparejamientos de torneos por equipos (WTC/ETC, 4vs4 a 8vs8): cada jugador puntúa del 1 al 5 cada lista rival y se recomienda defensor, atacantes y emparejamiento ideal.'],
   ['Partidas', '/partidas', 'buscador de rivales: partidas abiertas en tiendas, clubes, en casa u online, por distancia, día y nivel.'],
   ['Comunidad y listas de ejército', '/comunidad', 'listas importadas de la app oficial y fotos de ejércitos pintados.'],

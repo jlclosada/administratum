@@ -42,14 +42,20 @@ function norm(s: string): string {
 }
 
 let cache: FactionOption[] | null = null;
+let inflight: ReturnType<typeof getFactionCatalog> | null = null;
+/** Detachment names per faction (catalog name), from the same request. */
+let detachmentCache: Map<string, string[]> | null = null;
 
 /** Warhammer 40K factions for the army selects, with their artwork. */
 export function useFactions(): FactionOption[] {
   const [list, setList] = useState<FactionOption[]>(cache ?? FALLBACK);
   useEffect(() => {
     if (cache) return;
-    getFactionCatalog("Warhammer 40,000").then((rows) => {
+    // Many pickers mount at once: share one request.
+    inflight ??= getFactionCatalog("Warhammer 40,000");
+    inflight.then((rows) => {
       if (!rows.length) return;
+      detachmentCache = new Map(rows.map((f) => [norm(f.factionName), (f.detachments ?? []).map((d) => d.name).filter(Boolean)]));
       cache = rows
         .map((f) => {
           const es = FACTION_ES[f.factionSlug];
@@ -64,3 +70,9 @@ export function useFactions(): FactionOption[] {
 
 export const findFaction = (list: FactionOption[], name: string) => list.find((f) => norm(f.name) === norm(name)) ?? null;
 export const factionImage = (list: FactionOption[], name: string) => findFaction(list, name)?.image ?? null;
+
+/** The faction's detachments (from the points catalog), once loaded. */
+export function useDetachments(faction: string): string[] {
+  useFactions();
+  return (faction && detachmentCache?.get(norm(faction))) || [];
+}

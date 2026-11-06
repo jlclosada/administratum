@@ -112,6 +112,27 @@ const AdminSettingsPage = lazyRoute(() =>
     default: m.AdminSettingsPage,
   })),
 );
+const TournamentCalendarPage = lazyRoute(() =>
+  import("@/pages/TournamentCalendarPage").then((m) => ({ default: m.TournamentCalendarPage })),
+);
+const OrganizePage = lazyRoute(() =>
+  import("@/pages/play/OrganizePage").then((m) => ({ default: m.OrganizePage })),
+);
+const TournamentFormPage = lazyRoute(() =>
+  import("@/pages/play/TournamentFormPage").then((m) => ({ default: m.TournamentFormPage })),
+);
+const PlayTournamentPage = lazyRoute(() =>
+  import("@/pages/play/PlayTournamentPage").then((m) => ({ default: m.PlayTournamentPage })),
+);
+const ManageTournamentPage = lazyRoute(() =>
+  import("@/pages/play/ManageTournamentPage").then((m) => ({ default: m.ManageTournamentPage })),
+);
+const PlayMatchPage = lazyRoute(() =>
+  import("@/pages/play/MatchPage").then((m) => ({ default: m.MatchPage })),
+);
+const GamePage = lazyRoute(() =>
+  import("@/pages/play/GamePage").then((m) => ({ default: m.GamePage })),
+);
 const MatricesPage = lazyRoute(() =>
   import("@/pages/MatricesPage").then((m) => ({ default: m.MatricesPage })),
 );
@@ -270,6 +291,11 @@ const publicRoutes = (
     <Route path="competitivo" element={<CompetitivoPage />} />
     <Route path="competitivo/matrices" element={<MatricesPage />} />
     <Route path="competitivo/matrices/:matrixId" element={<MatrixEditorPage />} />
+    <Route path="competitivo/torneos" element={<TournamentCalendarPage />} />
+    <Route path="competitivo/organizar" element={<OrganizePage />} />
+    <Route path="torneos/:tournamentId" element={<PlayTournamentPage />} />
+    <Route path="torneos/:tournamentId/partidas/:matchId" element={<PlayMatchPage />} />
+    <Route path="torneos/:tournamentId/juegos/:gameId" element={<GamePage />} />
     <Route
       path="competitivo/listas/:listId"
       element={<FeaturedListDetailPage />}
@@ -391,6 +417,9 @@ function AnimatedRoutes({ guest = false }: { guest?: boolean }) {
               <Route path="equipos" element={<TeamsPage />} />
               <Route path="equipos/:teamId" element={<TeamPage />} />
               <Route path="partidas/nueva" element={<MatchFormPage />} />
+              <Route path="competitivo/organizar/nuevo" element={<TournamentFormPage />} />
+              <Route path="torneos/:tournamentId/editar" element={<TournamentFormPage />} />
+              <Route path="torneos/:tournamentId/gestionar" element={<ManageTournamentPage />} />
               <Route path="partidas/:matchId/editar" element={<MatchFormPage />} />
               <Route path="mensajes" element={<MessagesPage />} />
               <Route path="mensajes/:userId" element={<MessagesPage />} />
