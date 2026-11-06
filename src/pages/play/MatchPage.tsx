@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { getMatchMatrix, saveMatchMatrix, setMatchGames } from "@/db";
 import { useIsAdmin } from "@/lib/admin";
 import { analyzeMatrix, newMatrix, type Matrix, type Score } from "@/lib/matrix";
-import { GAME_STATUS_LABEL, listsVisible } from "@/lib/play/labels";
+import { fmtDate, GAME_STATUS_LABEL, listsVisible, roundNoun } from "@/lib/play/labels";
 import { matchResult } from "@/lib/play/standings";
 import { toGamePoints } from "@/lib/play/score";
 import type { PlayEntry, PlayEntryPlayer, PlayMatch } from "@/lib/play/types";
@@ -86,7 +86,8 @@ function TeamMatch({ view, match, reload }: { view: PlayView; match: PlayMatch; 
 
         <header className="rounded-3xl border border-border/60 bg-card/40 p-5 sm:p-7">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
-            Ronda {round?.number} · Enfrentamiento {match.tableNo}
+            {roundNoun(t)} {round?.number} · Enfrentamiento {match.tableNo}
+            {round?.deadline ? ` · hasta el ${fmtDate(round.deadline)}` : ""}
             {round?.deployment ? ` · ${round.deployment}` : ""}
           </p>
           <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">

@@ -30,6 +30,9 @@ describe('notifications', () => {
     expect(notificationLink({ ...t, type: 'play_confirm' })).toBe('/torneos/t1/juegos/x1');
     expect(notificationLink({ ...t, type: 'play_payment_ok' })).toBe('/torneos/t1');
     expect(notificationText({ ...t, type: 'play_round' })).toBe('ha publicado la ronda 2 de Copa: ya puedes ver tu enfrentamiento');
+    expect(notificationLink({ ...t, type: 'play_league' })).toBe('/torneos/t1');
+    expect(notificationLink({ ...base, type: 'friendly_game', targetType: 'friendly', targetId: 'g1' })).toBe('/competitivo/partida/g1');
+    expect(notificationText({ ...base, type: 'friendly_game', excerpt: 'Orks vs Necrons' })).toBe('te ha añadido a una partida: Orks vs Necrons');
   });
 
   it('describes the action', () => {

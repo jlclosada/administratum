@@ -28,14 +28,19 @@ export const GAME_STATUS_LABEL: Record<GameStatus, string> = {
   confirmed: "Confirmada",
 };
 
-export const PAIRING_LABEL = { swiss: "Suizo", manual: "Manual (la organización empareja)" };
+export const PAIRING_LABEL = { swiss: "Suizo", manual: "Manual (la organización empareja)", league: "Liga: todos contra todos por jornadas" };
 export const TEAM_PAIRING_LABEL = { wtc: "Formato WTC: defensores y atacantes con matriz", free: "Libre: los capitanes acuerdan los cruces" };
 export const SCORING_LABEL = { wtc: "Puntos de partida 20-0 (WTC)", wins: "Partidas ganadas" };
 
-/** "Equipos de 5" / "Parejas" / "Individual". */
-export function formatSummary(t: Pick<PlayTournament, "format" | "teamSize">): string {
-  return t.format === "teams" ? `Equipos de ${t.teamSize}` : FORMAT_LABEL[t.format];
+/** "Equipos de 5" / "Parejas" / "Individual" (with "Liga ·" for leagues). */
+export function formatSummary(t: Pick<PlayTournament, "format" | "teamSize"> & Partial<Pick<PlayTournament, "pairingSystem">>): string {
+  const base = t.format === "teams" ? `Equipos de ${t.teamSize}` : FORMAT_LABEL[t.format];
+  return t.pairingSystem === "league" ? `Liga · ${base}` : base;
 }
+
+/** Leagues have "jornadas", tournaments "rondas". */
+export const roundNoun = (t: Partial<Pick<PlayTournament, "pairingSystem">>, plural = false) =>
+  t.pairingSystem === "league" ? (plural ? "Jornadas" : "Jornada") : plural ? "Rondas" : "Ronda";
 
 /** Spots, in the unit people think in: "16 equipos (80 jugadores)". */
 export function capacityLabel(t: Pick<PlayTournament, "format" | "teamSize" | "maxEntries">): string {

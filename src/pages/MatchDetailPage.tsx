@@ -345,6 +345,11 @@ export function MatchDetailPage() {
                 </div>
               )}
               {!open && m.status === "open" && <p className="text-xs text-muted-foreground">Esta partida ya se ha jugado.</p>}
+              {m.status === "open" && ((isHost && players.some((p) => p.userId !== m.hostId)) || (joined && !isHost)) && (
+                <Button variant="gradient" className="w-full gap-2" onClick={() => navigate(`/competitivo/partida/nueva?partida=${m.id}`)}>
+                  <Swords className="h-4 w-4" /> Llevar la puntuación
+                </Button>
+              )}
             </section>
 
             {isHost && open && (

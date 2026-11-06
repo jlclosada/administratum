@@ -1220,9 +1220,10 @@ ${c.faq.map(([q, a]) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join('\n')}
 }
 
 const PLAY_FIELDS =
-  'id,name,description,rules,cover_image,organizer_name,format,team_size,points_limit,rounds,max_entries,location_type,venue_name,address,city,online_platform,entry_fee,starts_on,ends_on,start_time,registration_deadline,status';
+  'id,name,description,rules,cover_image,organizer_name,format,team_size,pairing_system,points_limit,rounds,max_entries,location_type,venue_name,address,city,online_platform,entry_fee,starts_on,ends_on,start_time,registration_deadline,status';
 const PLAY_FORMAT: Record<string, string> = { singles: 'Individual', doubles: 'Parejas', teams: 'Equipos' };
-const playFormat = (t: Row) => (t.format === 'teams' ? `Equipos de ${t.team_size}` : PLAY_FORMAT[t.format] ?? 'Torneo');
+const playFormat = (t: Row) =>
+  `${t.pairing_system === 'league' ? 'Liga · ' : ''}${t.format === 'teams' ? `Equipos de ${t.team_size}` : PLAY_FORMAT[t.format] ?? 'Torneo'}`;
 const playWhere = (t: Row) => (t.location_type === 'online' ? `Online${t.online_platform ? ` (${t.online_platform})` : ''}` : [t.venue_name, t.city].filter(Boolean).join(', '));
 
 async function torneosCalendar(q: Query): Promise<Page> {
@@ -1314,7 +1315,7 @@ async function playTournament(q: Query, id: string): Promise<Page> {
   const entries = await q('play_entries', `select=name,status&tournament_id=${eq(id)}&status=eq.registered&order=created_at`).catch(() => [] as Row[]);
   const fee = Number(t.entry_fee ?? 0);
   const facts = [
-    `Formato: ${playFormat(t)} · ${t.points_limit} puntos · ${t.rounds} rondas`,
+    `Formato: ${playFormat(t)} · ${t.points_limit} puntos · ${t.rounds} ${t.pairing_system === 'league' ? 'jornadas' : 'rondas'}`,
     `Fecha: ${fmtDate(t.starts_on)}${t.ends_on && t.ends_on !== t.starts_on ? ` – ${fmtDate(t.ends_on)}` : ''}${t.start_time ? `, ${String(t.start_time).slice(0, 5)}` : ''}`,
     `Lugar: ${[playWhere(t), t.address].filter(Boolean).join(' · ')}`,
     `Plazas: ${entries.length} de ${t.max_entries}`,

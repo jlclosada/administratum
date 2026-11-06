@@ -8,6 +8,7 @@ const TARGET_NOUN: Record<NonNullable<AppNotification['targetType']>, string> = 
   team: 'tu equipo',
   match: 'tu partida',
   tournament: 'tu torneo',
+  friendly: 'tu partida',
 };
 
 /** Sentence after the actor's name, e.g. "ha comentado en tu foto". */
@@ -44,6 +45,12 @@ export function notificationText(n: AppNotification): string {
       return `ha rechazado tu pago de ${n.excerpt}`;
     case 'play_confirm':
       return `te pide confirmar el resultado de vuestra partida en ${n.excerpt}`;
+    case 'play_league':
+      return `ha publicado el calendario de la liga ${n.excerpt}`;
+    case 'friendly_game':
+      return `te ha añadido a una partida${n.excerpt ? `: ${n.excerpt}` : ''}`;
+    case 'friendly_confirm':
+      return `te pide confirmar el resultado de vuestra partida${n.excerpt ? ` (${n.excerpt})` : ''}`;
   }
 }
 
@@ -69,7 +76,11 @@ export function notificationLink(n: AppNotification): string {
       return n.entityId ? `/torneos/${n.targetId}/juegos/${n.entityId}` : `/torneos/${n.targetId}`;
     case 'play_payment_ok':
     case 'play_payment_rejected':
+    case 'play_league':
       return `/torneos/${n.targetId}`;
+    case 'friendly_game':
+    case 'friendly_confirm':
+      return `/competitivo/partida/${n.targetId}`;
   }
   if (!n.targetId) return '/comunidad';
   switch (n.targetType) {

@@ -148,7 +148,7 @@ describe("CSV export", async () => {
   ];
   const matches = [match("m1", "A", "B")];
   const games = [{ ...game("m1", 70, 60), playerA: "pa", playerB: "pb" }];
-  const rounds = [{ id: "r1", tournamentId: "t", number: 1, status: "playing" as const, deployment: "", layout: "", notes: "", createdAt: "" }];
+  const rounds = [{ id: "r1", tournamentId: "t", number: 1, status: "playing" as const, deployment: "", layout: "", notes: "", deadline: null, createdAt: "" }];
   const data = { tournament: t, entries, players, payments: [], lists: [], rounds, matches, games, table: standings(t, entries, matches, games) };
 
   it("writes Excel-friendly CSV: BOM, semicolons, quoted cells", () => {

@@ -5,14 +5,14 @@ import { PlayTournamentCard, PlayTournamentRow } from "@/components/play/PlayBit
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Seo } from "@/components/shared/Seo";
 import { Button } from "@/components/ui/button";
-import { getCommunityLists, getFeaturedLists, getMyPlayingTournaments, getPlayTournaments, getProfilesByIds, getTournaments } from "@/db";
+import { getCommunityLists, getFeaturedLists, getMyFriendlyGames, getMyPlayingTournaments, getPlayTournaments, getProfilesByIds, getTournaments } from "@/db";
 import { formatSummary, registrationOpen } from "@/lib/play/labels";
-import type { PlayEntry, PlayTournament } from "@/lib/play/types";
+import type { FriendlyGame, PlayEntry, PlayTournament } from "@/lib/play/types";
 import { SEO_COMPETITIVO } from "@/lib/seoCopy";
 import { useRequireAuth } from "@/lib/useRequireAuth";
 import { useAuthStore } from "@/stores";
 import type { CommunityList, FeaturedList, Profile } from "@/types";
-import { ArrowRight, CalendarDays, Grid3x3, Plus, ScrollText, Star, Swords, Trophy } from "lucide-react";
+import { ArrowRight, CalendarDays, Dices, Grid3x3, Plus, ScrollText, Star, Swords, Trophy } from "lucide-react";
 import { useEffect, useState, type ComponentType } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -49,6 +49,7 @@ export function CompetitivoPage() {
   const [hosted, setHosted] = useState<PlayTournament[]>([]);
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [mine, setMine] = useState<{ tournament: PlayTournament; entry: PlayEntry }[]>([]);
+  const [games, setGames] = useState<FriendlyGame[]>([]);
   const [publishing, setPublishing] = useState(false);
   const user = useAuthStore((s) => s.user);
   const requireAuth = useRequireAuth();
@@ -68,8 +69,13 @@ export function CompetitivoPage() {
   }, []);
 
   useEffect(() => {
-    if (user) getMyPlayingTournaments().then(setMine).catch(() => setMine([]));
-    else setMine([]);
+    if (user) {
+      getMyPlayingTournaments().then(setMine).catch(() => setMine([]));
+      getMyFriendlyGames().then(setGames);
+    } else {
+      setMine([]);
+      setGames([]);
+    }
   }, [user]);
 
   // "/competitivo#listas" (back links from list pages) lands on the lists.
@@ -97,6 +103,23 @@ export function CompetitivoPage() {
           <p className="mt-3 max-w-xl text-muted-foreground">
             Organiza tu torneo, inscríbete con tu equipo, prepara las matrices y lleva cada partida ronda a ronda.
           </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button asChild variant="gradient" size="lg" className="gap-2">
+              <Link to="/competitivo/partida/nueva">
+                <Dices className="h-4 w-4" /> Nueva partida
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="gap-2">
+              <Link to="/competitivo/organizar">
+                <Plus className="h-4 w-4" /> Organizar torneo o liga
+              </Link>
+            </Button>
+            {games.length > 0 && (
+              <Button asChild variant="ghost" size="lg">
+                <Link to="/competitivo/partidas">Mis partidas ({games.length})</Link>
+              </Button>
+            )}
+          </div>
         </header>
 
         {active.length > 0 && (
@@ -112,8 +135,16 @@ export function CompetitivoPage() {
           </section>
         )}
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <ToolCard to="/competitivo/organizar" icon={Plus} title="Organizar un torneo" text="Para tiendas y clubes: inscripciones, pagos, listas, rondas suizas y resultados en directo." cta="Crear o gestionar" highlight />
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+          <ToolCard to="/competitivo/organizar" icon={Plus} title="Organizar torneo o liga" text="Para tiendas y clubes: torneos y ligas con inscripciones, pagos, listas, emparejamientos y resultados en directo." cta="Crear o gestionar" />
+          <ToolCard
+            to="/competitivo/partida/nueva"
+            icon={Dices}
+            title="Nueva partida"
+            text="Una partida 1 contra 1 con todo lo necesario: ejércitos, listas, misiones de 11ª edición y puntuación ronda a ronda. Queda en tu historial."
+            cta="Empezar partida"
+            highlight
+          />
           <ToolCard to="/competitivo/torneos" icon={CalendarDays} title="Calendario de torneos" text={`Torneos en España${upcomingCount ? `: ${upcomingCount} próximos` : ""}, y los que tienen inscripción en Administratum.`} cta="Ver calendario" />
           <ToolCard to="/competitivo/matrices" icon={Grid3x3} title="Matrices de equipo" text="Puntúa cada cruce del 1 al 5 y obtén defensor, atacantes y emparejamiento ideal." cta="Hacer una matriz" />
           <ToolCard to="/competitivo#listas" icon={ScrollText} title="Listas del meta" text="Listas destacadas y de la comunidad, con su facción, destacamento y resultado." cta="Ver listas" />

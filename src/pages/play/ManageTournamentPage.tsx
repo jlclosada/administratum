@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   addEntryByOrganizer,
+  createPlayLeague,
   createPlayRound,
   deleteEntry,
   deletePlayRound,
@@ -24,7 +25,8 @@ import { useIsAdmin } from "@/lib/admin";
 import { copyText } from "@/lib/clipboard";
 import { DEPLOYMENTS, LAYOUTS } from "@/lib/play/missions";
 import { csvName, downloadCsv, entriesCsv, gamesCsv, standingsCsv } from "@/lib/play/exportCsv";
-import { ENTRY_STATUS_LABEL, entryNoun, listsVisible } from "@/lib/play/labels";
+import { ENTRY_STATUS_LABEL, entryNoun, fmtDate, listsVisible, registrationOpen, roundNoun } from "@/lib/play/labels";
+import { leagueCalendar, type LeagueRound } from "@/lib/play/league";
 import { matchResult } from "@/lib/play/standings";
 import { shuffle, swissPairings, type Pairing } from "@/lib/play/swiss";
 import type { PaymentStatus, PlayEntry, PlayStatus } from "@/lib/play/types";
@@ -79,7 +81,7 @@ export function ManageTournamentPage() {
   const tabs: [Tab, string][] = [
     ["panel", "Panel"],
     ["inscripciones", `Inscripciones${pendingPayments ? ` · ${pendingPayments} por validar` : ""}`],
-    ["rondas", `Rondas ${view.rounds.length}/${t.rounds}`],
+    ["rondas", `${roundNoun(t, true)} ${view.rounds.length}/${t.pairingSystem === "league" && !view.rounds.length ? "—" : t.rounds}`],
     ["clasificacion", "Clasificación"],
   ];
 
@@ -129,7 +131,7 @@ export function ManageTournamentPage() {
 
         {tab === "panel" && <PanelTab view={view} reload={reload} goRounds={() => setTab("rondas")} />}
         {tab === "inscripciones" && <EntriesTab view={view} reload={reload} />}
-        {tab === "rondas" && <RoundsTab view={view} reload={reload} />}
+        {tab === "rondas" && (t.pairingSystem === "league" ? <LeagueTab view={view} reload={reload} /> : <RoundsTab view={view} reload={reload} />)}
         {tab === "clasificacion" && <StandingsTable view={view} />}
       </div>
     </PageTransition>
@@ -173,6 +175,11 @@ function PanelTab({ view, reload, goRounds }: { view: PlayView; reload: () => vo
       <section className="space-y-3 rounded-3xl border border-border/60 bg-card/30 p-4 sm:p-6">
         <h2 className="font-display text-lg font-bold">Estado del torneo</h2>
         <div className="flex flex-wrap gap-2">
+          {registrationOpen(t) && !view.myEntry && (
+            <Button variant="outline" className="gap-2" onClick={() => navigate(`/torneos/${t.id}?inscribirme=1`)}>
+              <UserPlus className="h-4 w-4" /> Inscribirme como jugador
+            </Button>
+          )}
           {t.status === "draft" && (
             <Button variant="gradient" onClick={() => setStatus("open", "Torneo publicado: ya se pueden inscribir.")}>
               Publicar y abrir inscripción
@@ -188,11 +195,12 @@ function PanelTab({ view, reload, goRounds }: { view: PlayView; reload: () => vo
               Reabrir inscripción
             </Button>
           )}
-          {(t.status === "open" || t.status === "closed" || t.status === "in_progress") && view.rounds.length < t.rounds && (
-            <Button variant="gradient" onClick={goRounds}>
-              {view.rounds.length ? `Preparar ronda ${view.rounds.length + 1}` : "Empezar el torneo: ronda 1"}
-            </Button>
-          )}
+          {(t.status === "open" || t.status === "closed" || t.status === "in_progress") &&
+            (t.pairingSystem === "league" ? !view.rounds.length : view.rounds.length < t.rounds) && (
+              <Button variant="gradient" onClick={goRounds}>
+                {t.pairingSystem === "league" ? "Generar el calendario de la liga" : view.rounds.length ? `Preparar ronda ${view.rounds.length + 1}` : "Empezar el torneo: ronda 1"}
+              </Button>
+            )}
           {t.status === "in_progress" && (
             <Button variant={allRoundsDone ? "gradient" : "outline"} onClick={() => window.confirm("¿Dar el torneo por terminado?") && setStatus("finished", "¡Torneo finalizado!")}>
               Finalizar torneo
@@ -321,7 +329,7 @@ function EntriesTab({ view, reload }: { view: PlayView; reload: () => void }) {
                       {ENTRY_STATUS_LABEL[e.status]}
                       {e.dropped ? " · abandona" : ""}
                     </span>
-                    {p && <PaymentPill status={p.status} />}
+                    {p && t.entryFee > 0 && <PaymentPill status={p.status} />}
                     <span className="rounded-full bg-background/60 px-2.5 py-0.5 text-[11px] text-muted-foreground">
                       Listas {lists}/{players.length}
                     </span>
@@ -459,6 +467,123 @@ function AddEntryDialog({ view, onClose, onDone }: { view: PlayView; onClose: ()
 }
 
 // ---------------------------------------------------------------- rounds
+
+function LeagueTab({ view, reload }: { view: PlayView; reload: () => void }) {
+  const t = view.tournament;
+  const [plan, setPlan] = useState<LeagueRound[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const active = view.entries.filter((e) => e.status === "registered" && !e.dropped);
+  const name = (id: string | null) => (id ? (view.entryById.get(id)?.name ?? "?") : "Descansa");
+  const confirmed = view.games.some((g) => g.status === "confirmed");
+
+  function generate() {
+    setPlan(leagueCalendar(shuffle(active.map((e) => e.id)), { double: t.leagueDouble, startsOn: t.startsOn, roundDays: t.roundDays }));
+  }
+
+  async function publish() {
+    if (!plan) return;
+    setBusy(true);
+    const ok = await run(() => createPlayLeague(t.id, plan), `Calendario publicado: ${plan.length} jornadas.`);
+    setBusy(false);
+    if (ok) {
+      setPlan(null);
+      reload();
+    }
+  }
+
+  async function removeAll() {
+    if (!window.confirm("¿Borrar todo el calendario con sus partidas?")) return;
+    for (const r of [...view.rounds].reverse()) await deletePlayRound(r.id).catch(() => undefined);
+    toast.success("Calendario borrado.");
+    reload();
+  }
+
+  if (view.rounds.length) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {view.rounds.length} jornadas · {t.leagueDouble ? "ida y vuelta" : "solo ida"} · {t.roundDays} días por jornada
+          </p>
+          {!confirmed && (
+            <Button size="sm" variant="ghost" className="gap-1.5 text-destructive" onClick={removeAll}>
+              <Trash2 className="h-3.5 w-3.5" /> Borrar calendario
+            </Button>
+          )}
+        </div>
+        {view.rounds.map((round) => {
+          const matches = view.matches.filter((m) => m.roundId === round.id);
+          const done = matches.filter((m) => matchResult(t, m, view.games).final).length;
+          return (
+            <section key={round.id} className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-display text-lg font-bold">
+                  Jornada {round.number}{" "}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    · {round.deadline ? `hasta el ${fmtDate(round.deadline)}` : "sin fecha"} · {done}/{matches.length} terminadas
+                  </span>
+                </h2>
+                {round.status !== "finished" && (
+                  <Button size="sm" variant="outline" onClick={() => run(() => setPlayRoundStatus(round.id, "finished"), `Jornada ${round.number} cerrada.`).then(reload)}>
+                    Cerrar jornada
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                {matches.map((m) => (
+                  <MatchCard key={m.id} view={view} match={m} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <section className="space-y-4 rounded-3xl border border-primary/30 bg-brand-soft p-4 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-xl font-bold">Calendario de la liga</h2>
+          <p className="text-sm text-muted-foreground">
+            {active.length} {entryNoun(t, true)} · todos contra todos {t.leagueDouble ? "a ida y vuelta" : "a una vuelta"} · una jornada cada {t.roundDays} días desde el {fmtDate(t.startsOn)}
+          </p>
+        </div>
+        <Button variant={plan ? "outline" : "gradient"} className="gap-2" disabled={active.length < 2} onClick={generate}>
+          <Shuffle className="h-4 w-4" /> {plan ? "Volver a sortear" : "Generar calendario"}
+        </Button>
+      </div>
+      {active.length < 2 && <p className="text-sm text-amber-200">Hacen falta al menos dos {entryNoun(t, true)} inscritos.</p>}
+      {plan && (
+        <>
+          <ol className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {plan.map((r) => (
+              <li key={r.number} className="space-y-1.5 rounded-2xl border border-border/60 bg-background/40 p-3">
+                <p className="text-sm font-semibold">
+                  Jornada {r.number} <span className="font-normal text-muted-foreground">· hasta el {r.deadline ? fmtDate(r.deadline) : "—"}</span>
+                </p>
+                <ul className="space-y-0.5 text-sm">
+                  {r.pairs.map((p) => (
+                    <li key={p.table} className={cn("grid grid-cols-[minmax(0,1fr)_1.5rem_minmax(0,1fr)] items-center gap-2", !p.b && "text-muted-foreground")}>
+                      <span className="truncate">{name(p.a)}</span>
+                      <span className="text-center text-xs text-muted-foreground">{p.b ? "vs" : ""}</span>
+                      <span className="truncate text-right">{name(p.b)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+          <Button variant="gradient" size="lg" className="w-full gap-2" disabled={busy} onClick={publish}>
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />} Publicar calendario ({plan.length} jornadas)
+          </Button>
+          <p className="text-xs text-muted-foreground">Los jugadores reciben un aviso y ven todas sus partidas. Cada uno queda con su rival para jugar antes de la fecha límite.</p>
+        </>
+      )}
+    </section>
+  );
+}
 
 function RoundsTab({ view, reload }: { view: PlayView; reload: () => void }) {
   const t = view.tournament;

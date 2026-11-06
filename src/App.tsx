@@ -133,6 +133,15 @@ const PlayMatchPage = lazyRoute(() =>
 const GamePage = lazyRoute(() =>
   import("@/pages/play/GamePage").then((m) => ({ default: m.GamePage })),
 );
+const FriendlyNewPage = lazyRoute(() =>
+  import("@/pages/play/FriendlyNewPage").then((m) => ({ default: m.FriendlyNewPage })),
+);
+const FriendlyGamePage = lazyRoute(() =>
+  import("@/pages/play/FriendlyGamePage").then((m) => ({ default: m.FriendlyGamePage })),
+);
+const FriendlyHistoryPage = lazyRoute(() =>
+  import("@/pages/play/FriendlyHistoryPage").then((m) => ({ default: m.FriendlyHistoryPage })),
+);
 const MatricesPage = lazyRoute(() =>
   import("@/pages/MatricesPage").then((m) => ({ default: m.MatricesPage })),
 );
@@ -418,6 +427,9 @@ function AnimatedRoutes({ guest = false }: { guest?: boolean }) {
               <Route path="equipos/:teamId" element={<TeamPage />} />
               <Route path="partidas/nueva" element={<MatchFormPage />} />
               <Route path="competitivo/organizar/nuevo" element={<TournamentFormPage />} />
+              <Route path="competitivo/partida/nueva" element={<FriendlyNewPage />} />
+              <Route path="competitivo/partida/:gameId" element={<FriendlyGamePage />} />
+              <Route path="competitivo/partidas" element={<FriendlyHistoryPage />} />
               <Route path="torneos/:tournamentId/editar" element={<TournamentFormPage />} />
               <Route path="torneos/:tournamentId/gestionar" element={<ManageTournamentPage />} />
               <Route path="partidas/:matchId/editar" element={<MatchFormPage />} />

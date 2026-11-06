@@ -152,7 +152,10 @@ export type NotificationType =
   | 'play_round'
   | 'play_payment_ok'
   | 'play_payment_rejected'
-  | 'play_confirm';
+  | 'play_confirm'
+  | 'play_league'
+  | 'friendly_game'
+  | 'friendly_confirm';
 
 /** In-app notification, written by database triggers for the recipient. */
 export interface AppNotification {
@@ -161,7 +164,7 @@ export interface AppNotification {
   actorId: string | null;
   type: NotificationType;
   /** What the notification links to. */
-  targetType: 'article' | 'guide' | 'photo' | 'list' | 'team' | 'match' | 'tournament' | null;
+  targetType: 'article' | 'guide' | 'photo' | 'list' | 'team' | 'match' | 'tournament' | 'friendly' | null;
   targetId: string | null;
   /** Tournament notifications: the match or game (targetId is the tournament). */
   entityId?: string | null;
