@@ -364,6 +364,8 @@ describe('tournaments organised in Administratum', () => {
     expect(ld.offers).toMatchObject({ price: '75', priceCurrency: 'EUR', availability: 'https://schema.org/InStock' });
     expect(ld.organizer).toEqual({ '@type': 'Organization', name: 'Club La Letanía' });
     expect(await renderPath('/torneos/not-a-uuid', q)).toMatchObject({ status: 404 });
+    const league = (await renderPath(`/torneos/${t.id}`, async (table) => (table === 'play_tournaments' ? [{ ...t, pairing_system: 'league', rounds: 7 }] : [])))!;
+    expect(league.body).toContain('Formato: Liga · Equipos de 5 · 2000 puntos · 7 jornadas');
   });
 
   it('prerenders the calendar and the organiser page', async () => {

@@ -279,6 +279,13 @@ export async function createPlayRound(
   return data as string;
 }
 
+/** Organiser: publish the whole league calendar at once. */
+export async function createPlayLeague(tournamentId: string, rounds: { number: number; deadline: string | null; pairs: { a: string; b: string | null; table: number }[] }[]): Promise<number> {
+  const { data, error } = await supabase.rpc('play_create_league', { p_tournament: tournamentId, p_rounds: rounds });
+  if (error) throw error;
+  return data as number;
+}
+
 export async function deletePlayRound(roundId: string): Promise<void> {
   const { error } = await supabase.from('play_rounds').delete().eq('id', roundId);
   if (error) throw error;

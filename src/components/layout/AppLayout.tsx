@@ -43,7 +43,7 @@ export function AppLayout() {
   // Elsewhere the right rail carries "Mi espacio" (or, for guests, the
   // invitation to join) plus optional page content.
   // Matrices and tournaments (rosters, pairings, score tracker) need the whole width.
-  const isWideTool = /^\/competitivo\/matrices\/[^/]+$/.test(pathname) || /^\/torneos\//.test(pathname) || pathname === "/competitivo/organizar/nuevo";
+  const isWideTool = /^\/competitivo\/matrices\/[^/]+$/.test(pathname) || /^\/torneos\//.test(pathname) || pathname === "/competitivo/organizar/nuevo" || /^\/competitivo\/partida\//.test(pathname);
   const hasRight = !inAdmin && !isHome && !isWideTool;
 
   return (

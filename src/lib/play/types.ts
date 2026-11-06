@@ -17,7 +17,11 @@ export interface PlayTournament {
   teamSize: number;
   pointsLimit: number;
   rounds: number;
-  pairingSystem: "swiss" | "manual";
+  pairingSystem: "swiss" | "manual" | "league";
+  /** League: home and away. */
+  leagueDouble: boolean;
+  /** League: days per round (deadline spacing). */
+  roundDays: number;
   /** Teams: how the games inside a match are paired. */
   teamPairing: "wtc" | "free";
   /** Teams: game points 20-0 per game (WTC) or games won. */
@@ -102,6 +106,8 @@ export interface PlayRound {
   deployment: string;
   layout: string;
   notes: string;
+  /** League: last day to play it. */
+  deadline: string | null;
   createdAt: string;
 }
 
@@ -168,5 +174,33 @@ export interface PlayGame {
   vpB: number;
   confirmedA: boolean;
   confirmedB: boolean;
+  updatedAt: string;
+}
+
+/** A single game outside any tournament (friendly_games). Side A is whoever created it. */
+export interface FriendlyGame {
+  id: string;
+  createdBy: string;
+  playerA: string | null;
+  /** null: the rival has no account (just a name). */
+  playerB: string | null;
+  nameA: string;
+  nameB: string;
+  factionA: string;
+  factionB: string;
+  listA: string;
+  listB: string;
+  pointsLimit: number;
+  /** The pick-up game from the finder it comes from, if any. */
+  matchId: string | null;
+  playedOn: string;
+  status: GameStatus;
+  setup: Partial<GameSetup>;
+  rounds: BattleRound[];
+  vpA: number;
+  vpB: number;
+  confirmedA: boolean;
+  confirmedB: boolean;
+  createdAt: string;
   updatedAt: string;
 }

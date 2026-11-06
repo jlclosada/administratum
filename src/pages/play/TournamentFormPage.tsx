@@ -48,6 +48,8 @@ const DEFAULTS: PlayTournamentDTO = {
   pointsLimit: 2000,
   rounds: 3,
   pairingSystem: "swiss",
+  leagueDouble: false,
+  roundDays: 7,
   teamPairing: "wtc",
   scoring: "wtc",
   uniqueFactions: true,
@@ -285,6 +287,18 @@ export function TournamentFormPage() {
                 <Input value={form.organizerName} onChange={(e) => set({ organizerName: e.target.value.slice(0, 80) })} placeholder="Ej.: Club La Letanía" className="h-11" />
               </Field>
               <div className="space-y-2">
+                <span className="text-sm font-medium">Tipo</span>
+                <Choice
+                  value={form.pairingSystem === "league" ? "league" : "tournament"}
+                  onChange={(kind) => set({ pairingSystem: kind === "league" ? "league" : "swiss" })}
+                  disabled={hasEntries && form.status !== "draft" && form.status !== "open"}
+                  options={[
+                    { value: "tournament", label: "Torneo", hint: "Uno o varios días, rondas seguidas" },
+                    { value: "league", label: "Liga", hint: "Todos contra todos, una jornada cada pocos días" },
+                  ]}
+                />
+              </div>
+              <div className="space-y-2">
                 <span className="text-sm font-medium">Formato</span>
                 <Choice
                   value={form.format}
@@ -340,14 +354,32 @@ export function TournamentFormPage() {
                 </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <span className="text-sm font-medium">Rondas</span>
-                  <Stepper value={form.rounds} min={1} max={12} onChange={(rounds) => set({ rounds })} label="rondas" />
-                </div>
+                {form.pairingSystem === "league" ? (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">Días por jornada</span>
+                    <Stepper value={form.roundDays} min={1} max={60} onChange={(roundDays) => set({ roundDays })} label="días por jornada" />
+                    <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">
+                      <input type="checkbox" checked={form.leagueDouble} onChange={(e) => set({ leagueDouble: e.target.checked })} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+                      Ida y vuelta
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">Rondas</span>
+                    <Stepper value={form.rounds} min={1} max={12} onChange={(rounds) => set({ rounds })} label="rondas" />
+                  </div>
+                )}
                 <Field label="Pack de misiones">
                   <Input value={form.missionPack} onChange={(e) => set({ missionPack: e.target.value.slice(0, 120) })} className="h-11" />
                 </Field>
               </div>
+              {form.pairingSystem === "league" && (
+                <p className="rounded-xl border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+                  Las jornadas salen del número de inscritos: cada {form.format === "singles" ? "jugador" : "equipo"} juega contra todos{" "}
+                  {form.leagueDouble ? "dos veces (ida y vuelta)" : "una vez"}. Cada jornada tiene {form.roundDays} días para jugarse, a partir de la fecha de inicio.
+                </p>
+              )}
+              {form.pairingSystem !== "league" && (
               <div className="space-y-2">
                 <span className="text-sm font-medium">Emparejamientos entre {form.format === "singles" ? "jugadores" : "equipos"}</span>
                 <Choice
@@ -359,6 +391,7 @@ export function TournamentFormPage() {
                   ]}
                 />
               </div>
+              )}
               {form.format !== "singles" && (
                 <>
                   <div className="space-y-2">
@@ -453,10 +486,10 @@ export function TournamentFormPage() {
                 </Field>
               )}
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Fecha">
+                <Field label={form.pairingSystem === "league" ? "Empieza" : "Fecha"}>
                   <Input type="date" value={form.startsOn} onChange={(e) => set({ startsOn: e.target.value })} className="h-11" />
                 </Field>
-                <Field label="Último día" hint="Si dura más de un día.">
+                <Field label={form.pairingSystem === "league" ? "Termina" : "Último día"} hint={form.pairingSystem === "league" ? "Orientativo: el calendario marca cada jornada." : "Si dura más de un día."}>
                   <Input type="date" value={form.endsOn ?? ""} min={form.startsOn} onChange={(e) => set({ endsOn: e.target.value || null })} className="h-11" />
                 </Field>
                 <Field label="Hora de inicio">
@@ -551,7 +584,12 @@ export function TournamentFormPage() {
               </div>
               <dl className="grid gap-2 text-sm sm:grid-cols-2">
                 {[
-                  ["Formato", `${formatSummary(form)} · ${form.pointsLimit} puntos · ${form.rounds} rondas`],
+                  [
+                    "Formato",
+                    form.pairingSystem === "league"
+                      ? `${formatSummary(form)} · ${form.pointsLimit} puntos · ${form.leagueDouble ? "ida y vuelta" : "solo ida"}, jornadas de ${form.roundDays} días`
+                      : `${formatSummary(form)} · ${form.pointsLimit} puntos · ${form.rounds} rondas`,
+                  ],
                   ["Plazas", capacityLabel(form)],
                   ["Emparejamientos", PAIRING_LABEL[form.pairingSystem]],
                   ...(form.format !== "singles"

@@ -2943,7 +2943,8 @@ alter table public.notifications add constraint notifications_type_check
   check (type in (
     'friend_request', 'friend_accepted', 'like', 'comment', 'comment_like',
     'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled', 'match_invite',
-    'play_round', 'play_payment_ok', 'play_payment_rejected', 'play_confirm'
+    'play_round', 'play_payment_ok', 'play_payment_rejected', 'play_confirm',
+    'play_league', 'friendly_game', 'friendly_confirm'
   ));
 
 create or replace function public.notify_team_invitation()
@@ -3275,8 +3276,8 @@ create table if not exists public.play_tournaments (
   format text not null default 'singles' check (format in ('singles', 'doubles', 'teams')),
   team_size integer not null default 1 check (team_size between 1 and 8),
   points_limit integer not null default 2000 check (points_limit between 500 and 5000),
-  rounds integer not null default 3 check (rounds between 1 and 12),
-  pairing_system text not null default 'swiss' check (pairing_system in ('swiss', 'manual')),
+  rounds integer not null default 3 check (rounds between 1 and 60),
+  pairing_system text not null default 'swiss' check (pairing_system in ('swiss', 'manual', 'league')),
   -- Team events: how the games inside a match are paired, and how a match is won.
   team_pairing text not null default 'wtc' check (team_pairing in ('wtc', 'free')),
   scoring text not null default 'wtc' check (scoring in ('wtc', 'wins')),
@@ -3370,7 +3371,7 @@ create table if not exists public.play_lists (
 create table if not exists public.play_rounds (
   id uuid primary key default gen_random_uuid(),
   tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
-  number integer not null check (number between 1 and 12),
+  number integer not null check (number between 1 and 60),
   status text not null default 'playing' check (status in ('playing', 'finished')),
   -- Optional, when the organiser fixes them for the whole round.
   deployment text not null default '' check (char_length(deployment) <= 60),
@@ -4043,6 +4044,8 @@ declare
   v_round integer;
   v_name text;
 begin
+  -- A league publishes its whole calendar at once: one notice, not one per round.
+  if current_setting('play.silent', true) = 'on' then return new; end if;
   select r.number, t.name into v_round, v_name
     from public.play_rounds r join public.play_tournaments t on t.id = r.tournament_id where r.id = new.round_id;
   perform public.play_notify(u.user_id, 'play_round', new.tournament_id, new.id, format('%s de %s', v_round, v_name))
@@ -4085,11 +4088,203 @@ drop trigger if exists play_confirm_notify on public.play_games;
 create trigger play_confirm_notify after update on public.play_games
   for each row execute function public.play_confirm_notify();
 
+-- ---------------------------------------------------------------- leagues
+
+-- A league: everyone plays everyone (once or home and away), one round
+-- ("jornada") every few days, each with a deadline to play it.
+alter table public.play_tournaments drop constraint if exists play_tournaments_pairing_system_check;
+alter table public.play_tournaments add constraint play_tournaments_pairing_system_check
+  check (pairing_system in ('swiss', 'manual', 'league'));
+alter table public.play_tournaments drop constraint if exists play_tournaments_rounds_check;
+alter table public.play_tournaments add constraint play_tournaments_rounds_check check (rounds between 1 and 60);
+alter table public.play_tournaments add column if not exists league_double boolean not null default false;
+alter table public.play_tournaments add column if not exists round_days integer not null default 7;
+alter table public.play_tournaments drop constraint if exists play_tournaments_round_days_check;
+alter table public.play_tournaments add constraint play_tournaments_round_days_check check (round_days between 1 and 60);
+alter table public.play_rounds drop constraint if exists play_rounds_number_check;
+alter table public.play_rounds add constraint play_rounds_number_check check (number between 1 and 60);
+alter table public.play_rounds add column if not exists deadline date;
+
+-- Organiser: publish the whole league calendar.
+-- p_rounds: [{"number": int, "deadline": "YYYY-MM-DD"|null, "pairs": [{"a", "b", "table"}]}]
+create or replace function public.play_create_league(p_tournament uuid, p_rounds jsonb)
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  t public.play_tournaments;
+  r jsonb;
+  v_round uuid;
+  v_count integer := jsonb_array_length(p_rounds);
+begin
+  if not public.play_is_organizer(p_tournament) then raise exception 'Solo la organización puede crear el calendario.'; end if;
+  select * into t from public.play_tournaments where id = p_tournament;
+  if t.pairing_system <> 'league' then raise exception 'Este torneo no es una liga.'; end if;
+  if exists (select 1 from public.play_rounds where tournament_id = p_tournament) then
+    raise exception 'La liga ya tiene calendario. Borra las jornadas para generarlo de nuevo.';
+  end if;
+  if v_count < 1 or v_count > 60 then raise exception 'Una liga tiene entre 1 y 60 jornadas.'; end if;
+  update public.play_tournaments set rounds = v_count where id = p_tournament;
+  perform set_config('play.silent', 'on', true);
+  for r in select * from jsonb_array_elements(p_rounds) loop
+    v_round := public.play_create_round(p_tournament, (r ->> 'number')::integer, r -> 'pairs', '', '');
+    update public.play_rounds set deadline = nullif(r ->> 'deadline', '')::date where id = v_round;
+  end loop;
+  perform set_config('play.silent', 'off', true);
+  perform public.play_notify(u.user_id, 'play_league', p_tournament, null, t.name)
+  from (
+    select distinct coalesce(p.user_id, e.captain_id) as user_id
+    from public.play_entries e left join public.play_entry_players p on p.entry_id = e.id
+    where e.tournament_id = p_tournament and e.status = 'registered'
+  ) u;
+  return v_count;
+end;
+$$;
+
+revoke all on function public.play_create_league(uuid, jsonb) from public, anon;
+grant execute on function public.play_create_league(uuid, jsonb) to authenticated;
+
+-- ============================================================
+-- Friendly games (/competitivo/partida/:id)
+-- ============================================================
+-- A single game outside any tournament, scored with the same tracker:
+-- against another Administratum user or someone without an account.
+-- Optionally linked to a pick-up game from the finder (public.matches).
+create table if not exists public.friendly_games (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  player_a uuid default auth.uid() references auth.users (id) on delete set null,
+  player_b uuid references auth.users (id) on delete set null,
+  name_a text not null check (char_length(trim(name_a)) between 1 and 60),
+  name_b text not null check (char_length(trim(name_b)) between 1 and 60),
+  faction_a text not null default '' check (char_length(faction_a) <= 80),
+  faction_b text not null default '' check (char_length(faction_b) <= 80),
+  list_a text not null default '' check (char_length(list_a) <= 20000),
+  list_b text not null default '' check (char_length(list_b) <= 20000),
+  points_limit integer not null default 2000 check (points_limit between 500 and 5000),
+  match_id uuid references public.matches (id) on delete set null,
+  played_on date not null default current_date,
+  status text not null default 'setup' check (status in ('setup', 'playing', 'submitted', 'confirmed')),
+  setup jsonb not null default '{}'::jsonb,
+  rounds jsonb not null default '[]'::jsonb,
+  vp_a integer not null default 0 check (vp_a between 0 and 200),
+  vp_b integer not null default 0 check (vp_b between 0 and 200),
+  confirmed_a boolean not null default false,
+  confirmed_b boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint friendly_games_distinct check (player_b is null or player_b <> player_a),
+  constraint friendly_games_size check (pg_column_size(setup) + pg_column_size(rounds) < 30000)
+);
+
+create index if not exists friendly_games_a_idx on public.friendly_games (player_a, played_on desc);
+create index if not exists friendly_games_b_idx on public.friendly_games (player_b, played_on desc);
+
+drop trigger if exists set_updated_at on public.friendly_games;
+create trigger set_updated_at before update on public.friendly_games
+  for each row execute function public.set_updated_at();
+
+alter table public.friendly_games enable row level security;
+revoke all on public.friendly_games from anon;
+drop policy if exists "friendly_games_read" on public.friendly_games;
+drop policy if exists "friendly_games_insert" on public.friendly_games;
+drop policy if exists "friendly_games_update" on public.friendly_games;
+drop policy if exists "friendly_games_delete" on public.friendly_games;
+create policy "friendly_games_read" on public.friendly_games for select to authenticated
+  using (auth.uid() in (player_a, player_b, created_by));
+create policy "friendly_games_insert" on public.friendly_games for insert to authenticated
+  with check (created_by = auth.uid() and player_a = auth.uid());
+create policy "friendly_games_update" on public.friendly_games for update to authenticated
+  using (auth.uid() in (player_a, player_b, created_by)) with check (auth.uid() in (player_a, player_b, created_by));
+create policy "friendly_games_delete" on public.friendly_games for delete to authenticated
+  using (created_by = auth.uid());
+
+-- Same rules as tournament games: a confirmed game is final, the players
+-- can't be swapped, and changing the score clears the confirmations.
+create or replace function public.friendly_games_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or current_setting('play.confirming', true) = 'on' then return new; end if;
+  if old.status = 'confirmed' then raise exception 'Esta partida ya está confirmada.'; end if;
+  if new.created_by <> old.created_by or new.player_a is distinct from old.player_a
+    or (old.player_b is not null and new.player_b is distinct from old.player_b) then
+    raise exception 'No puedes cambiar los jugadores de la partida.';
+  end if;
+  if new.confirmed_a <> old.confirmed_a or new.confirmed_b <> old.confirmed_b or new.status = 'confirmed' then
+    raise exception 'Usa «Confirmar resultado» para cerrar la partida.';
+  end if;
+  if new.setup is distinct from old.setup or new.rounds is distinct from old.rounds or new.vp_a <> old.vp_a or new.vp_b <> old.vp_b then
+    new.confirmed_a := false;
+    new.confirmed_b := false;
+    if old.status = 'submitted' then new.status := 'playing'; end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists friendly_games_guard on public.friendly_games;
+create trigger friendly_games_guard before update on public.friendly_games
+  for each row execute function public.friendly_games_guard();
+
+-- Each player confirms; a rival without an account is confirmed by the creator.
+create or replace function public.friendly_confirm(p_game uuid)
+returns text language plpgsql security definer set search_path = public as $$
+declare
+  g public.friendly_games;
+  v_a boolean;
+  v_b boolean;
+  v_status text;
+begin
+  select * into g from public.friendly_games where id = p_game;
+  if not found or auth.uid() not in (g.player_a, coalesce(g.player_b, g.player_a), g.created_by) then
+    raise exception 'Esa partida no existe.';
+  end if;
+  if g.status = 'confirmed' then return 'confirmed'; end if;
+  v_a := auth.uid() = g.player_a or auth.uid() = g.created_by;
+  v_b := auth.uid() = g.player_b or (g.player_b is null and v_a);
+  perform set_config('play.confirming', 'on', true);
+  update public.friendly_games set confirmed_a = confirmed_a or v_a, confirmed_b = confirmed_b or v_b where id = p_game;
+  update public.friendly_games set status = case when confirmed_a and confirmed_b then 'confirmed' else 'submitted' end
+  where id = p_game returning status into v_status;
+  perform set_config('play.confirming', 'off', true);
+  return v_status;
+end;
+$$;
+
+revoke all on function public.friendly_confirm(uuid) from public, anon;
+grant execute on function public.friendly_confirm(uuid) to authenticated;
+
+create or replace function public.friendly_notify()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_user uuid;
+  v_type text;
+begin
+  if tg_op = 'INSERT' then
+    v_user := new.player_b;
+    v_type := 'friendly_game';
+  else
+    if new.status <> 'submitted' or (old.status = 'submitted' and new.confirmed_a = old.confirmed_a and new.confirmed_b = old.confirmed_b) then
+      return new;
+    end if;
+    v_user := case when new.confirmed_a and not new.confirmed_b then new.player_b when new.confirmed_b and not new.confirmed_a then new.player_a end;
+    v_type := 'friendly_confirm';
+  end if;
+  insert into public.notifications (user_id, actor_id, type, target_type, target_id, excerpt)
+  select v_user, auth.uid(), v_type, 'friendly', new.id,
+    left(trim(both ' ' from concat_ws(' vs ', nullif(new.faction_a, ''), nullif(new.faction_b, ''))), 200)
+  where v_user is not null and v_user is distinct from auth.uid();
+  return new;
+end;
+$$;
+
+drop trigger if exists friendly_notify on public.friendly_games;
+create trigger friendly_notify after insert or update on public.friendly_games
+  for each row execute function public.friendly_notify();
+
 -- Live scores: games and pairings stream to whoever is watching (RLS applies).
 do $$
 declare t text;
 begin
-  foreach t in array array['play_games', 'play_matches', 'play_pairing_picks'] loop
+  foreach t in array array['play_games', 'play_matches', 'play_pairing_picks', 'friendly_games'] loop
     if not exists (
       select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
     ) then

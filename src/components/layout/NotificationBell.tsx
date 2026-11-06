@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/stores";
 import type { AppNotification } from "@/types";
 import { motion } from "framer-motion";
-import { BadgeCheck, BadgeX, Bell, CalendarX, CheckCheck, Dices, Heart, LogOut, MessageSquare, Shield, ShieldCheck, Swords, Trophy, UserCheck, UserPlus, X } from "lucide-react";
+import { BadgeCheck, BadgeX, Bell, CalendarDays, CalendarX, CheckCheck, Dices, Heart, LogOut, MessageSquare, Shield, ShieldCheck, Swords, Trophy, UserCheck, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -25,6 +25,9 @@ const TYPE_ICON = {
   play_payment_ok: { Icon: BadgeCheck, className: "bg-emerald-500" },
   play_payment_rejected: { Icon: BadgeX, className: "bg-rose-500" },
   play_confirm: { Icon: Swords, className: "bg-sky-500" },
+  play_league: { Icon: CalendarDays, className: "bg-amber-500" },
+  friendly_game: { Icon: Dices, className: "bg-primary" },
+  friendly_confirm: { Icon: Swords, className: "bg-sky-500" },
 } as const;
 
 function NotificationRow({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {
@@ -52,7 +55,7 @@ function NotificationRow({ n, onOpen }: { n: AppNotification; onOpen: () => void
             <span className="font-semibold">{name}</span> {notificationText(n)}
           </span>
           {/* Team and game notifications already name it in the sentence. */}
-          {n.excerpt && !n.type.startsWith("team_") && !n.type.startsWith("match_") && !n.type.startsWith("play_") && <span className="mt-0.5 block truncate text-xs text-muted-foreground">«{n.excerpt}»</span>}
+          {n.excerpt && !n.type.startsWith("team_") && !n.type.startsWith("match_") && !n.type.startsWith("play_") && !n.type.startsWith("friendly_") && <span className="mt-0.5 block truncate text-xs text-muted-foreground">«{n.excerpt}»</span>}
           <span className="mt-0.5 block text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</span>
         </span>
       </button>

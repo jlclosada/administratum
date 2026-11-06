@@ -15,22 +15,25 @@ import {
   ENTRY_STATUS_LABEL,
   entryNoun,
   feeLabel,
+  fmtDate,
   fmtDateTime,
   formatSummary,
   listsEditable,
   listsVisible,
   PAIRING_LABEL,
   registrationOpen,
+  roundNoun,
   SCORING_LABEL,
   TEAM_PAIRING_LABEL,
   whereLabel,
 } from "@/lib/play/labels";
 import type { PlayEntryPlayer, PlayList } from "@/lib/play/types";
+import { matchResult } from "@/lib/play/standings";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
 import { ChevronDown, ClipboardCopy, Download, FileText, Loader2, LogOut, Settings, Swords, Trophy, UserPlus, Users } from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 type Tab = "info" | "inscritos" | "listas" | "rondas" | "clasificacion";
@@ -49,6 +52,15 @@ export function PlayTournamentPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("info");
   const [dialog, setDialog] = useState<"register" | "join" | null>(null);
+  const [search, setSearch] = useSearchParams();
+
+  // "?inscribirme=1" (e.g. the organiser signing up from the console) opens the form.
+  useEffect(() => {
+    if (!view || search.get("inscribirme") !== "1") return;
+    setSearch({}, { replace: true });
+    if (registrationOpen(view.tournament) && !view.myEntry) setDialog(user ? "register" : null);
+    if (!user) openAuth("signup");
+  }, [view, search, setSearch, user, openAuth]);
 
   if (view === undefined) {
     return (
@@ -76,17 +88,19 @@ export function PlayTournamentPage() {
   const waitlist = view.entries.filter((e) => e.status === "waitlist");
   const open = registrationOpen(t);
   const requireUser = (fn: () => void) => () => (user ? fn() : openAuth("signup"));
+  // My next game: the first of my matches still open (a league has every round from the start).
   const myGame = (() => {
-    if (!view.myEntry || !view.rounds.length) return null;
-    const last = view.rounds[view.rounds.length - 1]!;
-    const match = view.matches.find((m) => m.roundId === last.id && (m.entryA === view.myEntry!.id || m.entryB === view.myEntry!.id));
-    return match ? { match, round: last } : null;
+    if (!view.myEntry) return null;
+    const mine = view.rounds
+      .map((round) => ({ round, match: view.matches.find((m) => m.roundId === round.id && m.entryB && (m.entryA === view.myEntry!.id || m.entryB === view.myEntry!.id)) }))
+      .filter((x): x is { round: (typeof view.rounds)[number]; match: (typeof view.matches)[number] } => !!x.match);
+    return mine.find((x) => !matchResult(t, x.match, view.games).final) ?? mine[mine.length - 1] ?? null;
   })();
   const tabs: [Tab, string][] = [
     ["info", "Información"],
     ["inscritos", `Inscritos ${registered.length}/${t.maxEntries}`],
     ["listas", "Listas"],
-    ["rondas", `Rondas${view.rounds.length ? ` ${view.rounds.length}/${t.rounds}` : ""}`],
+    ["rondas", `${roundNoun(t, true)}${view.rounds.length ? ` ${view.rounds.length}/${t.rounds}` : ""}`],
     ["clasificacion", "Clasificación"],
   ];
 
@@ -114,7 +128,7 @@ export function PlayTournamentPage() {
           )}
           {myGame && (
             <Button variant="gradient" className="gap-2" onClick={() => navigate(`/torneos/${t.id}/partidas/${myGame.match.id}`)}>
-              <Swords className="h-4 w-4" /> Mi partida · Ronda {myGame.round.number}
+              <Swords className="h-4 w-4" /> Mi partida · {roundNoun(t)} {myGame.round.number}
             </Button>
           )}
         </PlayHeader>
@@ -181,7 +195,9 @@ function InfoTab({ view }: { view: PlayView }) {
   const t = view.tournament;
   const facts: [string, string][] = [
     ["Formato", `${formatSummary(t)} · ${t.pointsLimit} puntos`],
-    ["Rondas", `${t.rounds} · ${PAIRING_LABEL[t.pairingSystem]}`],
+    t.pairingSystem === "league"
+      ? ["Liga", `Todos contra todos ${t.leagueDouble ? "a ida y vuelta" : "a una vuelta"} · jornadas de ${t.roundDays} días`]
+      : ["Rondas", `${t.rounds} · ${PAIRING_LABEL[t.pairingSystem]}`],
     ...(t.teamSize > 1
       ? ([
           ["Cruces", TEAM_PAIRING_LABEL[t.teamPairing]],
@@ -316,12 +332,14 @@ function RoundsTab({ view }: { view: PlayView }) {
   }
   return (
     <div className="space-y-6">
-      {[...view.rounds].reverse().map((round) => (
+      {(view.tournament.pairingSystem === "league" ? view.rounds : [...view.rounds].reverse()).map((round) => (
         <section key={round.id} className="space-y-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-display text-lg font-bold">Ronda {round.number}</h2>
+            <h2 className="font-display text-lg font-bold">
+              {roundNoun(view.tournament)} {round.number}
+            </h2>
             <span className="text-xs text-muted-foreground">
-              {[round.deployment, round.layout && `Layout ${round.layout}`].filter(Boolean).join(" · ")}
+              {[round.deadline && `Hasta el ${fmtDate(round.deadline)}`, round.deployment, round.layout && `Layout ${round.layout}`].filter(Boolean).join(" · ")}
               {round.status === "finished" ? " · Terminada" : " · En juego"}
             </span>
           </div>
@@ -389,7 +407,7 @@ function MyEntryPanel({ view, onChange }: { view: PlayView; onChange: () => void
             >
               {ENTRY_STATUS_LABEL[entry.status]}
             </span>
-            {payment && <PaymentPill status={payment.status} />}
+            {payment && t.entryFee > 0 && <PaymentPill status={payment.status} />}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
