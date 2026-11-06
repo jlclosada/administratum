@@ -148,7 +148,11 @@ export type NotificationType =
   | 'match_joined'
   | 'match_left'
   | 'match_cancelled'
-  | 'match_invite';
+  | 'match_invite'
+  | 'play_round'
+  | 'play_payment_ok'
+  | 'play_payment_rejected'
+  | 'play_confirm';
 
 /** In-app notification, written by database triggers for the recipient. */
 export interface AppNotification {
@@ -157,8 +161,10 @@ export interface AppNotification {
   actorId: string | null;
   type: NotificationType;
   /** What the notification links to. */
-  targetType: 'article' | 'guide' | 'photo' | 'list' | 'team' | 'match' | null;
+  targetType: 'article' | 'guide' | 'photo' | 'list' | 'team' | 'match' | 'tournament' | null;
   targetId: string | null;
+  /** Tournament notifications: the match or game (targetId is the tournament). */
+  entityId?: string | null;
   /** Title of the liked item, or the text of the comment. */
   excerpt: string;
   readAt: string | null;

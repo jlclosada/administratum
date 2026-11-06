@@ -2,6 +2,7 @@ import { useFactions } from "@/components/matrix/factions";
 import { FactionAvatar } from "@/components/matrix/MatrixParts";
 import { ScoreStep, SummaryStep } from "@/components/matrix/MatrixSteps";
 import { ListView } from "@/components/play/PlayBits";
+import { WtcPairing } from "@/components/play/WtcPairing";
 import { usePlayData, type PlayView } from "@/components/play/usePlayData";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Seo } from "@/components/shared/Seo";
@@ -71,6 +72,9 @@ function TeamMatch({ view, match, reload }: { view: PlayView; match: PlayMatch; 
   const isCaptain = !!user && (a.captainId === user.id || b.captainId === user.id);
   const canPair = (organizer || isCaptain) && games.every((g) => g.status === "setup");
   const [editingPairs, setEditingPairs] = useState(false);
+  // WTC pairing in the app, unless the organiser sets the games by hand.
+  const [manual, setManual] = useState(false);
+  const wtc = t.teamPairing === "wtc" && t.teamSize >= 3 && !manual && !editingPairs;
 
   return (
     <PageTransition>
@@ -116,9 +120,20 @@ function TeamMatch({ view, match, reload }: { view: PlayView; match: PlayMatch; 
               </Button>
             )}
           </div>
+          {games.length === 0 && wtc && (
+            <>
+              <WtcPairing view={view} match={match} mine={mySide} onDone={reload} />
+              {organizer && (
+                <button type="button" onClick={() => setManual(true)} className="text-xs text-muted-foreground underline">
+                  Fijar los cruces a mano (organización)
+                </button>
+              )}
+            </>
+          )}
           {(games.length === 0 || editingPairs) &&
+            !(games.length === 0 && wtc) &&
             (canPair ? (
-              <PairingForm view={view} match={match} mine={mySide} onDone={() => (setEditingPairs(false), reload())} />
+              <PairingForm view={view} match={match} mine={mySide} onDone={() => (setEditingPairs(false), setManual(false), reload())} />
             ) : (
               <p className="rounded-2xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
                 Los capitanes aún no han fijado los cruces de esta ronda.

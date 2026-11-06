@@ -137,3 +137,29 @@ describe("labels", async () => {
     expect(listsVisible({ status: "closed", listsPublic: false, listDeadline: "2026-11-01T00:00:00Z" }, now)).toBe(true);
   });
 });
+
+describe("CSV export", async () => {
+  const { toCsv, standingsCsv, gamesCsv, csvName } = await import("./exportCsv");
+  const t = { id: "t", name: "Copa Ñandú 2027", teamSize: 1, scoring: "wtc" } as never;
+  const entries = ["A", "B"].map(entry);
+  const players = [
+    { id: "pa", entryId: "A", tournamentId: "t", userId: null, displayName: "Ana", faction: "Orks", position: 0, createdAt: "" },
+    { id: "pb", entryId: "B", tournamentId: "t", userId: null, displayName: "Bea; la mejor", faction: "Necrons", position: 0, createdAt: "" },
+  ];
+  const matches = [match("m1", "A", "B")];
+  const games = [{ ...game("m1", 70, 60), playerA: "pa", playerB: "pb" }];
+  const rounds = [{ id: "r1", tournamentId: "t", number: 1, status: "playing" as const, deployment: "", layout: "", notes: "", createdAt: "" }];
+  const data = { tournament: t, entries, players, payments: [], lists: [], rounds, matches, games, table: standings(t, entries, matches, games) };
+
+  it("writes Excel-friendly CSV: BOM, semicolons, quoted cells", () => {
+    expect(toCsv([["a", 'b"c', "x;y"]])).toBe('﻿a;"b""c";"x;y"\r\n');
+  });
+
+  it("exports standings and every game", () => {
+    const s = standingsCsv(data).split("\r\n");
+    expect(s[1]).toBe("1;A;Orks;2;1;0;0;70;60;10;0");
+    const g = gamesCsv(data).split("\r\n");
+    expect(g[1]).toBe('1;1;A;Ana;Orks;70;60;Necrons;"Bea; la mejor";B;;;Confirmada');
+    expect(csvName(t, "clasificacion")).toBe("copa-nandu-2027-clasificacion.csv");
+  });
+});

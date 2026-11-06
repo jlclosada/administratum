@@ -63,6 +63,15 @@ export function usePlayData(tournamentId: string | undefined) {
     load();
   }, [load]);
 
+  // Fallback for flaky Realtime: while games are on, refresh every 20 s
+  // when the page is visible.
+  const live = data?.tournament.status === "in_progress";
+  useEffect(() => {
+    if (!live) return;
+    const id = setInterval(() => document.visibilityState === "visible" && load(), 20_000);
+    return () => clearInterval(id);
+  }, [live, load]);
+
   useEffect(() => {
     if (!tournamentId) return;
     let timer: ReturnType<typeof setTimeout> | undefined;

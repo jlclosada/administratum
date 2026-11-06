@@ -2942,7 +2942,8 @@ alter table public.notifications drop constraint if exists notifications_type_ch
 alter table public.notifications add constraint notifications_type_check
   check (type in (
     'friend_request', 'friend_accepted', 'like', 'comment', 'comment_like',
-    'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled', 'match_invite'
+    'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled', 'match_invite',
+    'play_round', 'play_payment_ok', 'play_payment_rejected', 'play_confirm'
   ));
 
 create or replace function public.notify_team_invitation()
@@ -3416,6 +3417,9 @@ create table if not exists public.play_games (
 
 create index if not exists play_games_match_idx on public.play_games (match_id, table_no);
 create index if not exists play_games_tournament_idx on public.play_games (tournament_id);
+-- A player plays once per match (also stops two captains creating the games twice).
+create unique index if not exists play_games_player_a_once on public.play_games (match_id, player_a) where player_a is not null;
+create unique index if not exists play_games_player_b_once on public.play_games (match_id, player_b) where player_b is not null;
 
 -- Each team's matrix for a match: secret from the other team (and the organiser).
 create table if not exists public.play_match_matrices (
@@ -3921,11 +3925,171 @@ begin
   end loop;
 end $$;
 
+-- ---------------------------------------------------------------- WTC pairing
+
+-- The in-app WTC pairing of a team match. Each step, both teams pick in
+-- secret (defender, then two attackers, then which attacker each defender
+-- plays); a pick becomes visible to the other team only once both teams
+-- have made theirs.
+create table if not exists public.play_pairing_picks (
+  match_id uuid not null references public.play_matches (id) on delete cascade,
+  entry_id uuid not null references public.play_entries (id) on delete cascade,
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  step integer not null check (step between 0 and 8),
+  kind text not null check (kind in ('defender', 'attackers', 'choice')),
+  players uuid[] not null check (array_length(players, 1) between 1 and 2),
+  created_at timestamptz not null default now(),
+  primary key (match_id, entry_id, step, kind)
+);
+
+create or replace function public.play_pick_revealed(p_match uuid, p_step integer, p_kind text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select count(distinct entry_id) = 2 from public.play_pairing_picks where match_id = p_match and step = p_step and kind = p_kind
+$$;
+
+alter table public.play_pairing_picks enable row level security;
+drop policy if exists "play_pairing_picks_read" on public.play_pairing_picks;
+drop policy if exists "play_pairing_picks_reset" on public.play_pairing_picks;
+create policy "play_pairing_picks_read" on public.play_pairing_picks for select to anon, authenticated
+  using (
+    public.play_is_entry_member(entry_id)
+    or (public.play_is_visible(tournament_id) and public.play_pick_revealed(match_id, step, kind))
+  );
+-- The organiser can start a pairing over.
+create policy "play_pairing_picks_reset" on public.play_pairing_picks for delete to authenticated
+  using (public.play_is_organizer(tournament_id));
+
+-- A captain's secret pick. Defender and attackers are their own players;
+-- the choice is one of the attackers the other team offered.
+create or replace function public.play_submit_pick(p_match uuid, p_step integer, p_kind text, p_players uuid[])
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  m public.play_matches;
+  v_entry uuid;
+  v_other uuid;
+  v_owner uuid;
+  p uuid;
+begin
+  select * into m from public.play_matches where id = p_match;
+  if not found or m.entry_b is null then raise exception 'Ese enfrentamiento no existe.'; end if;
+  if public.play_is_entry_captain(m.entry_a) then v_entry := m.entry_a; v_other := m.entry_b;
+  elsif public.play_is_entry_captain(m.entry_b) then v_entry := m.entry_b; v_other := m.entry_a;
+  else raise exception 'Solo los capitanes eligen en el emparejamiento.';
+  end if;
+  if exists (select 1 from public.play_games where match_id = p_match) then
+    raise exception 'Los cruces de este enfrentamiento ya están fijados.';
+  end if;
+  -- One phase at a time: the previous one must be revealed.
+  if p_kind = 'attackers' and not public.play_pick_revealed(p_match, p_step, 'defender') then
+    raise exception 'Espera a que se revelen los defensores.';
+  elsif p_kind = 'choice' and not public.play_pick_revealed(p_match, p_step, 'attackers') then
+    raise exception 'Espera a que se revelen los atacantes.';
+  elsif p_kind = 'defender' and p_step > 0 and not public.play_pick_revealed(p_match, p_step - 1, 'choice') then
+    raise exception 'Espera a que termine el paso anterior.';
+  end if;
+  if exists (select 1 from public.play_pairing_picks where match_id = p_match and entry_id = v_entry and step = p_step and kind = p_kind) then
+    raise exception 'Ya has elegido en este paso.';
+  end if;
+  v_owner := case when p_kind = 'choice' then v_other else v_entry end;
+  foreach p in array p_players loop
+    if not exists (select 1 from public.play_entry_players where id = p and entry_id = v_owner) then
+      raise exception 'Ese jugador no puede elegirse aquí.';
+    end if;
+  end loop;
+  if (p_kind = 'attackers') <> (array_length(p_players, 1) = 2) then
+    raise exception 'Se eligen dos atacantes, y un solo defensor o atacante rival.';
+  end if;
+  insert into public.play_pairing_picks (match_id, entry_id, tournament_id, step, kind, players)
+  values (p_match, v_entry, m.tournament_id, p_step, p_kind, p_players);
+end;
+$$;
+
+revoke all on function public.play_submit_pick(uuid, integer, text, uuid[]) from public, anon;
+grant execute on function public.play_submit_pick(uuid, integer, text, uuid[]) to authenticated;
+
+-- ---------------------------------------------------------------- notifications
+
+create or replace function public.play_notify(p_user uuid, p_type text, p_tournament uuid, p_entity uuid, p_excerpt text)
+returns void language sql security definer set search_path = public as $$
+  insert into public.notifications (user_id, actor_id, type, target_type, target_id, entity_id, excerpt)
+  select p_user, auth.uid(), p_type, 'tournament', p_tournament, p_entity, left(coalesce(p_excerpt, ''), 200)
+  where p_user is not null and p_user is distinct from auth.uid()
+$$;
+revoke all on function public.play_notify(uuid, text, uuid, uuid, text) from public, anon, authenticated;
+
+-- Payment reviewed: tell the captain.
+create or replace function public.play_payment_notify()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_captain uuid;
+  v_name text;
+begin
+  if new.status is not distinct from old.status or new.status not in ('paid', 'rejected') then return new; end if;
+  select e.captain_id, t.name into v_captain, v_name
+    from public.play_entries e join public.play_tournaments t on t.id = e.tournament_id where e.id = new.entry_id;
+  perform public.play_notify(v_captain, case when new.status = 'paid' then 'play_payment_ok' else 'play_payment_rejected' end, new.tournament_id, new.entry_id, v_name);
+  return new;
+end;
+$$;
+
+drop trigger if exists play_payment_notify on public.play_entry_payments;
+create trigger play_payment_notify after update on public.play_entry_payments
+  for each row execute function public.play_payment_notify();
+
+-- A round is published: every player gets a link to their match.
+create or replace function public.play_round_notify()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_round integer;
+  v_name text;
+begin
+  select r.number, t.name into v_round, v_name
+    from public.play_rounds r join public.play_tournaments t on t.id = r.tournament_id where r.id = new.round_id;
+  perform public.play_notify(u.user_id, 'play_round', new.tournament_id, new.id, format('%s de %s', v_round, v_name))
+  from (
+    select distinct coalesce(p.user_id, e.captain_id) as user_id
+    from public.play_entries e left join public.play_entry_players p on p.entry_id = e.id
+    where e.id in (new.entry_a, new.entry_b)
+  ) u;
+  return new;
+end;
+$$;
+
+drop trigger if exists play_round_notify on public.play_matches;
+create trigger play_round_notify after insert on public.play_matches
+  for each row execute function public.play_round_notify();
+
+-- One side confirmed a result: ask the other side to confirm it too.
+create or replace function public.play_confirm_notify()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_user uuid;
+  v_name text;
+begin
+  -- play_confirm_game() sets the flags first and the status after.
+  if new.status <> 'submitted' or (old.status = 'submitted' and new.confirmed_a = old.confirmed_a and new.confirmed_b = old.confirmed_b) then
+    return new;
+  end if;
+  select t.name into v_name from public.play_tournaments t where t.id = new.tournament_id;
+  if new.confirmed_a and not new.confirmed_b then
+    select coalesce(p.user_id, e.captain_id) into v_user from public.play_entry_players p join public.play_entries e on e.id = p.entry_id where p.id = new.player_b;
+  elsif new.confirmed_b and not new.confirmed_a then
+    select coalesce(p.user_id, e.captain_id) into v_user from public.play_entry_players p join public.play_entries e on e.id = p.entry_id where p.id = new.player_a;
+  end if;
+  perform public.play_notify(v_user, 'play_confirm', new.tournament_id, new.id, v_name);
+  return new;
+end;
+$$;
+
+drop trigger if exists play_confirm_notify on public.play_games;
+create trigger play_confirm_notify after update on public.play_games
+  for each row execute function public.play_confirm_notify();
+
 -- Live scores: games and pairings stream to whoever is watching (RLS applies).
 do $$
 declare t text;
 begin
-  foreach t in array array['play_games', 'play_matches'] loop
+  foreach t in array array['play_games', 'play_matches', 'play_pairing_picks'] loop
     if not exists (
       select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
     ) then

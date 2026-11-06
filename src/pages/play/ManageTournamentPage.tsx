@@ -23,13 +23,14 @@ import {
 import { useIsAdmin } from "@/lib/admin";
 import { copyText } from "@/lib/clipboard";
 import { DEPLOYMENTS, LAYOUTS } from "@/lib/play/missions";
+import { csvName, downloadCsv, entriesCsv, gamesCsv, standingsCsv } from "@/lib/play/exportCsv";
 import { ENTRY_STATUS_LABEL, entryNoun, listsVisible } from "@/lib/play/labels";
 import { matchResult } from "@/lib/play/standings";
 import { shuffle, swissPairings, type Pairing } from "@/lib/play/swiss";
 import type { PaymentStatus, PlayEntry, PlayStatus } from "@/lib/play/types";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
-import { ArrowLeft, ClipboardCopy, Eye, Loader2, Pencil, Plus, Shuffle, Trash2, UserPlus } from "lucide-react";
+import { ArrowLeft, ClipboardCopy, Download, Eye, Loader2, Pencil, Plus, Shuffle, Trash2, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -228,6 +229,24 @@ function PanelTab({ view, reload, goRounds }: { view: PlayView; reload: () => vo
           {t.status === "finished" && "Torneo terminado. La clasificación queda publicada."}
           {t.status === "cancelled" && "Torneo cancelado."}
         </p>
+      </section>
+
+      <section className="space-y-3 rounded-3xl border border-border/60 bg-card/30 p-4 sm:p-6">
+        <h2 className="font-display text-lg font-bold">Exportar</h2>
+        <p className="text-sm text-muted-foreground">Archivos CSV que se abren en Excel o Google Sheets.</p>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["Clasificación", "clasificacion", standingsCsv],
+              ["Partidas y resultados", "partidas", gamesCsv],
+              ["Inscripciones y pagos", "inscripciones", entriesCsv],
+            ] as const
+          ).map(([label, file, make]) => (
+            <Button key={file} variant="outline" className="gap-2" onClick={() => downloadCsv(csvName(t, file), make(view))}>
+              <Download className="h-4 w-4" /> {label}
+            </Button>
+          ))}
+        </div>
       </section>
     </div>
   );

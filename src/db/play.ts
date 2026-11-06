@@ -11,6 +11,7 @@ import type {
   EntryStatus,
 } from '@/lib/play/types';
 import { getSessionUser, supabase } from '@/lib/supabase';
+import type { PairingPick, PickKind } from '@/lib/play/wtc';
 import { mapRow, mapRows } from './repository';
 
 // Tournaments organised in Administratum (play_* tables, see schema.sql).
@@ -310,6 +311,7 @@ export function subscribeToPlay(tournamentId: string, onChange: () => void): () 
     .channel(`play:${tournamentId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'play_games', filter: `tournament_id=eq.${tournamentId}` }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'play_matches', filter: `tournament_id=eq.${tournamentId}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'play_pairing_picks', filter: `tournament_id=eq.${tournamentId}` }, onChange)
     .subscribe();
   return () => {
     supabase.removeChannel(channel);
@@ -325,5 +327,25 @@ export async function getMatchMatrix(matchId: string, entryId: string): Promise<
 
 export async function saveMatchMatrix(matchId: string, entryId: string, data: unknown): Promise<void> {
   const { error } = await supabase.from('play_match_matrices').upsert({ match_id: matchId, entry_id: entryId, data });
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------- WTC pairing
+
+/** Our picks, and the other team's once revealed (RLS keeps them secret until then). */
+export async function getPairingPicks(matchId: string): Promise<PairingPick[]> {
+  const { data, error } = await supabase.from('play_pairing_picks').select('entry_id,step,kind,players').eq('match_id', matchId);
+  if (error) return [];
+  return (data ?? []).map((r) => ({ entryId: r.entry_id as string, step: r.step as number, kind: r.kind as PickKind, players: r.players as string[] }));
+}
+
+export async function submitPairingPick(matchId: string, step: number, kind: PickKind, players: string[]): Promise<void> {
+  const { error } = await supabase.rpc('play_submit_pick', { p_match: matchId, p_step: step, p_kind: kind, p_players: players });
+  if (error) throw error;
+}
+
+/** Organiser: start the pairing of a match over. */
+export async function resetPairing(matchId: string): Promise<void> {
+  const { error } = await supabase.from('play_pairing_picks').delete().eq('match_id', matchId);
   if (error) throw error;
 }

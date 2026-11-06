@@ -7,6 +7,7 @@ import { PageTransition } from "@/components/shared/PageTransition";
 import { Seo } from "@/components/shared/Seo";
 import { Button } from "@/components/ui/button";
 import { leavePlayEntry, updatePlayEntry } from "@/db";
+import { csvName, downloadCsv, gamesCsv, standingsCsv } from "@/lib/play/exportCsv";
 import { useIsAdmin } from "@/lib/admin";
 import { copyText } from "@/lib/clipboard";
 import {
@@ -27,7 +28,7 @@ import {
 import type { PlayEntryPlayer, PlayList } from "@/lib/play/types";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores";
-import { ChevronDown, ClipboardCopy, FileText, Loader2, LogOut, Settings, Swords, Trophy, UserPlus, Users } from "lucide-react";
+import { ChevronDown, ClipboardCopy, Download, FileText, Loader2, LogOut, Settings, Swords, Trophy, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -151,7 +152,21 @@ export function PlayTournamentPage() {
         )}
         {tab === "listas" && <ListsTab view={view} />}
         {tab === "rondas" && <RoundsTab view={view} />}
-        {tab === "clasificacion" && <StandingsTable view={view} />}
+        {tab === "clasificacion" && (
+          <div className="space-y-4">
+            <StandingsTable view={view} />
+            {view.table.some((r) => r.played) && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => downloadCsv(csvName(t, "clasificacion"), standingsCsv(view))}>
+                  <Download className="h-3.5 w-3.5" /> Clasificación (CSV)
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => downloadCsv(csvName(t, "partidas"), gamesCsv(view))}>
+                  <Download className="h-3.5 w-3.5" /> Partidas (CSV)
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {dialog === "register" && (
