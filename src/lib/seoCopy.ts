@@ -41,7 +41,19 @@ export const SEO_MATCHES: SeoCopy = {
 export const SEO_COMPETITIVO: SeoCopy = {
   title: "Torneos de Warhammer 40K en España y listas competitivas",
   description:
-    "Calendario de torneos de Warhammer 40K en España con sus bases, fechas y plazas, y las listas de ejército que están marcando el meta.",
+    "Organiza tu torneo de Warhammer 40K con inscripciones, pagos y emparejamientos suizos, inscríbete en torneos en España, prepara las matrices de tu equipo y descubre las listas del meta.",
+};
+
+export const SEO_TORNEOS: SeoCopy = {
+  title: "Calendario de torneos de Warhammer 40K en España",
+  description:
+    "Todos los torneos de Warhammer 40K en España: individuales, por parejas y por equipos, con fechas, plazas, precio y bases. Inscríbete en los que se organizan en Administratum.",
+};
+
+export const SEO_ORGANIZAR: SeoCopy = {
+  title: "Organiza tu torneo de Warhammer 40K gratis",
+  description:
+    "Crea y gestiona torneos de Warhammer 40K para tu tienda o club: inscripciones individuales, por parejas o por equipos, validación de pagos, listas, rondas suizas, partidas con puntuación de 11ª edición y clasificación en directo.",
 };
 
 export const SEO_COMUNIDAD: SeoCopy = {

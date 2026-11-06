@@ -2942,7 +2942,8 @@ alter table public.notifications drop constraint if exists notifications_type_ch
 alter table public.notifications add constraint notifications_type_check
   check (type in (
     'friend_request', 'friend_accepted', 'like', 'comment', 'comment_like',
-    'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled', 'match_invite'
+    'team_invite', 'team_joined', 'match_joined', 'match_left', 'match_cancelled', 'match_invite',
+    'play_round', 'play_payment_ok', 'play_payment_rejected', 'play_confirm'
   ));
 
 create or replace function public.notify_team_invitation()
@@ -3252,6 +3253,871 @@ create unique index if not exists email_signups_token_key on public.email_signup
 create index if not exists idx_email_signups_ip on public.email_signups (ip_hash, created_at);
 
 alter table public.email_signups enable row level security;
+
+-- ============================================================
+-- Hosted tournaments (/torneos/:id): organised in Administratum
+-- ============================================================
+-- Stores, clubs and organisers run their own events here, BCP-style:
+-- configuration, registration with payment validation, army lists, Swiss
+-- rounds, team-vs-team matches with a secret matrix per team, and every
+-- individual game scored turn by turn. Separate from public.tournaments,
+-- which is the curated calendar of events run elsewhere.
+
+create table if not exists public.play_tournaments (
+  id uuid primary key default gen_random_uuid(),
+  organizer_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  organizer_name text not null default '' check (char_length(organizer_name) <= 80),
+  name text not null check (char_length(trim(name)) between 3 and 100),
+  description text not null default '' check (char_length(description) <= 2000),
+  rules text not null default '' check (char_length(rules) <= 20000),
+  cover_image text,
+  -- singles: 1 player per entry; doubles: 2; teams: 3-8.
+  format text not null default 'singles' check (format in ('singles', 'doubles', 'teams')),
+  team_size integer not null default 1 check (team_size between 1 and 8),
+  points_limit integer not null default 2000 check (points_limit between 500 and 5000),
+  rounds integer not null default 3 check (rounds between 1 and 12),
+  pairing_system text not null default 'swiss' check (pairing_system in ('swiss', 'manual')),
+  -- Team events: how the games inside a match are paired, and how a match is won.
+  team_pairing text not null default 'wtc' check (team_pairing in ('wtc', 'free')),
+  scoring text not null default 'wtc' check (scoring in ('wtc', 'wins')),
+  unique_factions boolean not null default true,
+  max_entries integer not null default 16 check (max_entries between 2 and 512),
+  location_type text not null default 'presencial' check (location_type in ('presencial', 'online')),
+  venue_name text not null default '' check (char_length(venue_name) <= 120),
+  address text not null default '' check (char_length(address) <= 200),
+  city text not null default '' check (char_length(city) <= 80),
+  online_platform text not null default '' check (char_length(online_platform) <= 80),
+  -- Per player; a team pays entry_fee * team_size.
+  entry_fee numeric(8, 2) not null default 0 check (entry_fee >= 0 and entry_fee <= 10000),
+  payment_info text not null default '' check (char_length(payment_info) <= 1000),
+  starts_on date not null,
+  ends_on date,
+  start_time time,
+  registration_deadline timestamptz,
+  list_deadline timestamptz,
+  mission_pack text not null default 'Chapter Approved 2026-27' check (char_length(mission_pack) <= 120),
+  status text not null default 'draft'
+    check (status in ('draft', 'open', 'closed', 'in_progress', 'finished', 'cancelled')),
+  lists_public boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint play_tournaments_dates check (ends_on is null or ends_on >= starts_on),
+  constraint play_tournaments_team_size check (
+    (format = 'singles' and team_size = 1) or (format = 'doubles' and team_size = 2) or (format = 'teams' and team_size between 3 and 8)
+  )
+);
+
+create index if not exists play_tournaments_organizer_idx on public.play_tournaments (organizer_id, created_at desc);
+create index if not exists play_tournaments_public_idx on public.play_tournaments (starts_on) where status <> 'draft';
+
+create table if not exists public.play_entries (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  name text not null check (char_length(trim(name)) between 1 and 60),
+  -- The Administratum team it comes from, if any.
+  team_id uuid references public.teams (id) on delete set null,
+  captain_id uuid default auth.uid() references auth.users (id) on delete set null,
+  status text not null default 'registered' check (status in ('registered', 'waitlist', 'withdrawn')),
+  dropped boolean not null default false,
+  -- Lets teammates join a team entry on their own.
+  join_code text not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6)),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists play_entries_tournament_idx on public.play_entries (tournament_id, created_at);
+create index if not exists play_entries_captain_idx on public.play_entries (captain_id);
+
+create table if not exists public.play_entry_players (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.play_entries (id) on delete cascade,
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  -- null for walk-ins the organiser adds without an account.
+  user_id uuid references auth.users (id) on delete set null,
+  display_name text not null check (char_length(trim(display_name)) between 1 and 60),
+  faction text not null default '' check (char_length(faction) <= 80),
+  position integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (tournament_id, user_id)
+);
+
+create index if not exists play_entry_players_entry_idx on public.play_entry_players (entry_id, position);
+create index if not exists play_entry_players_user_idx on public.play_entry_players (user_id);
+
+-- Payment details stay between the entry and the organiser.
+create table if not exists public.play_entry_payments (
+  entry_id uuid primary key references public.play_entries (id) on delete cascade,
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'submitted', 'paid', 'waived', 'rejected')),
+  reference text not null default '' check (char_length(reference) <= 200),
+  receipt_path text,
+  organizer_note text not null default '' check (char_length(organizer_note) <= 500),
+  reviewed_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.play_lists (
+  entry_player_id uuid primary key references public.play_entry_players (id) on delete cascade,
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  entry_id uuid not null references public.play_entries (id) on delete cascade,
+  faction text not null default '' check (char_length(faction) <= 80),
+  detachment text not null default '' check (char_length(detachment) <= 120),
+  list_text text not null check (char_length(list_text) between 1 and 20000),
+  submitted_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.play_rounds (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  number integer not null check (number between 1 and 12),
+  status text not null default 'playing' check (status in ('playing', 'finished')),
+  -- Optional, when the organiser fixes them for the whole round.
+  deployment text not null default '' check (char_length(deployment) <= 60),
+  layout text not null default '' check (char_length(layout) <= 60),
+  notes text not null default '' check (char_length(notes) <= 1000),
+  created_at timestamptz not null default now(),
+  unique (tournament_id, number)
+);
+
+create table if not exists public.play_matches (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  round_id uuid not null references public.play_rounds (id) on delete cascade,
+  table_no integer not null default 1,
+  entry_a uuid not null references public.play_entries (id) on delete cascade,
+  -- null: entry_a has a bye.
+  entry_b uuid references public.play_entries (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint play_matches_distinct check (entry_b is null or entry_b <> entry_a)
+);
+
+create index if not exists play_matches_round_idx on public.play_matches (round_id, table_no);
+create index if not exists play_matches_tournament_idx on public.play_matches (tournament_id);
+
+create table if not exists public.play_games (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references public.play_matches (id) on delete cascade,
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  table_no integer not null default 1,
+  player_a uuid references public.play_entry_players (id) on delete set null,
+  player_b uuid references public.play_entry_players (id) on delete set null,
+  status text not null default 'setup' check (status in ('setup', 'playing', 'submitted', 'confirmed')),
+  -- Detachments, dispositions, deployment, layout, twist, attacker, first turn.
+  setup jsonb not null default '{}'::jsonb,
+  -- Five battle rounds of primary and secondary scoring per player.
+  rounds jsonb not null default '[]'::jsonb,
+  vp_a integer not null default 0 check (vp_a between 0 and 200),
+  vp_b integer not null default 0 check (vp_b between 0 and 200),
+  confirmed_a boolean not null default false,
+  confirmed_b boolean not null default false,
+  updated_at timestamptz not null default now(),
+  constraint play_games_size check (pg_column_size(setup) + pg_column_size(rounds) < 30000)
+);
+
+create index if not exists play_games_match_idx on public.play_games (match_id, table_no);
+create index if not exists play_games_tournament_idx on public.play_games (tournament_id);
+-- A player plays once per match (also stops two captains creating the games twice).
+create unique index if not exists play_games_player_a_once on public.play_games (match_id, player_a) where player_a is not null;
+create unique index if not exists play_games_player_b_once on public.play_games (match_id, player_b) where player_b is not null;
+
+-- Each team's matrix for a match: secret from the other team (and the organiser).
+create table if not exists public.play_match_matrices (
+  match_id uuid not null references public.play_matches (id) on delete cascade,
+  entry_id uuid not null references public.play_entries (id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (match_id, entry_id),
+  constraint play_match_matrices_size check (pg_column_size(data) < 20000)
+);
+
+do $$
+declare t text;
+begin
+  foreach t in array array['play_tournaments', 'play_entries', 'play_entry_payments', 'play_lists', 'play_games', 'play_match_matrices'] loop
+    execute format('drop trigger if exists set_updated_at on public.%I;', t);
+    execute format('create trigger set_updated_at before update on public.%I for each row execute function public.set_updated_at();', t);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------- helpers
+
+create or replace function public.play_is_organizer(p_tournament uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.play_tournaments where id = p_tournament and organizer_id = auth.uid())
+    or public.is_admin()
+$$;
+
+create or replace function public.play_is_visible(p_tournament uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.play_tournaments where id = p_tournament and (status <> 'draft' or organizer_id = auth.uid()))
+    or public.is_admin()
+$$;
+
+-- Captain or player of an entry.
+create or replace function public.play_is_entry_member(p_entry uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select auth.uid() is not null and (
+    exists (select 1 from public.play_entries where id = p_entry and captain_id = auth.uid())
+    or exists (select 1 from public.play_entry_players where entry_id = p_entry and user_id = auth.uid())
+  )
+$$;
+
+create or replace function public.play_is_entry_captain(p_entry uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select auth.uid() is not null and exists (select 1 from public.play_entries where id = p_entry and captain_id = auth.uid())
+$$;
+
+-- Army lists are public once the organiser publishes them or the deadline passes.
+create or replace function public.play_lists_open(p_tournament uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.play_tournaments
+    where id = p_tournament and status <> 'draft'
+      and (lists_public or (list_deadline is not null and now() > list_deadline) or status in ('in_progress', 'finished'))
+  )
+$$;
+
+-- Players (or their captains) of either side, and the organiser.
+create or replace function public.play_can_edit_game(p_game uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+    from public.play_games g
+    left join public.play_entry_players pa on pa.id = g.player_a
+    left join public.play_entry_players pb on pb.id = g.player_b
+    where g.id = p_game and (
+      public.play_is_organizer(g.tournament_id)
+      or pa.user_id = auth.uid() or pb.user_id = auth.uid()
+      or public.play_is_entry_captain(pa.entry_id) or public.play_is_entry_captain(pb.entry_id)
+    )
+  )
+$$;
+
+-- Registration is open: published, accepting entries, before the deadline.
+create or replace function public.play_registration_open(p_tournament uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.play_tournaments
+    where id = p_tournament and status = 'open' and (registration_deadline is null or now() < registration_deadline)
+  )
+$$;
+
+-- ---------------------------------------------------------------- RLS
+
+alter table public.play_tournaments enable row level security;
+alter table public.play_entries enable row level security;
+alter table public.play_entry_players enable row level security;
+alter table public.play_entry_payments enable row level security;
+alter table public.play_lists enable row level security;
+alter table public.play_rounds enable row level security;
+alter table public.play_matches enable row level security;
+alter table public.play_games enable row level security;
+alter table public.play_match_matrices enable row level security;
+
+drop policy if exists "play_tournaments_read" on public.play_tournaments;
+drop policy if exists "play_tournaments_insert" on public.play_tournaments;
+drop policy if exists "play_tournaments_update" on public.play_tournaments;
+drop policy if exists "play_tournaments_delete" on public.play_tournaments;
+create policy "play_tournaments_read" on public.play_tournaments for select to anon, authenticated
+  using (status <> 'draft' or organizer_id = auth.uid() or public.is_admin());
+create policy "play_tournaments_insert" on public.play_tournaments for insert to authenticated
+  with check (organizer_id = auth.uid());
+create policy "play_tournaments_update" on public.play_tournaments for update to authenticated
+  using (organizer_id = auth.uid() or public.is_admin()) with check (organizer_id = auth.uid() or public.is_admin());
+create policy "play_tournaments_delete" on public.play_tournaments for delete to authenticated
+  using (organizer_id = auth.uid() or public.is_admin());
+
+-- Entries, players, rounds, matches and games: public with the tournament;
+-- the organiser manages them directly, players go through the functions below.
+do $$
+declare t text;
+begin
+  foreach t in array array['play_entries', 'play_entry_players', 'play_rounds', 'play_matches', 'play_games'] loop
+    execute format('drop policy if exists "%s_read" on public.%I;', t, t);
+    execute format('drop policy if exists "%s_organizer" on public.%I;', t, t);
+    execute format('create policy "%s_read" on public.%I for select to anon, authenticated using (public.play_is_visible(tournament_id));', t, t);
+    execute format('create policy "%s_organizer" on public.%I for all to authenticated using (public.play_is_organizer(tournament_id)) with check (public.play_is_organizer(tournament_id));', t, t);
+  end loop;
+end $$;
+
+-- Players and captains score their own games (the trigger below guards the rest).
+drop policy if exists "play_games_players" on public.play_games;
+create policy "play_games_players" on public.play_games for update to authenticated
+  using (public.play_can_edit_game(id)) with check (public.play_can_edit_game(id));
+
+drop policy if exists "play_entry_payments_read" on public.play_entry_payments;
+drop policy if exists "play_entry_payments_organizer" on public.play_entry_payments;
+create policy "play_entry_payments_read" on public.play_entry_payments for select to authenticated
+  using (public.play_is_organizer(tournament_id) or public.play_is_entry_member(entry_id));
+create policy "play_entry_payments_organizer" on public.play_entry_payments for all to authenticated
+  using (public.play_is_organizer(tournament_id)) with check (public.play_is_organizer(tournament_id));
+
+drop policy if exists "play_lists_read" on public.play_lists;
+drop policy if exists "play_lists_write" on public.play_lists;
+create policy "play_lists_read" on public.play_lists for select to anon, authenticated
+  using (
+    public.play_is_organizer(tournament_id) or public.play_is_entry_member(entry_id)
+    or (public.play_is_visible(tournament_id) and public.play_lists_open(tournament_id))
+  );
+-- Players (and their captain) until the list deadline; the organiser always.
+create policy "play_lists_write" on public.play_lists for all to authenticated
+  using (
+    public.play_is_organizer(tournament_id) or (
+      public.play_is_entry_member(entry_id)
+      and exists (select 1 from public.play_tournaments t where t.id = tournament_id and (t.list_deadline is null or now() <= t.list_deadline) and t.status in ('open', 'closed'))
+    )
+  )
+  with check (
+    public.play_is_organizer(tournament_id) or (
+      public.play_is_entry_member(entry_id)
+      and exists (select 1 from public.play_tournaments t where t.id = tournament_id and (t.list_deadline is null or now() <= t.list_deadline) and t.status in ('open', 'closed'))
+      and exists (select 1 from public.play_entry_players p where p.id = entry_player_id and p.entry_id = play_lists.entry_id)
+    )
+  );
+
+drop policy if exists "play_match_matrices_team" on public.play_match_matrices;
+create policy "play_match_matrices_team" on public.play_match_matrices for all to authenticated
+  using (public.play_is_entry_member(entry_id)) with check (
+    public.play_is_entry_member(entry_id)
+    and exists (select 1 from public.play_matches m where m.id = match_id and entry_id in (m.entry_a, m.entry_b))
+  );
+
+revoke all on public.play_entry_payments, public.play_match_matrices from anon;
+
+-- ---------------------------------------------------------------- guards
+
+-- Game scores: players can't rewrite a confirmed game or touch other columns;
+-- any change to the score clears the confirmations (see play_games_guard below).
+
+-- ---------------------------------------------------------------- player actions
+
+-- Sign up: a player on their own (singles) or a captain with their roster.
+-- p_players: [{"user_id": uuid|null, "display_name": text, "faction": text}]
+create or replace function public.play_register(p_tournament uuid, p_name text, p_team uuid, p_players jsonb)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  t public.play_tournaments;
+  v_entry uuid;
+  v_active integer;
+  v_status text;
+  p jsonb;
+  v_pos integer := 0;
+  v_user uuid;
+begin
+  if auth.uid() is null then raise exception 'Inicia sesión para inscribirte.'; end if;
+  select * into t from public.play_tournaments where id = p_tournament;
+  if not found or not public.play_registration_open(p_tournament) then
+    raise exception 'La inscripción de este torneo está cerrada.';
+  end if;
+  if jsonb_typeof(p_players) <> 'array' or jsonb_array_length(p_players) < 1 then
+    raise exception 'Indica al menos un jugador.';
+  end if;
+  if jsonb_array_length(p_players) > t.team_size then
+    raise exception 'Máximo % jugadores por inscripción.', t.team_size;
+  end if;
+  if t.format = 'singles' and (p_players -> 0 ->> 'user_id')::uuid is distinct from auth.uid() then
+    raise exception 'En un torneo individual solo puedes inscribirte a ti.';
+  end if;
+  if p_team is not null and not public.is_team_member(p_team) then
+    raise exception 'No perteneces a ese equipo.';
+  end if;
+  if exists (select 1 from public.play_entries e where e.tournament_id = p_tournament and e.captain_id = auth.uid() and e.status <> 'withdrawn') then
+    raise exception 'Ya tienes una inscripción en este torneo.';
+  end if;
+
+  select count(*) into v_active from public.play_entries where tournament_id = p_tournament and status = 'registered';
+  v_status := case when v_active >= t.max_entries then 'waitlist' else 'registered' end;
+
+  insert into public.play_entries (tournament_id, name, team_id, captain_id, status)
+  values (p_tournament, left(trim(coalesce(nullif(p_name, ''), 'Sin nombre')), 60), p_team, auth.uid(), v_status)
+  returning id into v_entry;
+
+  for p in select * from jsonb_array_elements(p_players) loop
+    v_user := nullif(p ->> 'user_id', '')::uuid;
+    -- Teammates come from the captain's Administratum team.
+    if v_user is not null and v_user <> auth.uid()
+      and (p_team is null or not exists (select 1 from public.team_members where team_id = p_team and user_id = v_user)) then
+      raise exception 'Solo puedes inscribir a miembros de tu equipo.';
+    end if;
+    if v_user is not null and exists (
+      select 1 from public.play_entry_players ep join public.play_entries e on e.id = ep.entry_id
+      where ep.tournament_id = p_tournament and ep.user_id = v_user and e.status <> 'withdrawn'
+    ) then
+      raise exception '% ya está inscrito en este torneo.', coalesce(p ->> 'display_name', 'Un jugador');
+    end if;
+    -- A withdrawn entry left this player's old row behind.
+    delete from public.play_entry_players ep using public.play_entries e
+      where e.id = ep.entry_id and ep.tournament_id = p_tournament and ep.user_id = v_user and e.status = 'withdrawn';
+    insert into public.play_entry_players (entry_id, tournament_id, user_id, display_name, faction, position)
+    values (v_entry, p_tournament, v_user, left(trim(coalesce(nullif(p ->> 'display_name', ''), 'Jugador')), 60), left(coalesce(p ->> 'faction', ''), 80), v_pos);
+    v_pos := v_pos + 1;
+  end loop;
+
+  insert into public.play_entry_payments (entry_id, tournament_id, status)
+  values (v_entry, p_tournament, case when t.entry_fee = 0 then 'waived' else 'pending' end);
+  return v_entry;
+end;
+$$;
+
+-- Join a team entry with its code (or as a member of the linked Administratum team).
+create or replace function public.play_join_entry(p_entry uuid, p_code text, p_display_name text, p_faction text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  e public.play_entries;
+  t public.play_tournaments;
+  v_count integer;
+  v_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Inicia sesión para unirte.'; end if;
+  select * into e from public.play_entries where id = p_entry;
+  if not found or e.status = 'withdrawn' then raise exception 'Esa inscripción no existe.'; end if;
+  select * into t from public.play_tournaments where id = e.tournament_id;
+  if t.status not in ('open', 'closed') then raise exception 'El torneo ya no admite cambios en las plantillas.'; end if;
+  if upper(trim(coalesce(p_code, ''))) <> e.join_code
+    and (e.team_id is null or not exists (select 1 from public.team_members where team_id = e.team_id and user_id = auth.uid())) then
+    raise exception 'El código no es correcto. Pídeselo a tu capitán.';
+  end if;
+  select count(*) into v_count from public.play_entry_players where entry_id = p_entry;
+  if v_count >= t.team_size then raise exception 'Este equipo ya está completo.'; end if;
+  if exists (
+    select 1 from public.play_entry_players ep join public.play_entries x on x.id = ep.entry_id
+    where ep.tournament_id = e.tournament_id and ep.user_id = auth.uid() and x.status <> 'withdrawn'
+  ) then
+    raise exception 'Ya estás inscrito en este torneo.';
+  end if;
+  delete from public.play_entry_players ep using public.play_entries x
+    where x.id = ep.entry_id and ep.tournament_id = e.tournament_id and ep.user_id = auth.uid() and x.status = 'withdrawn';
+  insert into public.play_entry_players (entry_id, tournament_id, user_id, display_name, faction, position)
+  values (p_entry, e.tournament_id, auth.uid(), left(trim(coalesce(nullif(p_display_name, ''), 'Jugador')), 60), left(coalesce(p_faction, ''), 80), v_count)
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- Captain: rename, change the roster's factions, drop a player, or withdraw.
+create or replace function public.play_update_entry(p_entry uuid, p_name text, p_players jsonb, p_withdraw boolean)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  e public.play_entries;
+  t public.play_tournaments;
+  p jsonb;
+  v_next uuid;
+begin
+  select * into e from public.play_entries where id = p_entry;
+  if not found then raise exception 'Esa inscripción no existe.'; end if;
+  select * into t from public.play_tournaments where id = e.tournament_id;
+  if t.status not in ('open', 'closed') and not public.play_is_organizer(e.tournament_id) then
+    raise exception 'El torneo ya ha empezado: habla con la organización.';
+  end if;
+  -- A player who isn't the captain can only change their own name and faction.
+  if not (e.captain_id = auth.uid() or public.play_is_organizer(e.tournament_id)) then
+    if p_withdraw or (p_name is not null and trim(p_name) <> '') or not exists (
+      select 1 from public.play_entry_players where entry_id = p_entry and user_id = auth.uid()
+    ) then
+      raise exception 'Solo el capitán puede cambiar la inscripción.';
+    end if;
+    for p in select * from jsonb_array_elements(coalesce(p_players, '[]'::jsonb)) loop
+      update public.play_entry_players
+        set faction = left(coalesce(p ->> 'faction', faction), 80),
+            display_name = left(trim(coalesce(nullif(p ->> 'display_name', ''), display_name)), 60)
+        where id = (p ->> 'id')::uuid and entry_id = p_entry and user_id = auth.uid();
+    end loop;
+    return;
+  end if;
+  if p_withdraw then
+    update public.play_entries set status = 'withdrawn' where id = p_entry;
+    -- The first team on the waiting list takes the free spot.
+    if e.status = 'registered' then
+      select id into v_next from public.play_entries
+        where tournament_id = e.tournament_id and status = 'waitlist' order by created_at limit 1;
+      if v_next is not null then update public.play_entries set status = 'registered' where id = v_next; end if;
+    end if;
+    return;
+  end if;
+  if p_name is not null and trim(p_name) <> '' then
+    update public.play_entries set name = left(trim(p_name), 60) where id = p_entry;
+  end if;
+  if p_players is not null then
+    for p in select * from jsonb_array_elements(p_players) loop
+      if coalesce((p ->> 'remove')::boolean, false) then
+        delete from public.play_entry_players where id = (p ->> 'id')::uuid and entry_id = p_entry;
+      else
+        update public.play_entry_players
+          set faction = left(coalesce(p ->> 'faction', faction), 80),
+              display_name = left(trim(coalesce(nullif(p ->> 'display_name', ''), display_name)), 60),
+              position = coalesce((p ->> 'position')::integer, position)
+          where id = (p ->> 'id')::uuid and entry_id = p_entry;
+      end if;
+    end loop;
+  end if;
+end;
+$$;
+
+-- A player leaves a team entry they joined.
+create or replace function public.play_leave_entry(p_entry_player uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  t public.play_tournaments;
+begin
+  select tt.* into t from public.play_entry_players p join public.play_tournaments tt on tt.id = p.tournament_id
+    where p.id = p_entry_player and p.user_id = auth.uid();
+  if not found then raise exception 'No estás en esa inscripción.'; end if;
+  if t.status not in ('open', 'closed') then raise exception 'El torneo ya ha empezado: habla con la organización.'; end if;
+  delete from public.play_entry_players where id = p_entry_player;
+end;
+$$;
+
+-- The entry tells the organiser it has paid (reference and/or receipt).
+create or replace function public.play_submit_payment(p_entry uuid, p_reference text, p_receipt_path text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.play_is_entry_member(p_entry) then raise exception 'No perteneces a esta inscripción.'; end if;
+  update public.play_entry_payments
+    set status = case when status in ('paid', 'waived') then status else 'submitted' end,
+        reference = left(coalesce(p_reference, ''), 200),
+        receipt_path = coalesce(p_receipt_path, receipt_path)
+    where entry_id = p_entry;
+end;
+$$;
+
+-- Captains (or the organiser) set who plays whom inside a team match.
+-- p_pairs: [{"a": entry_player_id, "b": entry_player_id, "table": int}]
+create or replace function public.play_set_match_games(p_match uuid, p_pairs jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  m public.play_matches;
+  p jsonb;
+begin
+  select * into m from public.play_matches where id = p_match;
+  if not found then raise exception 'Ese emparejamiento no existe.'; end if;
+  if not (public.play_is_organizer(m.tournament_id) or public.play_is_entry_captain(m.entry_a) or public.play_is_entry_captain(coalesce(m.entry_b, m.entry_a))) then
+    raise exception 'Solo los capitanes o la organización pueden fijar los cruces.';
+  end if;
+  if exists (select 1 from public.play_games where match_id = p_match and status <> 'setup') then
+    raise exception 'Ya hay partidas empezadas en este emparejamiento.';
+  end if;
+  for p in select * from jsonb_array_elements(p_pairs) loop
+    if not exists (select 1 from public.play_entry_players where id = (p ->> 'a')::uuid and entry_id = m.entry_a)
+      or not exists (select 1 from public.play_entry_players where id = (p ->> 'b')::uuid and entry_id = m.entry_b) then
+      raise exception 'Cada cruce debe enfrentar a un jugador de cada equipo.';
+    end if;
+  end loop;
+  delete from public.play_games where match_id = p_match;
+  insert into public.play_games (match_id, tournament_id, table_no, player_a, player_b)
+  select p_match, m.tournament_id, coalesce((x ->> 'table')::integer, m.table_no), (x ->> 'a')::uuid, (x ->> 'b')::uuid
+  from jsonb_array_elements(p_pairs) x;
+end;
+$$;
+
+-- Players can't rewrite a confirmed game, swap players or confirm by hand;
+-- play_confirm_game() raises a flag the guard lets through.
+create or replace function public.play_games_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or public.play_is_organizer(old.tournament_id) or current_setting('play.confirming', true) = 'on' then
+    return new;
+  end if;
+  if old.status = 'confirmed' then
+    raise exception 'Esta partida ya está confirmada: solo la organización puede cambiarla.';
+  end if;
+  if new.match_id <> old.match_id or new.tournament_id <> old.tournament_id or new.table_no <> old.table_no
+    or new.player_a is distinct from old.player_a or new.player_b is distinct from old.player_b then
+    raise exception 'No puedes cambiar los jugadores de la partida.';
+  end if;
+  if new.confirmed_a <> old.confirmed_a or new.confirmed_b <> old.confirmed_b or new.status = 'confirmed' then
+    raise exception 'Usa «Confirmar resultado» para cerrar la partida.';
+  end if;
+  if new.setup is distinct from old.setup or new.rounds is distinct from old.rounds or new.vp_a <> old.vp_a or new.vp_b <> old.vp_b then
+    new.confirmed_a := false;
+    new.confirmed_b := false;
+    if old.status = 'submitted' then new.status := 'playing'; end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists play_games_guard on public.play_games;
+create trigger play_games_guard before update on public.play_games
+  for each row execute function public.play_games_guard();
+
+-- Each side confirms the final score; the organiser can confirm for both.
+create or replace function public.play_confirm_game(p_game uuid)
+returns text language plpgsql security definer set search_path = public as $$
+declare
+  g public.play_games;
+  v_a boolean;
+  v_b boolean;
+  v_org boolean;
+  v_status text;
+begin
+  select * into g from public.play_games where id = p_game;
+  if not found then raise exception 'Esa partida no existe.'; end if;
+  if g.status = 'confirmed' then return 'confirmed'; end if;
+  v_org := public.play_is_organizer(g.tournament_id);
+  select (p.user_id = auth.uid() or public.play_is_entry_captain(p.entry_id)) into v_a from public.play_entry_players p where p.id = g.player_a;
+  select (p.user_id = auth.uid() or public.play_is_entry_captain(p.entry_id)) into v_b from public.play_entry_players p where p.id = g.player_b;
+  if not (v_org or coalesce(v_a, false) or coalesce(v_b, false)) then
+    raise exception 'Solo los jugadores de la partida pueden confirmarla.';
+  end if;
+  perform set_config('play.confirming', 'on', true);
+  update public.play_games set
+    confirmed_a = confirmed_a or v_org or coalesce(v_a, false),
+    confirmed_b = confirmed_b or v_org or coalesce(v_b, false)
+  where id = p_game;
+  update public.play_games
+    set status = case when confirmed_a and confirmed_b then 'confirmed' else 'submitted' end
+  where id = p_game
+  returning status into v_status;
+  perform set_config('play.confirming', 'off', true);
+  return v_status;
+end;
+$$;
+
+-- Organiser: publish a round with its pairings in one go. For one-player
+-- entries the single game of each match is created too.
+-- p_pairs: [{"a": entry_id, "b": entry_id|null, "table": int}]
+create or replace function public.play_create_round(p_tournament uuid, p_number integer, p_pairs jsonb, p_deployment text, p_layout text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  t public.play_tournaments;
+  v_round uuid;
+  v_match uuid;
+  p jsonb;
+begin
+  if not public.play_is_organizer(p_tournament) then raise exception 'Solo la organización puede crear rondas.'; end if;
+  select * into t from public.play_tournaments where id = p_tournament;
+  if p_number > t.rounds then raise exception 'El torneo tiene % rondas.', t.rounds; end if;
+  insert into public.play_rounds (tournament_id, number, deployment, layout)
+  values (p_tournament, p_number, left(coalesce(p_deployment, ''), 60), left(coalesce(p_layout, ''), 60))
+  returning id into v_round;
+  for p in select * from jsonb_array_elements(p_pairs) loop
+    if not exists (select 1 from public.play_entries where id = (p ->> 'a')::uuid and tournament_id = p_tournament)
+      or (nullif(p ->> 'b', '') is not null and not exists (select 1 from public.play_entries where id = (p ->> 'b')::uuid and tournament_id = p_tournament)) then
+      raise exception 'Hay una inscripción que no es de este torneo.';
+    end if;
+    insert into public.play_matches (tournament_id, round_id, table_no, entry_a, entry_b)
+    values (p_tournament, v_round, coalesce((p ->> 'table')::integer, 1), (p ->> 'a')::uuid, nullif(p ->> 'b', '')::uuid)
+    returning id into v_match;
+    if t.team_size = 1 and nullif(p ->> 'b', '') is not null then
+      insert into public.play_games (match_id, tournament_id, table_no, player_a, player_b)
+      select v_match, p_tournament, coalesce((p ->> 'table')::integer, 1),
+        (select id from public.play_entry_players where entry_id = (p ->> 'a')::uuid order by position limit 1),
+        (select id from public.play_entry_players where entry_id = (p ->> 'b')::uuid order by position limit 1);
+    end if;
+  end loop;
+  update public.play_tournaments set status = 'in_progress' where id = p_tournament and status in ('open', 'closed');
+  return v_round;
+end;
+$$;
+
+do $$
+declare f text;
+begin
+  foreach f in array array[
+    'play_register(uuid, text, uuid, jsonb)', 'play_join_entry(uuid, text, text, text)',
+    'play_update_entry(uuid, text, jsonb, boolean)', 'play_leave_entry(uuid)',
+    'play_submit_payment(uuid, text, text)', 'play_set_match_games(uuid, jsonb)',
+    'play_confirm_game(uuid)', 'play_create_round(uuid, integer, jsonb, text, text)'
+  ] loop
+    execute format('revoke all on function public.%s from public, anon;', f);
+    execute format('grant execute on function public.%s to authenticated;', f);
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------- WTC pairing
+
+-- The in-app WTC pairing of a team match. Each step, both teams pick in
+-- secret (defender, then two attackers, then which attacker each defender
+-- plays); a pick becomes visible to the other team only once both teams
+-- have made theirs.
+create table if not exists public.play_pairing_picks (
+  match_id uuid not null references public.play_matches (id) on delete cascade,
+  entry_id uuid not null references public.play_entries (id) on delete cascade,
+  tournament_id uuid not null references public.play_tournaments (id) on delete cascade,
+  step integer not null check (step between 0 and 8),
+  kind text not null check (kind in ('defender', 'attackers', 'choice')),
+  players uuid[] not null check (array_length(players, 1) between 1 and 2),
+  created_at timestamptz not null default now(),
+  primary key (match_id, entry_id, step, kind)
+);
+
+create or replace function public.play_pick_revealed(p_match uuid, p_step integer, p_kind text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select count(distinct entry_id) = 2 from public.play_pairing_picks where match_id = p_match and step = p_step and kind = p_kind
+$$;
+
+alter table public.play_pairing_picks enable row level security;
+drop policy if exists "play_pairing_picks_read" on public.play_pairing_picks;
+drop policy if exists "play_pairing_picks_reset" on public.play_pairing_picks;
+create policy "play_pairing_picks_read" on public.play_pairing_picks for select to anon, authenticated
+  using (
+    public.play_is_entry_member(entry_id)
+    or (public.play_is_visible(tournament_id) and public.play_pick_revealed(match_id, step, kind))
+  );
+-- The organiser can start a pairing over.
+create policy "play_pairing_picks_reset" on public.play_pairing_picks for delete to authenticated
+  using (public.play_is_organizer(tournament_id));
+
+-- A captain's secret pick. Defender and attackers are their own players;
+-- the choice is one of the attackers the other team offered.
+create or replace function public.play_submit_pick(p_match uuid, p_step integer, p_kind text, p_players uuid[])
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  m public.play_matches;
+  v_entry uuid;
+  v_other uuid;
+  v_owner uuid;
+  p uuid;
+begin
+  select * into m from public.play_matches where id = p_match;
+  if not found or m.entry_b is null then raise exception 'Ese enfrentamiento no existe.'; end if;
+  if public.play_is_entry_captain(m.entry_a) then v_entry := m.entry_a; v_other := m.entry_b;
+  elsif public.play_is_entry_captain(m.entry_b) then v_entry := m.entry_b; v_other := m.entry_a;
+  else raise exception 'Solo los capitanes eligen en el emparejamiento.';
+  end if;
+  if exists (select 1 from public.play_games where match_id = p_match) then
+    raise exception 'Los cruces de este enfrentamiento ya están fijados.';
+  end if;
+  -- One phase at a time: the previous one must be revealed.
+  if p_kind = 'attackers' and not public.play_pick_revealed(p_match, p_step, 'defender') then
+    raise exception 'Espera a que se revelen los defensores.';
+  elsif p_kind = 'choice' and not public.play_pick_revealed(p_match, p_step, 'attackers') then
+    raise exception 'Espera a que se revelen los atacantes.';
+  elsif p_kind = 'defender' and p_step > 0 and not public.play_pick_revealed(p_match, p_step - 1, 'choice') then
+    raise exception 'Espera a que termine el paso anterior.';
+  end if;
+  if exists (select 1 from public.play_pairing_picks where match_id = p_match and entry_id = v_entry and step = p_step and kind = p_kind) then
+    raise exception 'Ya has elegido en este paso.';
+  end if;
+  v_owner := case when p_kind = 'choice' then v_other else v_entry end;
+  foreach p in array p_players loop
+    if not exists (select 1 from public.play_entry_players where id = p and entry_id = v_owner) then
+      raise exception 'Ese jugador no puede elegirse aquí.';
+    end if;
+  end loop;
+  if (p_kind = 'attackers') <> (array_length(p_players, 1) = 2) then
+    raise exception 'Se eligen dos atacantes, y un solo defensor o atacante rival.';
+  end if;
+  insert into public.play_pairing_picks (match_id, entry_id, tournament_id, step, kind, players)
+  values (p_match, v_entry, m.tournament_id, p_step, p_kind, p_players);
+end;
+$$;
+
+revoke all on function public.play_submit_pick(uuid, integer, text, uuid[]) from public, anon;
+grant execute on function public.play_submit_pick(uuid, integer, text, uuid[]) to authenticated;
+
+-- ---------------------------------------------------------------- notifications
+
+create or replace function public.play_notify(p_user uuid, p_type text, p_tournament uuid, p_entity uuid, p_excerpt text)
+returns void language sql security definer set search_path = public as $$
+  insert into public.notifications (user_id, actor_id, type, target_type, target_id, entity_id, excerpt)
+  select p_user, auth.uid(), p_type, 'tournament', p_tournament, p_entity, left(coalesce(p_excerpt, ''), 200)
+  where p_user is not null and p_user is distinct from auth.uid()
+$$;
+revoke all on function public.play_notify(uuid, text, uuid, uuid, text) from public, anon, authenticated;
+
+-- Payment reviewed: tell the captain.
+create or replace function public.play_payment_notify()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_captain uuid;
+  v_name text;
+begin
+  if new.status is not distinct from old.status or new.status not in ('paid', 'rejected') then return new; end if;
+  select e.captain_id, t.name into v_captain, v_name
+    from public.play_entries e join public.play_tournaments t on t.id = e.tournament_id where e.id = new.entry_id;
+  perform public.play_notify(v_captain, case when new.status = 'paid' then 'play_payment_ok' else 'play_payment_rejected' end, new.tournament_id, new.entry_id, v_name);
+  return new;
+end;
+$$;
+
+drop trigger if exists play_payment_notify on public.play_entry_payments;
+create trigger play_payment_notify after update on public.play_entry_payments
+  for each row execute function public.play_payment_notify();
+
+-- A round is published: every player gets a link to their match.
+create or replace function public.play_round_notify()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_round integer;
+  v_name text;
+begin
+  select r.number, t.name into v_round, v_name
+    from public.play_rounds r join public.play_tournaments t on t.id = r.tournament_id where r.id = new.round_id;
+  perform public.play_notify(u.user_id, 'play_round', new.tournament_id, new.id, format('%s de %s', v_round, v_name))
+  from (
+    select distinct coalesce(p.user_id, e.captain_id) as user_id
+    from public.play_entries e left join public.play_entry_players p on p.entry_id = e.id
+    where e.id in (new.entry_a, new.entry_b)
+  ) u;
+  return new;
+end;
+$$;
+
+drop trigger if exists play_round_notify on public.play_matches;
+create trigger play_round_notify after insert on public.play_matches
+  for each row execute function public.play_round_notify();
+
+-- One side confirmed a result: ask the other side to confirm it too.
+create or replace function public.play_confirm_notify()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_user uuid;
+  v_name text;
+begin
+  -- play_confirm_game() sets the flags first and the status after.
+  if new.status <> 'submitted' or (old.status = 'submitted' and new.confirmed_a = old.confirmed_a and new.confirmed_b = old.confirmed_b) then
+    return new;
+  end if;
+  select t.name into v_name from public.play_tournaments t where t.id = new.tournament_id;
+  if new.confirmed_a and not new.confirmed_b then
+    select coalesce(p.user_id, e.captain_id) into v_user from public.play_entry_players p join public.play_entries e on e.id = p.entry_id where p.id = new.player_b;
+  elsif new.confirmed_b and not new.confirmed_a then
+    select coalesce(p.user_id, e.captain_id) into v_user from public.play_entry_players p join public.play_entries e on e.id = p.entry_id where p.id = new.player_a;
+  end if;
+  perform public.play_notify(v_user, 'play_confirm', new.tournament_id, new.id, v_name);
+  return new;
+end;
+$$;
+
+drop trigger if exists play_confirm_notify on public.play_games;
+create trigger play_confirm_notify after update on public.play_games
+  for each row execute function public.play_confirm_notify();
+
+-- Live scores: games and pairings stream to whoever is watching (RLS applies).
+do $$
+declare t text;
+begin
+  foreach t in array array['play_games', 'play_matches', 'play_pairing_picks'] loop
+    if not exists (
+      select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I;', t);
+    end if;
+  end loop;
+end$$;
+
+-- Payment receipts: private files, seen by the entry and the organiser.
+-- Path: <tournament_id>/<user_id>/<file>
+insert into storage.buckets (id, name, public)
+values ('receipts', 'receipts', false)
+on conflict (id) do nothing;
+
+drop policy if exists "receipts_insert" on storage.objects;
+drop policy if exists "receipts_read" on storage.objects;
+drop policy if exists "receipts_delete" on storage.objects;
+create policy "receipts_insert" on storage.objects for insert to authenticated
+  with check (bucket_id = 'receipts' and (storage.foldername(name))[2] = auth.uid()::text);
+create policy "receipts_read" on storage.objects for select to authenticated
+  using (
+    bucket_id = 'receipts' and (
+      (storage.foldername(name))[2] = auth.uid()::text
+      or public.play_is_organizer(nullif((storage.foldername(name))[1], '')::uuid)
+    )
+  );
+create policy "receipts_delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'receipts' and (storage.foldername(name))[2] = auth.uid()::text);
 
 -- ============================================================
 -- Column privacy (defined last: every column must already exist)

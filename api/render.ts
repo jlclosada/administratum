@@ -240,7 +240,19 @@ export const SEO_MATCHES: SeoCopy = {
 export const SEO_COMPETITIVO: SeoCopy = {
   title: "Torneos de Warhammer 40K en España y listas competitivas",
   description:
-    "Calendario de torneos de Warhammer 40K en España con sus bases, fechas y plazas, y las listas de ejército que están marcando el meta.",
+    "Organiza tu torneo de Warhammer 40K con inscripciones, pagos y emparejamientos suizos, inscríbete en torneos en España, prepara las matrices de tu equipo y descubre las listas del meta.",
+};
+
+export const SEO_TORNEOS: SeoCopy = {
+  title: "Calendario de torneos de Warhammer 40K en España",
+  description:
+    "Todos los torneos de Warhammer 40K en España: individuales, por parejas y por equipos, con fechas, plazas, precio y bases. Inscríbete en los que se organizan en Administratum.",
+};
+
+export const SEO_ORGANIZAR: SeoCopy = {
+  title: "Organiza tu torneo de Warhammer 40K gratis",
+  description:
+    "Crea y gestiona torneos de Warhammer 40K para tu tienda o club: inscripciones individuales, por parejas o por equipos, validación de pagos, listas, rondas suizas, partidas con puntuación de 11ª edición y clasificación en directo.",
 };
 
 export const SEO_COMUNIDAD: SeoCopy = {
@@ -700,8 +712,13 @@ async function competitivo(q: Query): Promise<Page> {
     ...SEO_COMPETITIVO,
     path: '/competitivo',
     breadcrumbs: [['Competitivo', '/competitivo']],
-    body: `<h1>Competitivo</h1><p>Torneos de Warhammer 40K en España con sus bases completas, y las listas que están marcando el meta.</p>
-<h2>Torneos</h2><ul>${tournaments
+    body: `<h1>Competitivo</h1><p>Organiza tu torneo de Warhammer 40K, inscríbete con tu equipo, prepara las matrices y lleva cada partida ronda a ronda.</p>
+<ul><li>${link('/competitivo/organizar', 'Organizar un torneo')}: inscripciones, pagos, listas, rondas suizas y resultados en directo.</li>
+<li>${link('/competitivo/torneos', 'Calendario de torneos de Warhammer 40K en España')}</li>
+<li>${link('/competitivo/matrices', 'Matrices de emparejamientos por equipos (WTC)')}</li></ul>
+<h2>Próximos torneos</h2><ul>${tournaments
+      .filter((t) => t.status !== 'finished')
+      .slice(0, 12)
       .map((t) => `<li>${link(`/competitivo/torneos/${t.id}`, t.name)}${t.start_date ? ` — ${esc(fmtDate(t.start_date))}` : ''}${t.location ? ` · ${esc(t.location)}` : ''}</li>`)
       .join('')}</ul>
 <h2>Listas</h2><ul>${listItems
@@ -1202,6 +1219,129 @@ ${c.faq.map(([q, a]) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join('\n')}
   };
 }
 
+const PLAY_FIELDS =
+  'id,name,description,rules,cover_image,organizer_name,format,team_size,points_limit,rounds,max_entries,location_type,venue_name,address,city,online_platform,entry_fee,starts_on,ends_on,start_time,registration_deadline,status';
+const PLAY_FORMAT: Record<string, string> = { singles: 'Individual', doubles: 'Parejas', teams: 'Equipos' };
+const playFormat = (t: Row) => (t.format === 'teams' ? `Equipos de ${t.team_size}` : PLAY_FORMAT[t.format] ?? 'Torneo');
+const playWhere = (t: Row) => (t.location_type === 'online' ? `Online${t.online_platform ? ` (${t.online_platform})` : ''}` : [t.venue_name, t.city].filter(Boolean).join(', '));
+
+async function torneosCalendar(q: Query): Promise<Page> {
+  const today = new Date().toISOString().slice(0, 10);
+  const [listed, hosted] = await Promise.all([
+    q('tournaments', 'select=id,name,location,start_date,status&published=eq.true&order=start_date.desc.nullslast&limit=60').catch(() => [] as Row[]),
+    q('play_tournaments', `select=${PLAY_FIELDS}&status=neq.draft&order=starts_on.asc&limit=60`).catch(() => [] as Row[]),
+  ]);
+  const upcoming = hosted.filter((t) => (t.ends_on ?? t.starts_on) >= today && t.status !== 'cancelled');
+  return {
+    status: 200,
+    ...SEO_TORNEOS,
+    path: '/competitivo/torneos',
+    breadcrumbs: [
+      ['Competitivo', '/competitivo'],
+      ['Torneos', '/competitivo/torneos'],
+    ],
+    body: `<h1>Torneos de Warhammer 40K</h1><p class="lead">${esc(SEO_TORNEOS.description)}</p>
+<h2>Con inscripción en Administratum</h2>${
+      upcoming.length
+        ? `<ul>${upcoming.map((t) => `<li>${link(`/torneos/${t.id}`, t.name)} — ${esc(fmtDate(t.starts_on))} · ${esc(playFormat(t))} · ${esc(playWhere(t))}</li>`).join('')}</ul>`
+        : `<p>${link('/competitivo/organizar', 'Organiza el primero')}.</p>`
+    }
+<h2>Calendario</h2><ul>${listed
+      .map((t) => `<li>${link(`/competitivo/torneos/${t.id}`, t.name)}${t.start_date ? ` — ${esc(fmtDate(t.start_date))}` : ''}${t.location ? ` · ${esc(t.location)}` : ''}</li>`)
+      .join('')}</ul>`,
+  };
+}
+
+function organizar(): Page {
+  return {
+    status: 200,
+    ...SEO_ORGANIZAR,
+    path: '/competitivo/organizar',
+    breadcrumbs: [
+      ['Competitivo', '/competitivo'],
+      ['Organizar un torneo', '/competitivo/organizar'],
+    ],
+    body: `<h1>Organiza tu torneo de Warhammer 40K</h1><p class="lead">${esc(SEO_ORGANIZAR.description)}</p>
+<ul><li>Torneos individuales, por parejas o por equipos de 3 a 8 jugadores.</li>
+<li>Inscripción con justificante de pago y validación por la organización; lista de espera automática.</li>
+<li>Listas de la app oficial con fecha límite, públicas al cerrar el plazo.</li>
+<li>Rondas con emparejamiento suizo, sin repetir rival.</li>
+<li>Formato WTC: matriz secreta de cada equipo y cruces fijados por los capitanes.</li>
+<li>Partidas puntuadas ronda a ronda con las misiones de la 11ª edición, confirmadas por los dos jugadores, y clasificación en directo.</li></ul>
+<p>${link('/competitivo/torneos', 'Ver torneos')} · ${link('/competitivo/matrices', 'Matrices de equipo')}</p>`,
+  };
+}
+
+/** schema.org Event for a tournament organised in Administratum. */
+export function playTournamentJsonLd(t: Row, url: string, registered: number): Row {
+  const online = t.location_type === 'online';
+  const open = t.status === 'open' && (!t.registration_deadline || Date.now() < Date.parse(t.registration_deadline));
+  const fee = Number(t.entry_fee ?? 0);
+  return {
+    '@type': 'Event',
+    name: t.name,
+    description: summarize(t.description, 300) || `Torneo de ${GAME} (${playFormat(t).toLowerCase()}, ${t.points_limit} puntos)${online ? ' online' : t.city ? ` en ${t.city}` : ''}.`,
+    startDate: t.start_time ? `${t.starts_on}T${String(t.start_time).slice(0, 5)}` : t.starts_on,
+    endDate: t.ends_on || t.starts_on,
+    eventStatus: t.status === 'cancelled' ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
+    eventAttendanceMode: online ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
+    location: online
+      ? { '@type': 'VirtualLocation', url }
+      : {
+          '@type': 'Place',
+          name: t.venue_name || t.city || 'Por confirmar',
+          address: { '@type': 'PostalAddress', streetAddress: t.address || undefined, addressLocality: t.city || undefined, addressCountry: 'ES' },
+        },
+    image: t.cover_image ? [t.cover_image] : [DEFAULT_IMAGE],
+    url,
+    organizer: t.organizer_name ? { '@type': 'Organization', name: t.organizer_name } : { '@type': 'Organization', name: NAME, url: SITE },
+    performer: { '@type': 'PerformingGroup', name: `Jugadores del ${t.name}` },
+    offers: {
+      '@type': 'Offer',
+      price: String(fee * Number(t.team_size ?? 1)),
+      priceCurrency: 'EUR',
+      url,
+      availability: open && registered < Number(t.max_entries) ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+    },
+  };
+}
+
+async function playTournament(q: Query, id: string): Promise<Page> {
+  const path = `/torneos/${id}`;
+  if (!uuid.test(id)) return notFound(path);
+  const [t] = await q('play_tournaments', `select=${PLAY_FIELDS}&id=${eq(id)}&status=neq.draft`);
+  if (!t) return notFound(path);
+  const entries = await q('play_entries', `select=name,status&tournament_id=${eq(id)}&status=eq.registered&order=created_at`).catch(() => [] as Row[]);
+  const fee = Number(t.entry_fee ?? 0);
+  const facts = [
+    `Formato: ${playFormat(t)} · ${t.points_limit} puntos · ${t.rounds} rondas`,
+    `Fecha: ${fmtDate(t.starts_on)}${t.ends_on && t.ends_on !== t.starts_on ? ` – ${fmtDate(t.ends_on)}` : ''}${t.start_time ? `, ${String(t.start_time).slice(0, 5)}` : ''}`,
+    `Lugar: ${[playWhere(t), t.address].filter(Boolean).join(' · ')}`,
+    `Plazas: ${entries.length} de ${t.max_entries}`,
+    `Inscripción: ${fee ? `${fee} € por jugador` : 'gratis'}`,
+    t.organizer_name && `Organiza: ${t.organizer_name}`,
+  ].filter(Boolean) as string[];
+  return {
+    status: 200,
+    title: `${t.name} · torneo de Warhammer 40K`,
+    description: summarize(`${playFormat(t)} a ${t.points_limit} puntos, ${fmtDate(t.starts_on)} en ${playWhere(t) || 'España'}. ${t.description ?? ''}`),
+    path,
+    image: t.cover_image,
+    breadcrumbs: [
+      ['Competitivo', '/competitivo'],
+      ['Torneos', '/competitivo/torneos'],
+      [t.name, path],
+    ],
+    jsonLd: [playTournamentJsonLd(t, `${SITE}${path}`, entries.length)],
+    body: `<article><h1>${esc(t.name)}</h1>
+<ul>${facts.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
+${t.description ? `<p>${esc(t.description)}</p>` : ''}
+${t.rules ? `<h2>Bases</h2><p>${esc(summarize(t.rules, 3000))}</p>` : ''}
+${entries.length ? `<h2>Inscritos</h2><ul>${entries.map((e) => `<li>${esc(e.name)}</li>`).join('')}</ul>` : ''}
+<p>${link('/competitivo/torneos', 'Más torneos de Warhammer 40K')}</p></article>`,
+  };
+}
+
 function matrices(): Page {
   const c = MATRIX_COPY;
   const path = '/competitivo/matrices';
@@ -1331,6 +1471,9 @@ export async function renderPath(path: string, q: Query): Promise<Page | null> {
   if (a === 'guias' && parts.length === 2) return guide(q, b);
   if (a === 'competitivo' && parts.length === 1) return competitivo(q);
   if (a === 'competitivo' && b === 'matrices' && parts.length === 2) return matrices();
+  if (a === 'competitivo' && b === 'torneos' && parts.length === 2) return torneosCalendar(q);
+  if (a === 'competitivo' && b === 'organizar' && parts.length === 2) return organizar();
+  if (a === 'torneos' && parts.length === 2) return playTournament(q, b);
   if (a === 'competitivo' && b === 'torneos' && parts.length === 3) return tournament(q, c);
   if (a === 'competitivo' && b === 'listas' && parts.length === 3) return armyList(q, c, 'featured');
   if (a === 'comunidad' && parts.length === 1) return comunidad(q);

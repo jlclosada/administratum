@@ -24,6 +24,14 @@ describe('notifications', () => {
     expect(notificationLink({ ...base, targetType: 'article', targetId: 'a1' })).toBe('/articulos/a1');
   });
 
+  it('takes tournament notifications to the match, the game or the tournament', () => {
+    const t = { ...base, targetType: 'tournament' as const, targetId: 't1', entityId: 'x1', excerpt: '2 de Copa' };
+    expect(notificationLink({ ...t, type: 'play_round' })).toBe('/torneos/t1/partidas/x1');
+    expect(notificationLink({ ...t, type: 'play_confirm' })).toBe('/torneos/t1/juegos/x1');
+    expect(notificationLink({ ...t, type: 'play_payment_ok' })).toBe('/torneos/t1');
+    expect(notificationText({ ...t, type: 'play_round' })).toBe('ha publicado la ronda 2 de Copa: ya puedes ver tu enfrentamiento');
+  });
+
   it('describes the action', () => {
     expect(notificationText({ ...base, type: 'friend_accepted' })).toBe('ha aceptado tu solicitud de amistad');
     expect(notificationText({ ...base, type: 'comment', targetType: 'list' })).toBe('ha comentado en tu lista');
